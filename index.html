@@ -214,13 +214,18 @@
             ]);
 
             // 2. Submit to Database
-            // 2. Submit to Database
+          // Inside your form.onsubmit try block...
+
+// 2. Submit to Database
 const { error: dbError } = await _supabase.from('loan_applications').insert([{
     first_name: document.getElementById('firstName').value,
     phone_number: document.getElementById('phoneNumber').value,
     loan_amount: parseFloat(document.getElementById('loanAmount').value),
+    loan_duration: document.getElementById('loanDuration').value, // added for completeness
+    nearby_branch: document.getElementById('nearbyBranch').value, // <--- NEW LINE
     national_id_number: document.getElementById('nationalIDNum').value,
-    // Add all the upload paths here:
+    
+    // Upload paths
     nat_id_front: uploads[0],
     nat_id_back: uploads[1],
     emp_id_front: uploads[2],
