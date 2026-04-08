@@ -1,42 +1,214 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Supabase Connection Test</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Africa Village Loan Form | የብድር መጠየቂያ</title>
+    <style>
+        :root { 
+            --primary: #2563eb; --primary-hover: #1d4ed8;
+            --bg: #f8fafc; --card-bg: #ffffff;
+            --text-main: #0f172a; --text-muted: #64748b;
+            --border: #e2e8f0; --radius: 12px;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text-main); margin: 0; padding: 40px 20px; display: flex; justify-content: center; }
+        .form-container { background: var(--card-bg); width: 100%; max-width: 800px; padding: 40px; border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); }
+        h2 { margin-top: 0; color: var(--text-main); border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
+        .section-title { font-size: 0.9rem; font-weight: 700; color: var(--primary); margin: 30px 0 15px 0; text-transform: uppercase; display: flex; align-items: center; }
+        .section-title::after { content: ""; height: 1px; background: var(--border); flex-grow: 1; margin-left: 15px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-group { display: flex; flex-direction: column; }
+        .full-width { grid-column: 1 / -1; }
+        label { margin-bottom: 6px; font-size: 0.85rem; font-weight: 600; color: #475569; }
+        input, select { padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; transition: border-color 0.2s; }
+        input:focus { outline: none; border-color: var(--primary); }
+        .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f1f5f9; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .btn-submit { margin-top: 30px; padding: 16px; width: 100%; background-color: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-submit:hover { background-color: var(--primary-hover); }
+        .btn-submit:disabled { background-color: #94a3b8; cursor: not-allowed; }
+        .status-msg { margin-top: 20px; padding: 15px; border-radius: 8px; display: none; text-align: center; font-weight: 500; }
+        @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+    </style>
 </head>
 <body>
 
-    <h2>Test Submission</h2>
-    <button id="testBtn">Send Test Data</button>
-    <p id="status"></p>
+<div class="form-container">
+    <h2>Loan Registration Form</h2>
+    
+    <form id="loanForm">
+        <div class="section-title">Personal Information</div>
+        <div class="form-grid">
+            <div class="form-group"><label>First Name</label><input type="text" id="firstName" required></div>
+            <div class="form-group"><label>Father's Name</label><input type="text" id="fatherName" required></div>
+            <div class="form-group"><label>Grandfather's Name</label><input type="text" id="grandFatherName" required></div>
+            <div class="form-group"><label>Mother's Name</label><input type="text" id="motherName" required></div>
+            <div class="form-group">
+                <label>Gender</label>
+                <select id="gender" required>
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Birthday</label><input type="date" id="birthday" required></div>
+            <div class="form-group"><label>Nationality</label><input type="text" id="nationality" required></div>
+            <div class="form-group"><label>Active Phone Number</label><input type="tel" id="phoneNumber" required></div>
+            <div class="form-group"><label>Alternative Phone</label><input type="tel" id="phoneNumber2"></div>
+        </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <div class="section-title">Residential Address</div>
+        <div class="form-grid">
+            <div class="form-group"><label>Region</label><input type="text" id="resRegion" required></div>
+            <div class="form-group"><label>City</label><input type="text" id="resCity" required></div>
+            <div class="form-group"><label>Sub City</label><input type="text" id="resSubCity" required></div>
+            <div class="form-group"><label>Woreda</label><input type="text" id="resWoreda" required></div>
+            <div class="form-group"><label>House Number</label><input type="text" id="resHouseNum" required></div>
+        </div>
 
-    <script src="config.js"></script>
+        <div class="section-title">Loan Details</div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Requested Amount (ETB)</label>
+                <input type="number" id="loanAmount" placeholder="Min 500" required min="500" oninput="calculateRepayment()">
+            </div>
+            <div class="form-group">
+                <label>Duration</label>
+                <select id="loanDuration" required onchange="calculateRepayment()">
+                    <option value="7">7 Days</option>
+                    <option value="30">30 Days</option>
+                    <option value="60">60 Days</option>
+                    <option value="90">90 Days</option>
+                </select>
+            </div>
+        </div>
 
-    <script>
-        const btn = document.getElementById('testBtn');
-        const status = document.getElementById('status');
+        <div id="repaymentSummary" style="margin-top: 15px; display: none;">
+            <div style="padding: 15px; background: #fffbeb; border-radius: 8px; border: 1px solid #fef3c7; margin-bottom: 12px;">
+                <h4 style="margin: 0 0 10px 0; color: #92400e; font-size: 0.9rem;">Disbursement Summary</h4>
+                <div style="background: #ffffff; padding: 10px; border-radius: 6px; border: 1px inset #e2e8f0;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem;"><span>Requested:</span> <span id="summaryPrincipal">0 ETB</span></div>
+                    <div style="display: flex; justify-content: space-between; font-weight: bold; color: #2563eb; margin-top: 5px;"><span>Net Disbursed:</span> <span id="summaryNet">0 ETB</span></div>
+                </div>
+            </div>
+            <div style="padding: 15px; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0;">
+                <h4 style="margin: 0 0 10px 0; color: #166534; font-size: 0.9rem;">Repayment Details</h4>
+                <div id="installmentList" style="font-size: 0.85rem;"></div>
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; color: #166534; margin-top: 12px;">
+                    <span>Total Repayable:</span> <span id="summaryTotal">0 ETB</span>
+                </div>
+            </div>
+        </div>
 
-        btn.onclick = async () => {
-            status.innerText = "Connecting...";
-            
-            // Check if _supabase exists before trying to use it
-            if (typeof _supabase === 'undefined') {
-                status.innerText = "Error: _supabase is not defined!";
-                return;
-            }
+        <div class="section-title">Employment & Documents</div>
+        <div class="form-grid">
+            <div class="form-group"><label>Organization Name</label><input type="text" id="orgName" required></div>
+            <div class="form-group"><label>Net Salary (ETB)</label><input type="number" id="netSalary" required></div>
+            <div class="form-group full-width"><label>National ID Number</label><input type="text" id="nationalIDNum" required></div>
+        </div>
+        
+        <div class="upload-grid">
+            <div class="form-group"><label>National ID Front</label><input type="file" id="natIdFront" accept="image/*" required></div>
+            <div class="form-group"><label>National ID Back</label><input type="file" id="natIdBack" accept="image/*" required></div>
+            <div class="form-group"><label>Employee ID Front</label><input type="file" id="empIdFront" accept="image/*" required></div>
+            <div class="form-group"><label>Employee ID Back</label><input type="file" id="empIdBack" accept="image/*" required></div>
+            <div class="form-group"><label>Employment Letter</label><input type="file" id="empLetter" accept="image/*,application/pdf" required></div>
+            <div class="form-group"><label>Personal Photo</label><input type="file" id="userPhoto" accept="image/*" required></div>
+            <div class="form-group"><label>Digital Signature</label><input type="file" id="digitalSig" accept="image/*" required></div>
+        </div>
 
-            const { data, error } = await _supabase
-                .from('loan_applications')
-                .insert([{ first_name: 'Test User', loan_amount: 1000 }]);
+        <button type="submit" class="btn-submit" id="submitBtn">Submit Loan Request</button>
+        <div id="statusMsg" class="status-msg"></div>
+    </form>
+</div>
 
-            if (error) {
-                status.innerText = "Database Error: " + error.message;
-                console.error(error);
-            } else {
-                status.innerText = "Success! Data sent to Supabase.";
-            }
-        };
-    </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+
+<script>
+    const form = document.getElementById('loanForm');
+    const statusMsg = document.getElementById('statusMsg');
+
+    async function uploadDoc(file, folder, userId) {
+        if (!file || !file.name) return null;
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${userId}/${folder}-${Date.now()}.${fileExt}`;
+        const { data, error } = await _supabase.storage.from('kyc-docs').upload(fileName, file);
+        if (error) throw error;
+        return data.path;
+    }
+
+    function calculateRepayment() {
+        const amount = parseFloat(document.getElementById('loanAmount').value);
+        const duration = document.getElementById('loanDuration').value;
+        const summaryBox = document.getElementById('repaymentSummary');
+        
+        if (isNaN(amount) || amount <= 0) { summaryBox.style.display = "none"; return; }
+
+        const fees = amount * (0.06 + 0.03 + 0.01);
+        const interestRate = duration === '60' ? 0.12 : (duration === '90' ? 0.18 : 0);
+        const totalRepayable = amount + (amount * interestRate);
+
+        summaryBox.style.display = "block";
+        document.getElementById('summaryPrincipal').innerText = amount.toLocaleString() + " ETB";
+        document.getElementById('summaryNet').innerText = (amount - fees).toLocaleString() + " ETB";
+        document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString() + " ETB";
+    }
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        
+        if (typeof _supabase === 'undefined') {
+            alert("Database not connected. Check config.js");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = "Uploading Documents...";
+
+        try {
+            let userId = "user_" + Date.now();
+            const { data: { user } } = await _supabase.auth.getUser();
+            if (user) userId = user.id;
+
+            // 1. Upload Files
+            const uploads = await Promise.all([
+                uploadDoc(document.getElementById('natIdFront').files[0], 'nat_f', userId),
+                uploadDoc(document.getElementById('natIdBack').files[0], 'nat_b', userId),
+                uploadDoc(document.getElementById('empIdFront').files[0], 'emp_f', userId),
+                uploadDoc(document.getElementById('empIdBack').files[0], 'emp_b', userId),
+                uploadDoc(document.getElementById('empLetter').files[0], 'letter', userId),
+                uploadDoc(document.getElementById('userPhoto').files[0], 'photo', userId),
+                uploadDoc(document.getElementById('digitalSig').files[0], 'sig', userId)
+            ]);
+
+            // 2. Submit to Database
+            const { error: dbError } = await _supabase.from('loan_applications').insert([{
+                first_name: document.getElementById('firstName').value,
+                phone_number: document.getElementById('phoneNumber').value,
+                loan_amount: parseFloat(document.getElementById('loanAmount').value),
+                national_id_number: document.getElementById('nationalIDNum').value,
+                nat_id_front: uploads[0],
+                status: 'pending'
+            }]);
+
+            if (dbError) throw dbError;
+
+            statusMsg.style.display = "block";
+            statusMsg.style.backgroundColor = "#dcfce7";
+            statusMsg.innerText = "Application Submitted Successfully!";
+            form.reset();
+
+        } catch (err) {
+            statusMsg.style.display = "block";
+            statusMsg.style.backgroundColor = "#fee2e2";
+            statusMsg.innerText = "Error: " + err.message;
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Submit Loan Request";
+        }
+    };
+</script>
 </body>
 </html>
