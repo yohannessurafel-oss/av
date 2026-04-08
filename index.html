@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supabase Connection Test</title>
+</head>
+<body>
+
+    <h2>Test Submission</h2>
+    <button id="testBtn">Send Test Data</button>
+    <p id="status"></p>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script src="config.js"></script>
+
+    <script>
+        const btn = document.getElementById('testBtn');
+        const status = document.getElementById('status');
+
+        btn.onclick = async () => {
+            status.innerText = "Connecting...";
+            
+            // Check if _supabase exists before trying to use it
+            if (typeof _supabase === 'undefined') {
+                status.innerText = "Error: _supabase is not defined!";
+                return;
+            }
+
+            const { data, error } = await _supabase
+                .from('loan_applications')
+                .insert([{ first_name: 'Test User', loan_amount: 1000 }]);
+
+            if (error) {
+                status.innerText = "Database Error: " + error.message;
+                console.error(error);
+            } else {
+                status.innerText = "Success! Data sent to Supabase.";
+            }
+        };
+    </script>
+</body>
+</html>
