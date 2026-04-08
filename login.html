@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Africa Village | Admin Login</title>
+    <style>
+        :root { 
+            --primary: #2563eb; --primary-hover: #1d4ed8;
+            --bg: #f8fafc; --card-bg: #ffffff;
+            --text-main: #0f172a; --border: #e2e8f0;
+        }
+        body { 
+            font-family: 'Inter', sans-serif; background: var(--bg); 
+            display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; 
+        }
+        .login-card { 
+            background: var(--card-bg); padding: 40px; border-radius: 12px; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border: 1px solid var(--border);
+            width: 100%; max-width: 400px;
+        }
+        h2 { margin-top: 0; color: var(--text-main); text-align: center; }
+        .form-group { margin-bottom: 20px; display: flex; flex-direction: column; }
+        label { margin-bottom: 6px; font-size: 0.85rem; font-weight: 600; color: #475569; }
+        input { padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
+        input:focus { outline: none; border-color: var(--primary); }
+        .btn-login { 
+            width: 100%; padding: 14px; background: var(--primary); color: white; 
+            border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        .btn-login:hover { background: var(--primary-hover); }
+        #errorMsg { color: #dc2626; font-size: 0.85rem; margin-top: 15px; text-align: center; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+    <h2>Admin Portal</h2>
+    <form id="loginForm">
+        <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" id="email" required placeholder="admin@africavillage.com">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="password" required placeholder="••••••••">
+        </div>
+        <button type="submit" class="btn-login" id="loginBtn">Sign In</button>
+        <div id="errorMsg"></div>
+    </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+    const loginForm = document.getElementById('loginForm');
+    const errorMsg = document.getElementById('errorMsg');
+    const loginBtn = document.getElementById('loginBtn');
+
+    loginForm.onsubmit = async (e) => {
+        e.preventDefault();
+        errorMsg.style.display = "none";
+        loginBtn.disabled = true;
+        loginBtn.innerText = "Authenticating...";
+
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+
+        try {
+            const { data, error } = await _supabase.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
+
+            if (error) throw error;
+
+            // Success! Redirect to dashboard
+            window.location.href = "admin_dashboard.html"; 
+
+        } catch (err) {
+            errorMsg.style.display = "block";
+            errorMsg.innerText = "Login failed: " + err.message;
+        } finally {
+            loginBtn.disabled = false;
+            loginBtn.innerText = "Sign In";
+        }
+    };
+</script>
+
+</body>
+</html>
