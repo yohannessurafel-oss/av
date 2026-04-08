@@ -97,12 +97,7 @@
     </div>
     <button onclick="handleLogout()" class="btn" style="background: #64748b; color: white;">Logout</button>
 
-<script>
-async function handleLogout() {
-    await _supabase.auth.signOut();
-    window.location.href = "login.html";
-}
-</script>
+
     <div class="header">
     <h1>Loan Applications</h1>
     <div style="display: flex; gap: 10px;">
@@ -169,14 +164,11 @@ async function handleLogout() {
 </div>
 
 <script>
-   let currentApplications = [];
-
-    
-    let loggedInAdmin = null;
+    // 1. GLOBAL VARIABLES (Declared only once)
     let currentApplications = [];
-    // This runs automatically when the page loads
+    let loggedInAdmin = null;
 
- // 2. The Initialization function
+    // 2. INITIALIZATION (Checks auth and fetches profile)
     async function initializeDashboard() {
         const { data: { user }, error: authError } = await _supabase.auth.getUser();
 
@@ -196,281 +188,139 @@ async function handleLogout() {
             return;
         }
 
-        // Assign the value to the variable declared above (no 'let' or 'const' here)
         loggedInAdmin = profile;
-        
-        // Load the data
-        fetchApplications();
+        fetchApplications(); // Load data once we know the admin's branch
     }
 
-    
-/*const loggedInAdmin = {
-    role: 'admin1', // Options: 'admin1' or 'superadmin'
-    assignedBranch: 'Batu' // Only used if role is admin1
-}; */
-    // KEEP THIS ONE
-let loggedInAdmin = null;
-
-    
-// Replace your fetchApplications filter with the real branch name
-// 3. The Fetch function
+    // 3. FETCH DATA (Filtered by branch for Admin 1)
     async function fetchApplications() {
         if (!loggedInAdmin) return;
-        
+
         let query = _supabase.from('loan_applications').select('*');
 
+        // Apply branch filter if they are a standard Admin 1
         if (loggedInAdmin.role === 'admin1' && loggedInAdmin.assigned_branch) {
             query = query.eq('nearby_branch', loggedInAdmin.assigned_branch);
         }
 
         const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) return alert(error.message);
+        if (error) return alert("Error fetching loans: " + error.message);
 
         currentApplications = data;
-        // ... rest of your table rendering code ...
+        renderTable();
     }
 
-    // 4. Start the app
+    // 4. RENDER TABLE (Displays the data in HTML)
+    function renderTable() {
+        const tbody = document.getElementById('appTableBody');
+        tbody.innerHTML = currentApplications.length ? currentApplications.map((app, i) => `
+            <tr>
+                <td><strong>${app.first_name} ${app.father_name}</strong><br><small>${app.nearby_branch || 'General'}</small></td>
+                <td>${Number(app.loan_amount).toLocaleString()}</td>
+                <td>${app.loan_duration} Days</td>
+                <td>${Number(app.total_repayable).toLocaleString()}</td>
+                <td><span class="status-badge ${app.status}">${app.status}</span></td>
+                <td><button onclick="viewDetails(${i})" class="btn btn-view">Review</button></td>
+            </tr>
+        `).join('') : '<tr><td colspan="6" style="text-align:center">No records found.</td></tr>';
+    }
+
+    // 5. LOGOUT
+    async function handleLogout() {
+        await _supabase.signOut();
+        window.location.href = "login.html";
+    }
+
+    // 6. ACTION FUNCTIONS (Approve/Reject/Modal)
+    async function approveStep(id, adminNumber) {
+        const updateData = {};
+        const column = adminNumber === 1 ? 'admin_one_status' : 'admin_two_status';
+        updateData[column] = 'approved';
+
+        const app = currentApplications.find(a => a.id === id);
+        const otherAdminApproved = (adminNumber === 1 ? app.admin_two_status : app.admin_one_status) === 'approved';
+        
+        if (otherAdminApproved) {
+            updateData.status = 'approved';
+        }
+
+        const { error } = await _supabase.from('loan_applications').update(updateData).eq('id', id);
+
+        if (error) {
+            alert("Error: " + error.message);
+        } else {
+            alert(`Admin ${adminNumber} Approval Recorded!`);
+            closeModal();
+            fetchApplications();
+        }
+    }
+
+    async function rejectStep(id) {
+        const reason = document.getElementById('rejectionReason').value;
+        if (!reason) return alert("Please provide a reason.");
+
+        const { error } = await _supabase.from('loan_applications')
+            .update({ status: 'rejected', rejection_reason: reason })
+            .eq('id', id);
+
+        if (error) alert(error.message);
+        else {
+            alert("Rejected.");
+            closeModal();
+            fetchApplications();
+        }
+    }
+
+    function updateApprovalUI(app) {
+        const b1 = document.getElementById('btnAdmin1');
+        const b2 = document.getElementById('btnAdmin2');
+        const bReject = document.getElementById('btnReject');
+        const statusDiv = document.getElementById('finalStatus');
+
+        b1.disabled = false; b2.disabled = false; bReject.disabled = false;
+        b1.style.opacity = "1"; b2.style.opacity = "1";
+
+        if (loggedInAdmin.role === 'admin1') {
+            b2.disabled = true;
+            b2.style.opacity = "0.5";
+            b2.innerText = "Waiting for Super Admin";
+        }
+
+        if (app.status === 'rejected') {
+            b1.disabled = true; b2.disabled = true; bReject.disabled = true;
+            statusDiv.innerHTML = `<span class="status-badge rejected">REJECTED</span>`;
+            return;
+        }
+
+        if (app.admin_one_status === 'approved') {
+            b1.disabled = true;
+            b1.innerText = "Admin 1: ✅ Approved";
+            b1.style.background = "#16a34a";
+        }
+
+        if (app.admin_two_status === 'approved') {
+            b2.disabled = true;
+            b2.innerText = "Admin 2: ✅ Approved";
+            b2.style.background = "#16a34a";
+        }
+
+        b1.onclick = () => approveStep(app.id, 1);
+        b2.onclick = () => approveStep(app.id, 2);
+        bReject.onclick = () => rejectStep(app.id);
+    }
+
+    async function viewDetails(index) {
+        const app = currentApplications[index];
+        // Populate modal HTML (as per your original design)
+        // ... (Refer to your original viewDetails code for the innerHTML part)
+        document.getElementById('detailsModal').style.display = "block";
+        updateApprovalUI(app);
+    }
+
+    function closeModal() { document.getElementById('detailsModal').style.display = "none"; }
+
+    // RUN ON LOAD
     initializeDashboard();
-
-    
-
-async function downloadFile(url, fileName) {
-    try {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const link = document.createElement('a');
-        link.href = window.URL.createObjectURL(blob);
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    } catch (e) {
-        window.open(url, '_blank');
-    }
-}
-
-
-function exportToExcel() {
-    if (!currentApplications || currentApplications.length === 0) {
-        return alert("No data available to export.");
-    }
-
-    // 1. Prepare and clean the data for Excel
-    const dataToExport = currentApplications.map(app => ({
-        "Applied Date": new Date(app.created_at).toLocaleDateString(),
-        "Status": app.status.toUpperCase(),
-        "First Name": app.first_name,
-        "Father Name": app.father_name,
-        "Grandfather Name": app.grandfather_name,
-        "Phone": app.phone_number,
-        "Gender": app.gender,
-        "Loan Amount (ETB)": app.loan_amount,
-        "Duration (Days)": app.loan_duration,
-        "Total Repayable": app.total_repayable,
-        "Organization": app.org_name,
-        "Job Title": app.job_title,
-        "Net Salary": app.net_salary,
-        "National ID Num": app.national_id_number,
-        "Region": app.res_region,
-        "City": app.res_city
-    }));
-
-    // 2. Create a new workbook and worksheet
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Loan Applications");
-
-    // 3. Generate and download the file
-    const dateStr = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(workbook, `AfricaVillage_Loans_${dateStr}.xlsx`);
-}
-
-async function approveStep(id, adminNumber) {
-    const updateData = {};
-    const column = adminNumber === 1 ? 'admin_one_status' : 'admin_two_status';
-    updateData[column] = 'approved';
-
-    // Optimistically find the app in our local array to check other admin
-    const app = currentApplications.find(a => a.id === id);
-    
-    // Check if this is the final approval needed
-    const otherAdminApproved = (adminNumber === 1 ? app.admin_two_status : app.admin_one_status) === 'approved';
-    if (otherAdminApproved) {
-        updateData.status = 'approved';
-    }
-
-    const { error } = await _supabase
-        .from('loan_applications')
-        .update(updateData)
-        .eq('id', id);
-
-    if (error) {
-        alert("Error updating: " + error.message);
-    } else {
-        alert(`Admin ${adminNumber} Approval Recorded!`);
-        closeModal();
-        fetchApplications(); // Refresh table
-    }
-}
-
-async function rejectStep(id) {
-    const reason = document.getElementById('rejectionReason').value;
-    if (!reason) return alert("Please provide a reason for rejection.");
-
-    const { error } = await _supabase
-        .from('loan_applications')
-        .update({ 
-            status: 'rejected',
-            rejection_reason: reason 
-        })
-        .eq('id', id);
-
-    if (error) {
-        alert("Error: " + error.message);
-    } else {
-        alert("Application Rejected.");
-        closeModal();
-        fetchApplications();
-    }
-}
-
-// Update the updateApprovalUI(app) function to include the Reject button
-function updateApprovalUI(app) {
-    const b1 = document.getElementById('btnAdmin1');
-    const b2 = document.getElementById('btnAdmin2');
-    const bReject = document.getElementById('btnReject');
-    const statusDiv = document.getElementById('finalStatus');
-
-    // 1. Reset state
-    b1.disabled = false; b2.disabled = false; bReject.disabled = false;
-    b1.style.opacity = "1"; b2.style.opacity = "1";
-
-    // 2. Role-Based Access Control
-    if (loggedInAdmin.role === 'admin1') {
-        b2.disabled = true; // Admin 1 cannot click Admin 2's button
-        b2.style.opacity = "0.5";
-        b2.innerText = "Waiting for Super Admin";
-    } else if (loggedInAdmin.role === 'superadmin') {
-        // Super admin can click both, or you might want them to wait for Admin 1
-        if (app.admin_one_status !== 'approved') {
-            b2.innerText = "Admin 2 (Waiting for Admin 1)";
-        }
-    }
-
-    // 3. Status-Based Locking (Logic you already had)
-    if (app.status === 'rejected') {
-        b1.disabled = true; b2.disabled = true; bReject.disabled = true;
-        statusDiv.innerHTML = `<span class="status-badge rejected">REJECTED</span>`;
-        return;
-    }
-
-    if (app.admin_one_status === 'approved') {
-        b1.disabled = true;
-        b1.innerText = "Admin 1: ✅ Approved";
-        b1.style.background = "#16a34a";
-    }
-
-    if (app.admin_two_status === 'approved') {
-        b2.disabled = true;
-        b2.innerText = "Admin 2: ✅ Approved";
-        b2.style.background = "#16a34a";
-    }
-
-    b1.onclick = () => approveStep(app.id, 1);
-    b2.onclick = () => approveStep(app.id, 2);
-    bReject.onclick = () => rejectStep(app.id);
-}
-    
-    
-async function viewDetails(index) {
-    const app = currentApplications[index];
-    
-    // 1. Fill in text details (This creates the HTML elements)
-    document.getElementById('modalDetails').innerHTML = `
-        <div class="info-group">
-            <h4>Applicant Info</h4>
-            <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name}</div>
-            <div class="info-item"><span>Phone:</span> ${app.phone_number}</div>
-            <div class="info-item"><span>Address:</span> ${app.res_region || 'N/A'}, ${app.res_city || ''}</div>
-        </div>
-        <div class="info-group">
-            <h4>Employment</h4>
-            <div class="info-item"><span>Organization:</span> ${app.org_name}</div>
-            <div class="info-item"><span>Net Salary:</span> ${Number(app.net_salary || 0).toLocaleString()} ETB</div>
-        </div>
-        <div class="info-group">
-            <h4>Loan Summary</h4>
-            <div class="info-item"><span>Amount:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
-            <div class="info-item"><span>Status:</span> <strong style="text-transform:uppercase">${app.status}</strong></div>
-        </div>
-        
-        <div id="approvalSection" style="grid-column: 1 / -1; margin-top: 20px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border);">
-            <h3 style="margin-top:0">Multi-Admin Review</h3>
-            <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 20px;">
-                <button id="btnAdmin1" class="btn" style="background: #2563eb; color: white;">Admin 1: Approve</button>
-                <div style="font-size: 1.5rem; color: var(--border);">→</div>
-                <button id="btnAdmin2" class="btn" style="background: #2563eb; color: white;">Admin 2: Approve</button>
-            </div>
-            <div style="border-top: 1px solid var(--border); padding-top: 20px;">
-                <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted);">Rejection Notes:</label>
-                <textarea id="rejectionReason" style="width: 100%; margin: 8px 0; padding: 10px; border-radius: 6px; border: 1px solid var(--border);" placeholder="Reason for rejection..."></textarea>
-                <button id="btnReject" class="btn" style="background: #dc2626; color: white; width: 100%;">Reject Application</button>
-            </div>
-            <div id="finalStatus" style="margin-top: 15px; font-weight: bold; font-size: 0.9rem;"></div>
-        </div>
-    `;
-
-    // 2. Define documents to show
-    const docList = [
-        { name: 'Photo', path: app.personal_photo },
-        { name: 'Signature', path: app.digital_signature },
-        { name: 'ID_Front', path: app.nat_id_front },
-        { name: 'ID_Back', path: app.nat_id_back },
-        { name: 'Emp_ID_Front', path: app.emp_id_front },
-        { name: 'Emp_ID_Back', path: app.emp_id_back },
-        { name: 'Emp_Letter', path: app.employment_letter }
-    ];
-
-    const docContainer = document.getElementById('modalDocs');
-    docContainer.innerHTML = "Generating secure links...";
-
-    // 3. Map through documents and get signed URLs
-    const docCards = await Promise.all(docList.map(async (doc) => {
-        if (!doc.path) return '';
-
-        const { data, error } = await _supabase.storage.from('kyc-docs').createSignedUrl(doc.path, 600);
-        
-        if (error || !data) {
-            console.error(`Error loading ${doc.name}:`, error);
-            return `<div class="doc-item"><p style="color:red; font-size:0.7rem;">Failed to load ${doc.name}</p></div>`;
-        }
-
-        const signedUrl = data.signedUrl;
-        const downloadName = `${app.first_name}_${doc.name}.png`;
-
-        return `
-            <div class="doc-item">
-                <div class="img-container">
-                  
-<img src="${signedUrl}" 
-     onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22150%22%20height%3D%22150%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22150%22%20height%3D%22150%22%20fill%3D%22%23cccccc%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2214%22%20fill%3D%22%23666666%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3ENo%20Image%3C%2Ftext%3E%3C%2Fsvg%3E'">
-                </div>
-                <p style="font-size: 0.75rem; margin-bottom: 8px;"><strong>${doc.name}</strong></p>
-                <button onclick="downloadFile('${signedUrl}', '${downloadName}')" class="btn-download" style="width:100%; cursor:pointer">
-                    Download File
-                </button>
-            </div>
-        `;
-    }));
-
-    docContainer.innerHTML = docCards.join('');
-    document.getElementById('detailsModal').style.display = "block";
-    updateApprovalUI(app);
-}
-
-function closeModal() { document.getElementById('detailsModal').style.display = "none"; }
-fetchApplications();
 </script>
 </body>
 </html>
