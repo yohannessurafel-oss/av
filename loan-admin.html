@@ -324,8 +324,8 @@ function updateApprovalUI(app) {
     
 async function viewDetails(index) {
     const app = currentApplications[index];
-    updateApprovalUI(app);
-    // 1. Fill in text details
+    
+    // 1. Fill in text details (This creates the HTML elements)
     document.getElementById('modalDetails').innerHTML = `
         <div class="info-group">
             <h4>Applicant Info</h4>
@@ -342,6 +342,21 @@ async function viewDetails(index) {
             <h4>Loan Summary</h4>
             <div class="info-item"><span>Amount:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
             <div class="info-item"><span>Status:</span> <strong style="text-transform:uppercase">${app.status}</strong></div>
+        </div>
+        
+        <div id="approvalSection" style="grid-column: 1 / -1; margin-top: 20px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border);">
+            <h3 style="margin-top:0">Multi-Admin Review</h3>
+            <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 20px;">
+                <button id="btnAdmin1" class="btn" style="background: #2563eb; color: white;">Admin 1: Approve</button>
+                <div style="font-size: 1.5rem; color: var(--border);">→</div>
+                <button id="btnAdmin2" class="btn" style="background: #2563eb; color: white;">Admin 2: Approve</button>
+            </div>
+            <div style="border-top: 1px solid var(--border); padding-top: 20px;">
+                <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted);">Rejection Notes:</label>
+                <textarea id="rejectionReason" style="width: 100%; margin: 8px 0; padding: 10px; border-radius: 6px; border: 1px solid var(--border);" placeholder="Reason for rejection..."></textarea>
+                <button id="btnReject" class="btn" style="background: #dc2626; color: white; width: 100%;">Reject Application</button>
+            </div>
+            <div id="finalStatus" style="margin-top: 15px; font-weight: bold; font-size: 0.9rem;"></div>
         </div>
     `;
 
@@ -390,6 +405,7 @@ async function viewDetails(index) {
 
     docContainer.innerHTML = docCards.join('');
     document.getElementById('detailsModal').style.display = "block";
+    updateApprovalUI(app);
 }
 
 function closeModal() { document.getElementById('detailsModal').style.display = "none"; }
