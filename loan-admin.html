@@ -126,7 +126,34 @@
     <div class="modal-content">
         <span class="close-modal" onclick="closeModal()">&times;</span>
         <h2>Review Application</h2>
-        <div id="modalDetails" class="info-grid"></div>
+        <div id="modalDetails" class="info-grid">
+
+<div id="approvalSection" style="margin-top: 30px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border);">
+    <h3 style="margin-top:0">Multi-Admin Review</h3>
+    
+    <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 20px;">
+        <div id="admin1Box">
+            <button id="btnAdmin1" class="btn" style="background: #2563eb; color: white;">Admin 1: Approve</button>
+        </div>
+        <div style="font-size: 1.5rem; color: var(--border);">→</div>
+        <div id="admin2Box">
+            <button id="btnAdmin2" class="btn" style="background: #2563eb; color: white;">Admin 2: Approve</button>
+        </div>
+    </div>
+
+    <div style="border-top: 1px solid var(--border); padding-top: 20px;">
+        <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted);">Rejection Notes (Internal):</label>
+        <textarea id="rejectionReason" style="width: 100%; margin: 8px 0; padding: 10px; border-radius: 6px; border: 1px solid var(--border);" placeholder="Reason for rejection..."></textarea>
+        <button id="btnReject" class="btn" style="background: #dc2626; color: white; width: 100%;">Reject Application</button>
+    </div>
+    
+    <div id="finalStatus" style="margin-top: 15px; font-weight: bold; font-size: 0.9rem;"></div>
+</div>
+
+
+
+            
+        </div>
         
         <h3 style="margin-top:32px">Submitted Documents</h3>
         <div class="doc-grid" id="modalDocs"></div>
@@ -205,7 +232,96 @@ function exportToExcel() {
     XLSX.writeFile(workbook, `AfricaVillage_Loans_${dateStr}.xlsx`);
 }
 
+async function approveStep(id, adminNumber) {
+    const updateData = {};
+    const column = adminNumber === 1 ? 'admin_one_status' : 'admin_two_status';
+    updateData[column] = 'approved';
 
+    // Optimistically find the app in our local array to check other admin
+    const app = currentApplications.find(a => a.id === id);
+    
+    // Check if this is the final approval needed
+    const otherAdminApproved = (adminNumber === 1 ? app.admin_two_status : app.admin_one_status) === 'approved';
+    if (otherAdminApproved) {
+        updateData.status = 'approved';
+    }
+
+    const { error } = await _supabase
+        .from('loan_applications')
+        .update(updateData)
+        .eq('id', id);
+
+    if (error) {
+        alert("Error updating: " + error.message);
+    } else {
+        alert(`Admin ${adminNumber} Approval Recorded!`);
+        closeModal();
+        fetchApplications(); // Refresh table
+    }
+}
+
+async function rejectStep(id) {
+    const reason = document.getElementById('rejectionReason').value;
+    if (!reason) return alert("Please provide a reason for rejection.");
+
+    const { error } = await _supabase
+        .from('loan_applications')
+        .update({ 
+            status: 'rejected',
+            rejection_reason: reason 
+        })
+        .eq('id', id);
+
+    if (error) {
+        alert("Error: " + error.message);
+    } else {
+        alert("Application Rejected.");
+        closeModal();
+        fetchApplications();
+    }
+}
+
+// Update the updateApprovalUI(app) function to include the Reject button
+function updateApprovalUI(app) {
+    const b1 = document.getElementById('btnAdmin1');
+    const b2 = document.getElementById('btnAdmin2');
+    const bReject = document.getElementById('btnReject');
+    const statusDiv = document.getElementById('finalStatus');
+    const reasonInput = document.getElementById('rejectionReason');
+
+    // Reset UI
+    b1.disabled = false; b2.disabled = false; bReject.disabled = false;
+    reasonInput.value = app.rejection_reason || "";
+    
+    // If already rejected, lock everything
+    if (app.status === 'rejected') {
+        b1.disabled = true; b2.disabled = true; bReject.disabled = true;
+        statusDiv.innerHTML = `<span class="status-badge rejected">ALREADY REJECTED</span>`;
+        return;
+    }
+
+    // Logic for Admin 1
+    if (app.admin_one_status === 'approved') {
+        b1.disabled = true;
+        b1.innerText = "Admin 1: ✅ Approved";
+        b1.style.background = "#16a34a";
+    }
+    
+    // Logic for Admin 2
+    if (app.admin_two_status === 'approved') {
+        b2.disabled = true;
+        b2.innerText = "Admin 2: ✅ Approved";
+        b2.style.background = "#16a34a";
+    }
+
+    b1.onclick = () => approveStep(app.id, 1);
+    b2.onclick = () => approveStep(app.id, 2);
+    bReject.onclick = () => rejectStep(app.id);
+
+    statusDiv.innerHTML = `Current Overall Status: <span class="status-badge ${app.status}">${app.status}</span>`;
+}
+// CALL THIS at the end of your viewDetails function:
+updateApprovalUI(app);
     
 async function viewDetails(index) {
     const app = currentApplications[index];
