@@ -163,23 +163,67 @@
 <script>
    let currentApplications = [];
 
+    
+    let loggedInAdmin = null;
+    // This runs automatically when the page loads
+async function initializeDashboard() {
+    // 1. Check if a user is logged in
+    const { data: { user }, error: authError } = await _supabase.auth.getUser();
+
+    if (authError || !user) {
+        // Redirect to login page if not authenticated
+        window.location.href = "login.html"; 
+        return;
+    }
+
+    // 2. Fetch their role and branch from the profiles table
+    const { data: profile, error: profileError } = await _supabase
+        .from('profiles')
+        .select('role, assigned_branch')
+        .eq('id', user.id)
+        .single();
+
+    if (profileError) {
+        console.error("Profile not found:", profileError);
+        return;
+    }
+
+    // 3. Set the global admin object
+    loggedInAdmin = profile;
+    
+    // 4. Update the UI to show who is logged in
+    console.log(`Logged in as: ${profile.role} for ${profile.assigned_branch || 'All Branches'}`);
+    
+    // 5. Now load the applications
+    fetchApplications();
+}
+
+    
+const loggedInAdmin = {
+    role: 'admin1', // Options: 'admin1' or 'superadmin'
+    assignedBranch: 'Batu' // Only used if role is admin1
+};
+// Replace your fetchApplications filter with the real branch name
 async function fetchApplications() {
-    const { data, error } = await _supabase.from('loan_applications').select('*').order('created_at', { ascending: false });
-    if (error) return alert("Error: " + error.message);
+    if (!loggedInAdmin) return;
+
+    let query = _supabase.from('loan_applications').select('*');
+
+    // Superadmins see everything; Admin1 only sees their branch
+    if (loggedInAdmin.role === 'admin1' && loggedInAdmin.assigned_branch) {
+        query = query.eq('nearby_branch', loggedInAdmin.assigned_branch);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+    
+    if (error) return alert("Error fetching data: " + error.message);
 
     currentApplications = data;
-    const tbody = document.getElementById('appTableBody');
-    tbody.innerHTML = data.length ? data.map((app, i) => `
-        <tr>
-            <td><strong>${app.first_name} ${app.father_name}</strong></td>
-            <td>${Number(app.loan_amount).toLocaleString()}</td>
-            <td>${app.loan_duration} Days</td>
-            <td>${Number(app.total_repayable).toLocaleString()}</td>
-            <td><span class="status-badge ${app.status}">${app.status}</span></td>
-            <td><button onclick="viewDetails(${i})" class="btn btn-view">Review</button></td>
-        </tr>
-    `).join('') : '<tr><td colspan="6" style="text-align:center">No records found.</td></tr>';
+    renderTable(data); // Move table drawing to its own function for cleanliness
 }
+
+// Call the initialization when the script loads
+initializeDashboard();
 
 async function downloadFile(url, fileName) {
     try {
@@ -287,27 +331,36 @@ function updateApprovalUI(app) {
     const b2 = document.getElementById('btnAdmin2');
     const bReject = document.getElementById('btnReject');
     const statusDiv = document.getElementById('finalStatus');
-    const reasonInput = document.getElementById('rejectionReason');
 
-    // Reset UI
+    // 1. Reset state
     b1.disabled = false; b2.disabled = false; bReject.disabled = false;
-    reasonInput.value = app.rejection_reason || "";
-    
-    // If already rejected, lock everything
+    b1.style.opacity = "1"; b2.style.opacity = "1";
+
+    // 2. Role-Based Access Control
+    if (loggedInAdmin.role === 'admin1') {
+        b2.disabled = true; // Admin 1 cannot click Admin 2's button
+        b2.style.opacity = "0.5";
+        b2.innerText = "Waiting for Super Admin";
+    } else if (loggedInAdmin.role === 'superadmin') {
+        // Super admin can click both, or you might want them to wait for Admin 1
+        if (app.admin_one_status !== 'approved') {
+            b2.innerText = "Admin 2 (Waiting for Admin 1)";
+        }
+    }
+
+    // 3. Status-Based Locking (Logic you already had)
     if (app.status === 'rejected') {
         b1.disabled = true; b2.disabled = true; bReject.disabled = true;
-        statusDiv.innerHTML = `<span class="status-badge rejected">ALREADY REJECTED</span>`;
+        statusDiv.innerHTML = `<span class="status-badge rejected">REJECTED</span>`;
         return;
     }
 
-    // Logic for Admin 1
     if (app.admin_one_status === 'approved') {
         b1.disabled = true;
         b1.innerText = "Admin 1: ✅ Approved";
         b1.style.background = "#16a34a";
     }
-    
-    // Logic for Admin 2
+
     if (app.admin_two_status === 'approved') {
         b2.disabled = true;
         b2.innerText = "Admin 2: ✅ Approved";
@@ -317,10 +370,8 @@ function updateApprovalUI(app) {
     b1.onclick = () => approveStep(app.id, 1);
     b2.onclick = () => approveStep(app.id, 2);
     bReject.onclick = () => rejectStep(app.id);
-
-    statusDiv.innerHTML = `Current Overall Status: <span class="status-badge ${app.status}">${app.status}</span>`;
 }
-
+    
     
 async function viewDetails(index) {
     const app = currentApplications[index];
