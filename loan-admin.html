@@ -95,6 +95,14 @@
         <h1>Loan Applications</h1>
         <button onclick="fetchApplications()" class="btn btn-view">Refresh List</button>
     </div>
+    <button onclick="handleLogout()" class="btn" style="background: #64748b; color: white;">Logout</button>
+
+<script>
+async function handleLogout() {
+    await _supabase.auth.signOut();
+    window.location.href = "login.html";
+}
+</script>
     <div class="header">
     <h1>Loan Applications</h1>
     <div style="display: flex; gap: 10px;">
