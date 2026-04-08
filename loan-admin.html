@@ -173,65 +173,67 @@ async function handleLogout() {
 
     
     let loggedInAdmin = null;
+    let currentApplications = [];
     // This runs automatically when the page loads
-async function initializeDashboard() {
-    // 1. Check if a user is logged in
-    const { data: { user }, error: authError } = await _supabase.auth.getUser();
 
-    if (authError || !user) {
-        // Redirect to login page if not authenticated
-        window.location.href = "login.html"; 
-        return;
+ // 2. The Initialization function
+    async function initializeDashboard() {
+        const { data: { user }, error: authError } = await _supabase.auth.getUser();
+
+        if (authError || !user) {
+            window.location.href = "login.html"; 
+            return;
+        }
+
+        const { data: profile, error: profileError } = await _supabase
+            .from('profiles')
+            .select('role, assigned_branch')
+            .eq('id', user.id)
+            .single();
+
+        if (profileError) {
+            console.error("Profile not found:", profileError);
+            return;
+        }
+
+        // Assign the value to the variable declared above (no 'let' or 'const' here)
+        loggedInAdmin = profile;
+        
+        // Load the data
+        fetchApplications();
     }
 
-    // 2. Fetch their role and branch from the profiles table
-    const { data: profile, error: profileError } = await _supabase
-        .from('profiles')
-        .select('role, assigned_branch')
-        .eq('id', user.id)
-        .single();
-
-    if (profileError) {
-        console.error("Profile not found:", profileError);
-        return;
-    }
-
-    // 3. Set the global admin object
-    loggedInAdmin = profile;
     
-    // 4. Update the UI to show who is logged in
-    console.log(`Logged in as: ${profile.role} for ${profile.assigned_branch || 'All Branches'}`);
-    
-    // 5. Now load the applications
-    fetchApplications();
-}
-
-    
-const loggedInAdmin = {
+/*const loggedInAdmin = {
     role: 'admin1', // Options: 'admin1' or 'superadmin'
     assignedBranch: 'Batu' // Only used if role is admin1
-};
+}; */
+    // KEEP THIS ONE
+let loggedInAdmin = null;
+
+    
 // Replace your fetchApplications filter with the real branch name
-async function fetchApplications() {
-    if (!loggedInAdmin) return;
+// 3. The Fetch function
+    async function fetchApplications() {
+        if (!loggedInAdmin) return;
+        
+        let query = _supabase.from('loan_applications').select('*');
 
-    let query = _supabase.from('loan_applications').select('*');
+        if (loggedInAdmin.role === 'admin1' && loggedInAdmin.assigned_branch) {
+            query = query.eq('nearby_branch', loggedInAdmin.assigned_branch);
+        }
 
-    // Superadmins see everything; Admin1 only sees their branch
-    if (loggedInAdmin.role === 'admin1' && loggedInAdmin.assigned_branch) {
-        query = query.eq('nearby_branch', loggedInAdmin.assigned_branch);
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error) return alert(error.message);
+
+        currentApplications = data;
+        // ... rest of your table rendering code ...
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    // 4. Start the app
+    initializeDashboard();
+
     
-    if (error) return alert("Error fetching data: " + error.message);
-
-    currentApplications = data;
-    renderTable(data); // Move table drawing to its own function for cleanliness
-}
-
-// Call the initialization when the script loads
-initializeDashboard();
 
 async function downloadFile(url, fileName) {
     try {
