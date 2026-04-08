@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Africa Village | Admin Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+
+    <style>
+        :root { 
+            --primary: #2563eb; 
+            --bg: #f8fafc; 
+            --card-bg: #ffffff;
+            --text-main: #0f172a; 
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --radius: 12px;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: var(--bg); 
+            color: var(--text-main); 
+            margin: 0; 
+            padding: 24px; 
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+
+        .card { 
+            background: var(--card-bg); 
+            padding: 24px; 
+            border-radius: var(--radius); 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+            border: 1px solid var(--border);
+        }
+
+        table { width: 100%; border-collapse: collapse; }
+        th { padding: 12px; background: #f1f5f9; text-align: left; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); }
+        td { padding: 16px; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+
+        .status-badge { padding: 4px 12px; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+        .pending { background: #fef3c7; color: #92400e; }
+        .approved { background: #ecfdf5; color: #065f46; }
+        .rejected { background: #fef2f2; color: #991b1b; }
+
+        .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); z-index: 100; overflow-y: auto; padding: 20px; }
+        .modal-content { background: white; max-width: 900px; margin: 20px auto; padding: 32px; border-radius: var(--radius); position: relative; }
+        
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-top: 20px; }
+        .info-group h4 { margin: 0 0 12px 0; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+        .info-item { font-size: 0.85rem; margin-bottom: 6px; }
+        .info-item span { font-weight: 600; color: var(--text-muted); margin-right: 5px; }
+
+        .doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 24px; }
+        .doc-item { border: 1px solid var(--border); padding: 12px; border-radius: 8px; background: #fff; }
+        .img-container { background: #000; height: 140px; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 10px; }
+        .doc-item img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+        .btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; transition: 0.2s; }
+        .btn-view { background: var(--primary); color: white; }
+        .btn-download { display: block; text-align: center; text-decoration: none; background: #f1f5f9; color: var(--text-main); font-size: 0.75rem; padding: 8px; border-radius: 4px; border: 1px solid var(--border); }
+        .btn-download:hover { background: var(--primary); color: white; }
+        
+        .close-modal { position: absolute; right: 24px; top: 24px; cursor: pointer; font-size: 1.5rem; color: var(--text-muted); }
+
+
+.img-container { 
+    background: #f1f5f9; /* Light grey instead of black */
+    height: 140px; 
+    border-radius: 4px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    overflow: hidden; 
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+}
+
+.doc-item img { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; /* This fills the box better than 'contain' */
+}
+
+        
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Loan Applications</h1>
+        <button onclick="fetchApplications()" class="btn btn-view">Refresh List</button>
+    </div>
+    <div class="header">
+    <h1>Loan Applications</h1>
+    <div style="display: flex; gap: 10px;">
+        <button onclick="exportToExcel()" class="btn" style="background: #16a34a; color: white;">Export to Excel</button>
+        <button onclick="fetchApplications()" class="btn btn-view">Refresh List</button>
+    </div>
+</div>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Applicant</th>
+                    <th>Amount (ETB)</th>
+                    <th>Duration</th>
+                    <th>Repayable</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="appTableBody">
+                <tr><td colspan="6" style="text-align:center">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="detailsModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal()">&times;</span>
+        <h2>Review Application</h2>
+        <div id="modalDetails" class="info-grid"></div>
+        
+        <h3 style="margin-top:32px">Submitted Documents</h3>
+        <div class="doc-grid" id="modalDocs"></div>
+    </div>
+</div>
+
+<script>
+   let currentApplications = [];
+
+async function fetchApplications() {
+    const { data, error } = await _supabase.from('loan_applications').select('*').order('created_at', { ascending: false });
+    if (error) return alert("Error: " + error.message);
+
+    currentApplications = data;
+    const tbody = document.getElementById('appTableBody');
+    tbody.innerHTML = data.length ? data.map((app, i) => `
+        <tr>
+            <td><strong>${app.first_name} ${app.father_name}</strong></td>
+            <td>${Number(app.loan_amount).toLocaleString()}</td>
+            <td>${app.loan_duration} Days</td>
+            <td>${Number(app.total_repayable).toLocaleString()}</td>
+            <td><span class="status-badge ${app.status}">${app.status}</span></td>
+            <td><button onclick="viewDetails(${i})" class="btn btn-view">Review</button></td>
+        </tr>
+    `).join('') : '<tr><td colspan="6" style="text-align:center">No records found.</td></tr>';
+}
+
+async function downloadFile(url, fileName) {
+    try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch (e) {
+        window.open(url, '_blank');
+    }
+}
+
+
+function exportToExcel() {
+    if (!currentApplications || currentApplications.length === 0) {
+        return alert("No data available to export.");
+    }
+
+    // 1. Prepare and clean the data for Excel
+    const dataToExport = currentApplications.map(app => ({
+        "Applied Date": new Date(app.created_at).toLocaleDateString(),
+        "Status": app.status.toUpperCase(),
+        "First Name": app.first_name,
+        "Father Name": app.father_name,
+        "Grandfather Name": app.grandfather_name,
+        "Phone": app.phone_number,
+        "Gender": app.gender,
+        "Loan Amount (ETB)": app.loan_amount,
+        "Duration (Days)": app.loan_duration,
+        "Total Repayable": app.total_repayable,
+        "Organization": app.org_name,
+        "Job Title": app.job_title,
+        "Net Salary": app.net_salary,
+        "National ID Num": app.national_id_number,
+        "Region": app.res_region,
+        "City": app.res_city
+    }));
+
+    // 2. Create a new workbook and worksheet
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Loan Applications");
+
+    // 3. Generate and download the file
+    const dateStr = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(workbook, `AfricaVillage_Loans_${dateStr}.xlsx`);
+}
+
+
+    
+async function viewDetails(index) {
+    const app = currentApplications[index];
+    
+    // 1. Fill in text details
+    document.getElementById('modalDetails').innerHTML = `
+        <div class="info-group">
+            <h4>Applicant Info</h4>
+            <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name}</div>
+            <div class="info-item"><span>Phone:</span> ${app.phone_number}</div>
+            <div class="info-item"><span>Address:</span> ${app.res_region || 'N/A'}, ${app.res_city || ''}</div>
+        </div>
+        <div class="info-group">
+            <h4>Employment</h4>
+            <div class="info-item"><span>Organization:</span> ${app.org_name}</div>
+            <div class="info-item"><span>Net Salary:</span> ${Number(app.net_salary || 0).toLocaleString()} ETB</div>
+        </div>
+        <div class="info-group">
+            <h4>Loan Summary</h4>
+            <div class="info-item"><span>Amount:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
+            <div class="info-item"><span>Status:</span> <strong style="text-transform:uppercase">${app.status}</strong></div>
+        </div>
+    `;
+
+    // 2. Define documents to show
+    const docList = [
+        { name: 'Photo', path: app.personal_photo },
+        { name: 'Signature', path: app.digital_signature },
+        { name: 'ID_Front', path: app.nat_id_front },
+        { name: 'ID_Back', path: app.nat_id_back },
+        { name: 'Emp_ID_Front', path: app.emp_id_front },
+        { name: 'Emp_ID_Back', path: app.emp_id_back },
+        { name: 'Emp_Letter', path: app.employment_letter }
+    ];
+
+    const docContainer = document.getElementById('modalDocs');
+    docContainer.innerHTML = "Generating secure links...";
+
+    // 3. Map through documents and get signed URLs
+    const docCards = await Promise.all(docList.map(async (doc) => {
+        if (!doc.path) return '';
+
+        const { data, error } = await _supabase.storage.from('kyc-docs').createSignedUrl(doc.path, 600);
+        
+        if (error || !data) {
+            console.error(`Error loading ${doc.name}:`, error);
+            return `<div class="doc-item"><p style="color:red; font-size:0.7rem;">Failed to load ${doc.name}</p></div>`;
+        }
+
+        const signedUrl = data.signedUrl;
+        const downloadName = `${app.first_name}_${doc.name}.png`;
+
+        return `
+            <div class="doc-item">
+                <div class="img-container">
+                  
+<img src="${signedUrl}" 
+     onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22150%22%20height%3D%22150%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22150%22%20height%3D%22150%22%20fill%3D%22%23cccccc%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2214%22%20fill%3D%22%23666666%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3ENo%20Image%3C%2Ftext%3E%3C%2Fsvg%3E'">
+                </div>
+                <p style="font-size: 0.75rem; margin-bottom: 8px;"><strong>${doc.name}</strong></p>
+                <button onclick="downloadFile('${signedUrl}', '${downloadName}')" class="btn-download" style="width:100%; cursor:pointer">
+                    Download File
+                </button>
+            </div>
+        `;
+    }));
+
+    docContainer.innerHTML = docCards.join('');
+    document.getElementById('detailsModal').style.display = "block";
+}
+
+function closeModal() { document.getElementById('detailsModal').style.display = "none"; }
+fetchApplications();
+</script>
+</body>
+</html>
