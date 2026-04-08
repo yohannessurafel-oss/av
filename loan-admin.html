@@ -320,12 +320,11 @@ function updateApprovalUI(app) {
 
     statusDiv.innerHTML = `Current Overall Status: <span class="status-badge ${app.status}">${app.status}</span>`;
 }
-// CALL THIS at the end of your viewDetails function:
-updateApprovalUI(app);
+
     
 async function viewDetails(index) {
     const app = currentApplications[index];
-    
+    updateApprovalUI(app);
     // 1. Fill in text details
     document.getElementById('modalDetails').innerHTML = `
         <div class="info-group">
