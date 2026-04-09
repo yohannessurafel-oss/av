@@ -81,48 +81,49 @@
                     <option value="90">90 Days</option>
                 </select>
             </div>
-            
-            <div id="repaymentSummary" class="full-width" style="margin-top: 15px; display: none;">
-                <div style="padding: 15px; background: #fffbeb; border-radius: 8px; border: 1px solid #fef3c7; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 10px 0; color: #92400e; font-size: 0.9rem;">Disbursement Summary</h4>
-                    <div style="background: #ffffff; padding: 10px; border-radius: 6px; border: 1px inset #e2e8f0; font-size: 0.85rem;">
-                        <div style="display: flex; justify-content: space-between;"><span>Requested:</span> <span id="summaryPrincipal">0 ETB</span></div>
-                        <div style="display: flex; justify-content: space-between; color: #64748b; font-size: 0.75rem; margin: 4px 0;">
-                            <span>Fees (10%):</span> <span id="summaryFees">0 ETB</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; font-weight: bold; color: #2563eb; border-top: 1px solid #eee; padding-top: 4px;">
-                            <span>Net to Receive:</span> <span id="summaryNet">0 ETB</span>
-                        </div>
-                    </div>
-                </div>
+        </div>
 
-                <div style="padding: 15px; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0;">
-                    <h4 style="margin: 0 0 10px 0; color: #166534; font-size: 0.9rem;">Repayment Details</h4>
-                    <div id="installmentList" style="font-size: 0.85rem;"></div>
-                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; color: #166534; margin-top: 12px; border-top: 1px solid #dcfce7; padding-top: 8px;">
-                        <span>Total Repayable:</span> <span id="summaryTotal">0 ETB</span>
+        <div id="repaymentSummary" style="margin-top: 15px; display: none;">
+            <div style="padding: 15px; background: #fffbeb; border-radius: 8px; border: 1px solid #fef3c7; margin-bottom: 12px;">
+                <h4 style="margin: 0 0 10px 0; color: #92400e; font-size: 0.9rem;">Disbursement Summary (Cash You Receive)</h4>
+                <div style="background: #ffffff; padding: 10px; border-radius: 6px; border: 1px inset #e2e8f0;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+                        <span>Requested Amount:</span> <span id="summaryPrincipal">0.00 ETB</span>
+                    </div>
+                    <div style="font-size: 0.75rem; color: #64748b; padding-left: 10px; border-left: 2px solid #fde68a; margin: 8px 0;">
+                        <div style="display: flex; justify-content: space-between;"><span>Service Charge (6%):</span> <span id="feeService">0.00 ETB</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span>Insurance (3%):</span> <span id="feeInsurance">0.00 ETB</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span>Disaster Risk (1%):</span> <span id="feeDisaster">0.00 ETB</span></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 0.95rem; color: #2563eb; border-top: 1px solid #eee; padding-top: 8px; margin-top: 5px;">
+                        <span>Net Disbursed:</span> <span id="summaryNet">0.00 ETB</span>
                     </div>
                 </div>
             </div>
 
-            <div class="form-group full-width">
-                <label>Nearby Branch</label>
-                <select id="nearbyBranch" required>
-                    <option value="">-- Select Your Nearest Branch --</option>
-                    <option value="Batu">Batu</option><option value="Sendafa">Sendafa</option>
-                    <option value="Holeta">Holeta</option><option value="Dukem">Dukem</option>
-                    <option value="Kality">Kality</option><option value="Mojo">Mojo</option>
-                    <option value="Kirkos">Kirkos</option><option value="Meki">Meki</option>
-                    <option value="Bishoftu 1">Bishoftu 1</option><option value="Bishoftu 2">Bishoftu 2</option>
-                    <option value="Butajira">Butajira</option><option value="Kolfe">Kolfe</option>
-                    <option value="Kazanchis">Kazanchis</option><option value="Adama">Adama</option>
-                    <option value="Mekele">Mekele</option><option value="Ejere">Ejere</option>
-                    <option value="Dirediwa">Dirediwa</option><option value="Gimbichu">Gimbichu</option>
-                    <option value="Burayu">Burayu</option><option value="Hanamaiyam">Hanamaiyam</option>
-                    <option value="Sheno">Sheno</option><option value="Djibruk">Djibruk</option>
-                    <option value="Furi">Furi</option><option value="Main(Agona)">Main (Agona)</option>
+            <div style="padding: 15px; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0;">
+                <h4 style="margin: 0 0 10px 0; color: #166534; font-size: 0.9rem;">Repayment Details (Total to Pay Back)</h4>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #475569; margin-bottom: 8px; padding: 0 5px;">
+                    <span>Principal: <strong id="percentPrincipal">0%</strong></span>
+                    <span>Interest: <strong id="percentInterest">0%</strong></span>
+                </div>
+
+                <div id="installmentList" style="font-size: 0.85rem; background: #ffffff; padding: 10px; border-radius: 6px; border: 1px solid #dcfce7;"></div>
+
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; color: #166534; margin-top: 12px; padding: 0 5px;">
+                    <span>Total Repayable:</span> <span id="summaryTotal">0.00 ETB</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group full-width" style="margin-top: 20px;">
+            <label>Nearby Branch</label>
+            <select id="nearbyBranch" required>
+                <option value="">-- Select Your Nearest Branch --</option>
+                <option value="Batu">Batu</option><option value="Sendafa">Sendafa</option>
+                <option value="Main(Agona)">Main (Agona)</option>
                 </select>
-            </div>
         </div>
 
         <div class="section-title">Employment & Documents</div>
@@ -134,13 +135,9 @@
         
         <div class="upload-grid">
             <div class="form-group"><label>National ID Front</label><input type="file" id="natIdFront" accept="image/*" required></div>
-            <div class="form-group"><label>National ID Back</label><input type="file" id="natIdBack" accept="image/*" required></div>
-            <div class="form-group"><label>Employee ID Front</label><input type="file" id="empIdFront" accept="image/*" required></div>
-            <div class="form-group"><label>Employee ID Back</label><input type="file" id="empIdBack" accept="image/*" required></div>
-            <div class="form-group"><label>Employment Letter</label><input type="file" id="empLetter" accept="image/*,application/pdf" required></div>
             <div class="form-group"><label>Personal Photo</label><input type="file" id="userPhoto" accept="image/*" required></div>
             <div class="form-group"><label>Digital Signature</label><input type="file" id="digitalSig" accept="image/*" required></div>
-        </div>
+            </div>
 
         <button type="submit" class="btn-submit" id="submitBtn">Submit Loan Request</button>
         <div id="statusMsg" class="status-msg"></div>
