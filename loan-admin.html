@@ -95,7 +95,7 @@
         <h1>Loan Applications</h1>
         <button onclick="fetchApplications()" class="btn btn-view">Refresh List</button>
     </div>
-    <button onclick="handleLogout()" class="btn" style="background: #64748b; color: white;">Logout</button>
+  <button onclick="handleLogout()" class="btn" style="background: #64748b; color: white;">Logout</button>
 
 
     <div class="header">
@@ -226,10 +226,17 @@
     }
 
     // 5. LOGOUT
-    async function handleLogout() {
-        await _supabase.signOut();
+   async function handleLogout() {
+    // Add '.auth' before '.signOut()'
+    const { error } = await _supabase.auth.signOut();
+    
+    if (error) {
+        console.error("Error logging out:", error.message);
+    } else {
+        // Redirect back to your login page
         window.location.href = "login.html";
     }
+}
 
     // 6. ACTION FUNCTIONS (Approve/Reject/Modal)
     async function approveStep(id, adminNumber) {
