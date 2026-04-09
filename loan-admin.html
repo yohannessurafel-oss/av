@@ -314,52 +314,72 @@
 
     // 6. VIEW DETAILS (MODAL POPULATION)
     async function viewDetails(index) {
-        const app = currentApplications[index];
-        const detailsContainer = document.getElementById('modalDetails');
-        const docsContainer = document.getElementById('modalDocs');
+    const app = currentApplications[index];
+    const detailsContainer = document.getElementById('modalDetails');
+    const docsContainer = document.getElementById('modalDocs');
 
-        detailsContainer.innerHTML = `
-            <div class="info-group">
-                <h4>Applicant Information</h4>
-                <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name} ${app.grandfather_name}</div>
-                <div class="info-item"><span>Mother's Name:</span> ${app.mother_name}</div>
-                <div class="info-item"><span>Phone:</span> ${app.phone_number}</div>
-                <div class="info-item"><span>Gender:</span> ${app.gender}</div>
-            </div>
-            <div class="info-group">
-                <h4>Loan Details</h4>
-                <div class="info-item"><span>Requested:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
-                <div class="info-item"><span>Repayable:</span> ${Number(app.total_repayable).toLocaleString()} ETB</div>
-                <div class="info-item"><span>Duration:</span> ${app.loan_duration} Days</div>
-                <div class="info-item"><span>Branch:</span> ${app.nearby_branch}</div>
+    // 1. Map all personal, address, and guarantor info
+    detailsContainer.innerHTML = `
+        <div class="info-group">
+            <h4>Applicant Information</h4>
+            <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name} ${app.grandfather_name}</div>
+            <div class="info-item"><span>Mother's Name:</span> ${app.mother_name}</div>
+            <div class="info-item"><span>Phone:</span> ${app.phone_number}</div>
+            <div class="info-item"><span>Birthday:</span> ${app.birthday}</div>
+            <div class="info-item"><span>Gender:</span> ${app.gender}</div>
+        </div>
+        <div class="info-group">
+            <h4>Residential Address</h4>
+            <div class="info-item"><span>Region/City:</span> ${app.res_region || 'N/A'}, ${app.res_city || 'N/A'}</div>
+            <div class="info-item"><span>Sub-City/Woreda:</span> ${app.res_sub_city || 'N/A'} / ${app.res_woreda || 'N/A'}</div>
+            <div class="info-item"><span>House No:</span> ${app.res_house_num || 'N/A'}</div>
+            <div class="info-item"><span>Nearby Branch:</span> ${app.nearby_branch}</div>
+        </div>
+        <div class="info-group">
+            <h4>Guarantor Information</h4>
+            <div class="info-item"><span>Guarantor Name:</span> ${app.guarantor_name || 'N/A'}</div>
+            <div class="info-item"><span>Guarantor Phone:</span> ${app.guarantor_phone || 'N/A'}</div>
+            <div class="info-item"><span>Guarantor Address:</span> ${app.guarantor_address || 'N/A'}</div>
+        </div>
+        <div class="info-group">
+            <h4>Financial Details</h4>
+            <div class="info-item"><span>Loan Amount:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
+            <div class="info-item"><span>Repayable:</span> ${Number(app.total_repayable).toLocaleString()} ETB</div>
+            <div class="info-item"><span>Organization:</span> ${app.org_name}</div>
+            <div class="info-item"><span>Net Salary:</span> ${Number(app.net_salary).toLocaleString()} ETB</div>
+        </div>
+    `;
+
+    // 2. Map all 7 documents
+    const docFields = [
+        { name: "National ID Front", path: app.nat_id_front },
+        { name: "National ID Back", path: app.nat_id_back },
+        { name: "Employee ID Front", path: app.emp_id_front },
+        { name: "Employee ID Back", path: app.emp_id_back },
+        { name: "Employment Letter", path: app.employment_letter },
+        { name: "Personal Photo", path: app.personal_photo },
+        { name: "Digital Signature", path: app.digital_signature }
+    ];
+
+    docsContainer.innerHTML = docFields.map(doc => {
+        if (!doc.path) return '';
+        const url = _supabase.storage.from('kyc-docs').getPublicUrl(doc.path).data.publicUrl;
+        return `
+            <div class="doc-item">
+                <div class="img-container">
+                    <img src="${url}" alt="${doc.name}" onclick="window.open('${url}', '_blank')">
+                </div>
+                <div style="font-size:0.75rem; font-weight:bold; text-align:center">${doc.name}</div>
+                <a href="${url}" target="_blank" class="btn-download" style="margin-top:5px">View Full Size</a>
             </div>
         `;
+    }).join('');
 
-        const docKeys = [
-            { label: 'National ID Front', path: app.nat_id_front },
-            { label: 'National ID Back', path: app.nat_id_back },
-            { label: 'Personal Photo', path: app.personal_photo }
-        ];
-
-        docsContainer.innerHTML = '<p>Loading documents...</p>';
-
-        const docItems = await Promise.all(docKeys.map(async doc => {
-            if (!doc.path) return `<div class="doc-item"><span>${doc.label}</span><br>N/A</div>`;
-            const { data } = _supabase.storage.from('kyc-docs').getPublicUrl(doc.path);
-            return `
-                <div class="doc-item">
-                    <div class="img-container">
-                        <img src="${data.publicUrl}" onclick="window.open('${data.publicUrl}', '_blank')">
-                    </div>
-                    <div style="font-size: 0.7rem; font-weight: bold;">${doc.label}</div>
-                </div>
-            `;
-        }));
-
-        docsContainer.innerHTML = docItems.join('');
-        document.getElementById('detailsModal').style.display = "block";
-        updateApprovalUI(app);
-    }
+    // 3. Setup Admin UI (Button states)
+    setupAdminUI(app);
+    
+    document.getElementById('detailsModal').style.display = 'block';
+}
 
     // 7. APPROVAL LOGIC
     async function approveStep(id, adminNumber) {
