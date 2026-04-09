@@ -77,9 +77,7 @@
         <div class="form-grid">
             <div class="form-group"><label>Full  Name</label><input type="text" id="gfname" required></div>
             <div class="form-group"><label>garantier's address</label><input type="text" id="gadress" required></div>
-            <div class="form-group"><label>Grandfather's Name</label><input type="text" id="grandFatherName" required></div>
-            <div class="form-group"><label>Mother's Name</label><input type="text" id="motherName" required></div>
-
+            <div class="form-group"><label>phone's Number</label><input type="text" id="gphone" required></div>
                           </div>
         
         <div class="section-title">Loan Details</div>
@@ -143,10 +141,17 @@
         </div>
         
         <div class="upload-grid">
-            <div class="form-group"><label>National ID Front</label><input type="file" id="natIdFront" accept="image/*" required></div>
-            <div class="form-group"><label>Personal Photo</label><input type="file" id="userPhoto" accept="image/*" required></div>
-            <div class="form-group"><label>Digital Signature</label><input type="file" id="digitalSig" accept="image/*" required></div>
-            </div>
+    <div class="form-group"><label>National ID Front</label><input type="file" id="natIdFront" accept="image/*" required></div>
+    <div class="form-group"><label>National ID Back</label><input type="file" id="natIdBack" accept="image/*" required></div>
+    
+    <div class="form-group"><label>Employee ID Front</label><input type="file" id="empIdFront" accept="image/*" required></div>
+    <div class="form-group"><label>Employee ID Back</label><input type="file" id="empIdBack" accept="image/*" required></div>
+    
+    <div class="form-group"><label>Employment Letter</label><input type="file" id="empLetter" accept="image/*,application/pdf" required></div>
+    
+    <div class="form-group"><label>Personal Photo</label><input type="file" id="userPhoto" accept="image/*" required></div>
+    <div class="form-group"><label>Digital Signature</label><input type="file" id="digitalSig" accept="image/*" required></div>
+</div>
 
         <button type="submit" class="btn-submit" id="submitBtn">Submit Loan Request</button>
         <div id="statusMsg" class="status-msg"></div>
@@ -245,72 +250,87 @@
 
 
 form.onsubmit = async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('submitBtn');
-        btn.disabled = true;
-        btn.innerText = "Processing...";
+    e.preventDefault();
+    const btn = document.getElementById('submitBtn');
+    
+    // GET THE AMOUNT VALUE FIRST
+    const amount = parseFloat(document.getElementById('loanAmount').value);
+    
+    btn.disabled = true;
+    btn.innerText = "Processing...";
 
-        try {
-            const { data: { user } } = await _supabase.auth.getUser();
-            const userId = user ? user.id : "guest_" + Date.now();
+    try {
+        const { data: { user } } = await _supabase.auth.getUser();
+        const userId = user ? user.id : "guest_" + Date.now();
 
-           // Upload all 7 documents in parallel
-            const [natF, natB, empF, empB, letter, photo, sig] = await Promise.all([
-                uploadDoc(document.getElementById('natIdFront').files[0], 'nat_front', userId),
-                uploadDoc(document.getElementById('natIdBack').files[0], 'nat_back', userId),
-                uploadDoc(document.getElementById('empIdFront').files[0], 'emp_front', userId),
-                uploadDoc(document.getElementById('empIdBack').files[0], 'emp_back', userId),
-                uploadDoc(document.getElementById('empLetter').files[0], 'employment_letter', userId),
-                uploadDoc(document.getElementById('userPhoto').files[0], 'passport_photo', userId),
-                uploadDoc(document.getElementById('digitalSig').files[0], 'signature', userId)
-            ]);
+        // Safe check function to prevent the "null" error
+        const getFile = (id) => {
+            const el = document.getElementById(id);
+            return el && el.files ? el.files[0] : null;
+        };
 
-            const totalRepayableValue = parseFloat(document.getElementById('summaryTotal').innerText.replace(/[^0-9.]/g, ''));
+        // Upload documents
+        const [natF, natB, empF, empB, letter, photo, sig] = await Promise.all([
+            uploadDoc(getFile('natIdFront'), 'nat_front', userId),
+            uploadDoc(getFile('natIdBack'), 'nat_back', userId),
+            uploadDoc(getFile('empIdFront'), 'emp_front', userId),
+            uploadDoc(getFile('empIdBack'), 'emp_back', userId),
+            uploadDoc(getFile('empLetter'), 'employment_letter', userId),
+            uploadDoc(getFile('userPhoto'), 'passport_photo', userId),
+            uploadDoc(getFile('digitalSig'), 'signature', userId)
+        ]);
 
-            // Insert into Supabase Database
-            const { error: dbError } = await _supabase.from('loan_applications').insert([{
-                user_id: user ? user.id : null,
-                first_name: document.getElementById('firstName').value,
-                father_name: document.getElementById('fatherName').value,
-                grandfather_name: document.getElementById('grandFatherName').value,
-                mother_name: document.getElementById('motherName').value,
-                gender: document.getElementById('gender').value,
-                birthday: document.getElementById('birthday').value,
-                phone_number: document.getElementById('phoneNumber').value,
-                loan_amount: amount,
-                loan_duration: document.getElementById('loanDuration').value,
-                org_name: document.getElementById('orgName').value,
-                net_salary: parseFloat(document.getElementById('netSalary').value),
-                national_id_number: document.getElementById('nationalIDNum').value,
-                total_repayable: totalRepayableValue,
-                nat_id_front: natF, 
-                nat_id_back: natB,
-                emp_id_front: empF, 
-                emp_id_back: empB,
-                employment_letter: letter,
-                personal_photo: photo,
-                digital_signature: sig,
-                status: 'pending'
-            }]);
+        const totalRepayableValue = parseFloat(document.getElementById('summaryTotal').innerText.replace(/[^0-9.]/g, ''));
 
+        // Insert into Supabase
+        const { error: dbError } = await _supabase.from('loan_applications').insert([{
+            first_name: document.getElementById('firstName').value,
+            father_name: document.getElementById('fatherName').value,
+            grandfather_name: document.getElementById('grandFatherName').value,
+            mother_name: document.getElementById('motherName').value,
+            gender: document.getElementById('gender').value,
+            birthday: document.getElementById('birthday').value,
+            phone_number: document.getElementById('phoneNumber').value,
+            
+            // ADDITIONAL GUARANTOR FIELDS (Matches your HTML)
+            guarantor_name: document.getElementById('gfname').value,
+            guarantor_address: document.getElementById('gadress').value,
+            guarantor_phone: document.getElementById('gphone').value,
 
-            if (dbError) throw dbError;
+            loan_amount: amount,
+            loan_duration: document.getElementById('loanDuration').value,
+            org_name: document.getElementById('orgName').value,
+            net_salary: parseFloat(document.getElementById('netSalary').value),
+            national_id_number: document.getElementById('nationalIDNum').value,
+            total_repayable: totalRepayableValue,
+            nat_id_front: natF, 
+            nat_id_back: natB,
+            emp_id_front: empF, 
+            emp_id_back: empB,
+            employment_letter: letter,
+            personal_photo: photo,
+            digital_signature: sig,
+            status: 'pending'
+        }]);
 
-            statusMsg.style.display = "block";
-            statusMsg.style.backgroundColor = "#dcfce7";
-            statusMsg.innerText = "Application Submitted Successfully!";
-            form.reset();
-            document.getElementById('repaymentSummary').style.display = "none";
+        if (dbError) throw dbError;
 
-        } catch (err) {
-            statusMsg.style.display = "block";
-            statusMsg.style.backgroundColor = "#fee2e2";
-            statusMsg.innerText = "Error: " + err.message;
-        } finally {
-            btn.disabled = false;
-            btn.innerText = "Submit Loan Request";
-        }
-    };
+        statusMsg.style.display = "block";
+        statusMsg.style.backgroundColor = "#dcfce7";
+        statusMsg.innerText = "Application Submitted Successfully!";
+        form.reset();
+        document.getElementById('repaymentSummary').style.display = "none";
+
+    } catch (err) {
+        console.error(err);
+        statusMsg.style.display = "block";
+        statusMsg.style.backgroundColor = "#fee2e2";
+        statusMsg.innerText = "Error: " + err.message;
+    } finally {
+        btn.disabled = false;
+        btn.innerText = "Submit Loan Request";
+    }
+};
 
     
 </script>
