@@ -45,7 +45,13 @@
 .img-container img:hover {
     transform: scale(1.05);
 }
-
+.btn-action {
+    transition: all 0.2s ease;
+}
+.btn-action:hover {
+    filter: brightness(90%);
+    transform: translateY(-1px);
+}
 .btn-download {
     text-decoration: none;
     color: var(--primary);
@@ -255,6 +261,7 @@
 
 <script>
     // 1. GLOBAL VARIABLES
+   // 1. GLOBAL VARIABLES
     let currentApplications = [];
     let loggedInAdmin = null;
 
@@ -282,7 +289,7 @@
         fetchApplications();
     }
 
-    // 3. FETCH DATA
+    / 3. FETCH DATA
     async function fetchApplications() {
         if (!loggedInAdmin) return;
         let query = _supabase.from('loan_applications').select('*');
@@ -298,7 +305,7 @@
         renderTable();
     }
 
-    // 4. RENDER TABLE
+   // 4. RENDER TABLE
     function renderTable() {
         const tbody = document.getElementById('appTableBody');
         tbody.innerHTML = currentApplications.length ? currentApplications.map((app, i) => `
@@ -312,7 +319,7 @@
             </tr>
         `).join('') : '<tr><td colspan="6" style="text-align:center">No records found.</td></tr>';
     }
-
+    
     // 5. EXPORT TO EXCEL
     function exportToExcel() {
         if (typeof XLSX === 'undefined') {
@@ -530,25 +537,22 @@ function updateApprovalUI(app) {
         await _supabase.auth.signOut();
         window.location.href = "login.html";
     }
-async function forceDownload(url, fileName) {
-    try {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
-        
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = fileName.replace(/\s+/g, '_'); // Replace spaces with underscores
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-        console.error("Download failed:", error);
-        // Fallback: just open in new tab if fetch fails
-        window.open(url, '_blank');
+      
+// 7. DOWNLOAD HELPER
+    async function forceDownload(url, fileName) {
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = fileName.replace(/\s+/g, '_') + '.png'; 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (e) { window.open(url, '_blank'); }
     }
-}
+      
       
 function downloadReview() {
     window.print();
