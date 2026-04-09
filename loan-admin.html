@@ -6,7 +6,7 @@
     <title>Africa Village | Admin Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.min.js"></script>
     <style>
         :root { 
             --primary: #2563eb; 
@@ -316,6 +316,59 @@
         bReject.onclick = () => rejectStep(app.id);
     }
 
+
+function exportToExcel() {
+    if (currentApplications.length === 0) {
+        alert("No data available to export.");
+        return;
+    }
+
+    // 1. Prepare and clean the data for Excel
+    const excelData = currentApplications.map(app => ({
+        'Application Date': new Date(app.created_at).toLocaleDateString(),
+        'Status': app.status.toUpperCase(),
+        'First Name': app.first_name,
+        'Father Name': app.father_name,
+        'Grandfather Name': app.grandfather_name,
+        'Mother Name': app.mother_name,
+        'Gender': app.gender,
+        'Phone Number': app.phone_number,
+        'Alt Phone': app.alt_phone || 'N/A',
+        'Loan Amount (ETB)': app.loan_amount,
+        'Duration (Days)': app.loan_duration,
+        'Total Repayable': app.total_repayable,
+        'Nearby Branch': app.nearby_branch,
+        'Organization': app.org_name,
+        'Net Salary': app.net_salary,
+        'National ID Num': app.national_id_number,
+        'Region': app.res_region,
+        'City': app.res_city,
+        'Sub City': app.res_subcity,
+        'House Number': app.res_house_num,
+        'Admin 1 Status': app.admin_one_status,
+        'Admin 2 Status': app.admin_two_status,
+        'Rejection Reason': app.rejection_reason || ''
+    }));
+
+    // 2. Create a new workbook and worksheet
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Loan Applications");
+
+    // 3. Set column widths (optional, makes it look professional)
+    const wscols = [
+        {wch: 15}, {wch: 12}, {wch: 15}, {wch: 15}, {wch: 15}, 
+        {wch: 15}, {wch: 10}, {wch: 15}, {wch: 15}, {wch: 15}
+    ];
+    worksheet['!cols'] = wscols;
+
+    // 4. Generate the file and trigger download
+    const fileName = `Africa_Village_Loans_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+}
+
+
+    
     async function viewDetails(index) {
     const app = currentApplications[index];
     const detailsContainer = document.getElementById('modalDetails');
