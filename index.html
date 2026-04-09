@@ -217,15 +217,38 @@
           // Inside your form.onsubmit try block...
 
 // 2. Submit to Database
+// 2. Submit to Database
 const { error: dbError } = await _supabase.from('loan_applications').insert([{
+    // Applicant Information
     first_name: document.getElementById('firstName').value,
+    father_name: document.getElementById('fatherName').value,
+    grandfather_name: document.getElementById('grandFatherName').value,
+    mother_name: document.getElementById('motherName').value,
+    gender: document.getElementById('gender').value,
+    birthday: document.getElementById('birthday').value,
+    nationality: document.getElementById('nationality').value,
     phone_number: document.getElementById('phoneNumber').value,
+    alt_phone: document.getElementById('phoneNumber2').value,
+
+    // Residential Address
+    res_region: document.getElementById('resRegion').value,
+    res_city: document.getElementById('resCity').value,
+    res_subcity: document.getElementById('resSubCity').value,
+    res_woreda: document.getElementById('resWoreda').value,
+    res_house_num: document.getElementById('resHouseNum').value,
+
+    // Loan Details
     loan_amount: parseFloat(document.getElementById('loanAmount').value),
-    loan_duration: document.getElementById('loanDuration').value, // added for completeness
-    nearby_branch: document.getElementById('nearbyBranch').value, // <--- NEW LINE
+    loan_duration: document.getElementById('loanDuration').value,
+    nearby_branch: document.getElementById('nearbyBranch').value,
+    total_repayable: parseFloat(document.getElementById('summaryTotal').innerText.replace(/,/g, '')),
+
+    // Employment & ID
+    org_name: document.getElementById('orgName').value,
+    net_salary: parseFloat(document.getElementById('netSalary').value),
     national_id_number: document.getElementById('nationalIDNum').value,
     
-    // Upload paths
+    // Upload paths (Matching the order in your uploads array)
     nat_id_front: uploads[0],
     nat_id_back: uploads[1],
     emp_id_front: uploads[2],
@@ -233,7 +256,10 @@ const { error: dbError } = await _supabase.from('loan_applications').insert([{
     employment_letter: uploads[4],
     personal_photo: uploads[5],
     digital_signature: uploads[6],
-    status: 'pending'
+    
+    status: 'pending',
+    admin_one_status: 'pending',
+    admin_two_status: 'pending'
 }]);
 
             if (dbError) throw dbError;
