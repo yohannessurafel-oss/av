@@ -26,6 +26,41 @@
             margin: 0; 
             padding: 24px; 
         }
+        /* Ensure the grid displays 4 items on large screens */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+/* Better document containers */
+.img-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: zoom-in;
+    transition: transform 0.2s;
+}
+
+.img-container img:hover {
+    transform: scale(1.05);
+}
+
+.btn-download {
+    text-decoration: none;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: block;
+    text-align: center;
+    font-size: 0.7rem;
+}
+
+.btn-download:hover {
+    background: var(--primary);
+    color: white;
+}
 
         .container { max-width: 1200px; margin: 0 auto; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
@@ -313,72 +348,85 @@
     }
 
     // 6. VIEW DETAILS (MODAL POPULATION)
-    async function viewDetails(index) {
+  async function viewDetails(index) {
     const app = currentApplications[index];
     const detailsContainer = document.getElementById('modalDetails');
     const docsContainer = document.getElementById('modalDocs');
 
-    // 1. Map all personal, address, and guarantor info
+    // 1. Populate full data fields
     detailsContainer.innerHTML = `
         <div class="info-group">
-            <h4>Applicant Information</h4>
+            <h4>Personal Information</h4>
             <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name} ${app.grandfather_name}</div>
             <div class="info-item"><span>Mother's Name:</span> ${app.mother_name}</div>
             <div class="info-item"><span>Phone:</span> ${app.phone_number}</div>
-            <div class="info-item"><span>Birthday:</span> ${app.birthday}</div>
+            <div class="info-item"><span>Alt Phone:</span> ${app.phone_number2 || 'None'}</div>
             <div class="info-item"><span>Gender:</span> ${app.gender}</div>
+            <div class="info-item"><span>Nationality:</span> ${app.nationality}</div>
+            <div class="info-item"><span>Birthday:</span> ${app.birthday}</div>
         </div>
         <div class="info-group">
             <h4>Residential Address</h4>
-            <div class="info-item"><span>Region/City:</span> ${app.res_region || 'N/A'}, ${app.res_city || 'N/A'}</div>
+            <div class="info-item"><span>Region:</span> ${app.res_region || 'N/A'}</div>
+            <div class="info-item"><span>City:</span> ${app.res_city || 'N/A'}</div>
             <div class="info-item"><span>Sub-City/Woreda:</span> ${app.res_sub_city || 'N/A'} / ${app.res_woreda || 'N/A'}</div>
             <div class="info-item"><span>House No:</span> ${app.res_house_num || 'N/A'}</div>
-            <div class="info-item"><span>Nearby Branch:</span> ${app.nearby_branch}</div>
+            <div class="info-item"><span>Branch:</span> ${app.nearby_branch}</div>
         </div>
         <div class="info-group">
-            <h4>Guarantor Information</h4>
-            <div class="info-item"><span>Guarantor Name:</span> ${app.guarantor_name || 'N/A'}</div>
-            <div class="info-item"><span>Guarantor Phone:</span> ${app.guarantor_phone || 'N/A'}</div>
-            <div class="info-item"><span>Guarantor Address:</span> ${app.guarantor_address || 'N/A'}</div>
-        </div>
-        <div class="info-group">
-            <h4>Financial Details</h4>
-            <div class="info-item"><span>Loan Amount:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
-            <div class="info-item"><span>Repayable:</span> ${Number(app.total_repayable).toLocaleString()} ETB</div>
-            <div class="info-item"><span>Organization:</span> ${app.org_name}</div>
+            <h4>Guarantor & Financials</h4>
+            <div class="info-item"><span>Guarantor:</span> ${app.guarantor_name || 'N/A'}</div>
+            <div class="info-item"><span>G-Phone:</span> ${app.guarantor_phone || 'N/A'}</div>
+            <div class="info-item"><span>G-Address:</span> ${app.guarantor_address || 'N/A'}</div>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
+            <div class="info-item"><span>Employer:</span> ${app.org_name}</div>
             <div class="info-item"><span>Net Salary:</span> ${Number(app.net_salary).toLocaleString()} ETB</div>
+        </div>
+        <div class="info-group">
+            <h4>Loan Summary</h4>
+            <div class="info-item"><span>Requested:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
+            <div class="info-item"><span>Duration:</span> ${app.loan_duration} Days</div>
+            <div class="info-item"><span>Repayable:</span> <strong style="color:var(--primary)">${Number(app.total_repayable).toLocaleString()} ETB</strong></div>
+            <div class="info-item"><span>ID Number:</span> ${app.national_id_number}</div>
         </div>
     `;
 
-    // 2. Map all 7 documents
-    const docFields = [
-        { name: "National ID Front", path: app.nat_id_front },
-        { name: "National ID Back", path: app.nat_id_back },
-        { name: "Employee ID Front", path: app.emp_id_front },
-        { name: "Employee ID Back", path: app.emp_id_back },
-        { name: "Employment Letter", path: app.employment_letter },
-        { name: "Personal Photo", path: app.personal_photo },
-        { name: "Digital Signature", path: app.digital_signature }
+    // 2. Define all document paths for display
+    const docMapping = [
+        { label: 'National ID Front', path: app.nat_id_front },
+        { label: 'National ID Back', path: app.nat_id_back },
+        { label: 'Employee ID Front', path: app.emp_id_front },
+        { label: 'Employee ID Back', path: app.emp_id_back },
+        { label: 'Employment Letter', path: app.employment_letter },
+        { label: 'Personal Photo', path: app.personal_photo },
+        { label: 'Digital Signature', path: app.digital_signature }
     ];
 
-    docsContainer.innerHTML = docFields.map(doc => {
-        if (!doc.path) return '';
-        const url = _supabase.storage.from('kyc-docs').getPublicUrl(doc.path).data.publicUrl;
-        return `
-            <div class="doc-item">
-                <div class="img-container">
-                    <img src="${url}" alt="${doc.name}" onclick="window.open('${url}', '_blank')">
-                </div>
-                <div style="font-size:0.75rem; font-weight:bold; text-align:center">${doc.name}</div>
-                <a href="${url}" target="_blank" class="btn-download" style="margin-top:5px">View Full Size</a>
-            </div>
-        `;
-    }).join('');
+    docsContainer.innerHTML = ''; // Clear previous
 
-    // 3. Setup Admin UI (Button states)
-    setupAdminUI(app);
-    
-    document.getElementById('detailsModal').style.display = 'block';
+    docMapping.forEach(doc => {
+        if (doc.path) {
+            const { data } = _supabase.storage.from('kyc-docs').getPublicUrl(doc.path);
+            const isPDF = doc.path.toLowerCase().endsWith('.pdf');
+            
+            const docElement = document.createElement('div');
+            docElement.className = 'doc-item';
+            docElement.innerHTML = `
+                <div class="img-container">
+                    ${isPDF ? 
+                        `<div style="padding:20px; text-align:center">📄 PDF Document</div>` : 
+                        `<img src="${data.publicUrl}" onclick="window.open('${data.publicUrl}', '_blank')">`
+                    }
+                </div>
+                <div style="font-size: 0.75rem; font-weight: bold; text-align:center; margin-bottom:5px;">${doc.label}</div>
+                <a href="${data.publicUrl}" target="_blank" class="btn-download">Open Full File</a>
+            `;
+            docsContainer.appendChild(docElement);
+        }
+    });
+
+    document.getElementById('detailsModal').style.display = "block";
+    updateApprovalUI(app);
 }
 
     // 7. APPROVAL LOGIC
