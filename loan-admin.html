@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Africa Village | Admin Dashboard</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.min.js"></script>
+
     <style>
         :root { 
             --primary: #2563eb; 
@@ -320,10 +321,29 @@
 
 
 function exportToExcel() {
+    // Check if the library actually loaded
+    if (typeof XLSX === 'undefined') {
+        alert("Excel library is not loaded. Please check your internet connection or the script tag in the head.");
+        return;
+    }
+
     if (currentApplications.length === 0) {
         alert("No data available to export.");
         return;
     }
+
+    // ... rest of your mapping code ...
+    const excelData = currentApplications.map(app => ({
+        'Full Name': `${app.first_name} ${app.father_name}`,
+        'Amount': app.loan_amount,
+        // etc...
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Loans");
+    XLSX.writeFile(workbook, "Loan_Report.xlsx");
+}
 
     // 1. Prepare and clean the data for Excel
     const excelData = currentApplications.map(app => ({
