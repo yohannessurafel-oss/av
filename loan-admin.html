@@ -317,12 +317,79 @@
     }
 
     async function viewDetails(index) {
-        const app = currentApplications[index];
-        // Populate modal HTML (as per your original design)
-        // ... (Refer to your original viewDetails code for the innerHTML part)
-        document.getElementById('detailsModal').style.display = "block";
-        updateApprovalUI(app);
-    }
+    const app = currentApplications[index];
+    const detailsContainer = document.getElementById('modalDetails');
+    const docsContainer = document.getElementById('modalDocs');
+
+    // 1. Populate Text Information
+    detailsContainer.innerHTML = `
+        <div class="info-group">
+            <h4>Applicant Information</h4>
+            <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name} ${app.grandfather_name}</div>
+            <div class="info-item"><span>Mother's Name:</span> ${app.mother_name}</div>
+            <div class="info-item"><span>Phone:</span> ${app.phone_number}</div>
+            <div class="info-item"><span>Alt Phone:</span> ${app.alt_phone || 'N/A'}</div>
+            <div class="info-item"><span>Gender:</span> ${app.gender}</div>
+            <div class="info-item"><span>Birthday:</span> ${app.birthday}</div>
+        </div>
+        <div class="info-group">
+            <h4>Loan Details</h4>
+            <div class="info-item"><span>Requested:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
+            <div class="info-item"><span>Repayable:</span> ${Number(app.total_repayable).toLocaleString()} ETB</div>
+            <div class="info-item"><span>Duration:</span> ${app.loan_duration} Days</div>
+            <div class="info-item"><span>Branch:</span> ${app.nearby_branch}</div>
+        </div>
+        <div class="info-group">
+            <h4>Employment</h4>
+            <div class="info-item"><span>Organization:</span> ${app.org_name}</div>
+            <div class="info-item"><span>Salary:</span> ${Number(app.net_salary).toLocaleString()} ETB</div>
+            <div class="info-item"><span>National ID:</span> ${app.national_id_number}</div>
+        </div>
+        <div class="info-group">
+            <h4>Residential Address</h4>
+            <div class="info-item"><span>Region:</span> ${app.res_region}</div>
+            <div class="info-item"><span>City:</span> ${app.res_city}</div>
+            <div class="info-item"><span>Subcity:</span> ${app.res_subcity}</div>
+            <div class="info-item"><span>House No:</span> ${app.res_house_num}</div>
+        </div>
+    `;
+
+    // 2. Populate Photos with Signed URLs
+    const docKeys = [
+        { label: 'National ID Front', path: app.nat_id_front },
+        { label: 'National ID Back', path: app.nat_id_back },
+        { label: 'Employee ID Front', path: app.emp_id_front },
+        { label: 'Employee ID Back', path: app.emp_id_back },
+        { label: 'Employment Letter', path: app.employment_letter },
+        { label: 'Personal Photo', path: app.personal_photo },
+        { label: 'Digital Signature', path: app.digital_signature }
+    ];
+
+    docsContainer.innerHTML = '<p>Loading documents...</p>';
+
+    const docItems = await Promise.all(docKeys.map(async doc => {
+        if (!doc.path) return `<div class="doc-item"><span>${doc.label}</span><br>Not uploaded</div>`;
+        
+        // Generate a public URL for the image
+        const { data } = _supabase.storage.from('kyc-docs').getPublicUrl(doc.path);
+        
+        return `
+            <div class="doc-item">
+                <div class="img-container">
+                    <img src="${data.publicUrl}" alt="${doc.label}" onclick="window.open('${data.publicUrl}', '_blank')">
+                </div>
+                <div style="font-size: 0.7rem; font-weight: bold;">${doc.label}</div>
+                <a href="${data.publicUrl}" target="_blank" class="btn-download">View Full Size</a>
+            </div>
+        `;
+    }));
+
+    docsContainer.innerHTML = docItems.join('');
+
+    // 3. Show Modal and Update Approval Buttons
+    document.getElementById('detailsModal').style.display = "block";
+    updateApprovalUI(app);
+}
 
     function closeModal() { document.getElementById('detailsModal').style.display = "none"; }
 
