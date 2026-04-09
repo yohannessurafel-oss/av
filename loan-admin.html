@@ -450,89 +450,46 @@ docMapping.forEach(doc => {
     }
 });
 
-    // 7. APPROVAL LOGIC
-    async function approveStep(id, adminNumber) {
+    // 8. APPROVAL SYSTEM
+    async function approveStep(id, num) {
         const updateData = {};
-        const column = adminNumber === 1 ? 'admin_one_status' : 'admin_two_status';
-        updateData[column] = 'approved';
-
-        const app = currentApplications.find(a => a.id === id);
-        const otherAdminApproved = (adminNumber === 1 ? app.admin_two_status : app.admin_one_status) === 'approved';
+        const col = num === 1 ? 'admin_one_status' : 'admin_two_status';
+        updateData[col] = 'approved';
         
-        if (otherAdminApproved) updateData.status = 'approved';
+        const app = currentApplications.find(a => a.id === id);
+        const otherApproved = (num === 1 ? app.admin_two_status : app.admin_one_status) === 'approved';
+        if (otherApproved) updateData.status = 'approved';
 
         const { error } = await _supabase.from('loan_applications').update(updateData).eq('id', id);
-        if (error) alert(error.message);
-        else {
-            alert(`Admin ${adminNumber} Approval Recorded!`);
-            closeModal();
-            fetchApplications();
-        }
+        if (!error) { fetchApplications(); closeModal(); }
     }
+      
 
-    async function rejectStep(id) {
+   async function rejectStep(id) {
         const reason = document.getElementById('rejectionReason').value;
-        if (!reason) return alert("Please provide a reason.");
-        const { error } = await _supabase.from('loan_applications').update({ status: 'rejected', rejection_reason: reason }).eq('id', id);
-        if (error) alert(error.message);
-        else {
-            alert("Rejected.");
-            closeModal();
-            fetchApplications();
-        }
+        if (!reason) return alert("Enter reason.");
+        await _supabase.from('loan_applications').update({ status: 'rejected', rejection_reason: reason }).eq('id', id);
+        fetchApplications(); closeModal();
     }
+      
 
-    // Fixed Approval UI logic
-function updateApprovalUI(app) {
-    const b1 = document.getElementById('btnAdmin1');
-    const b2 = document.getElementById('btnAdmin2');
-    const bReject = document.getElementById('btnReject');
-    const statusDiv = document.getElementById('finalStatus');
+   function updateApprovalUI(app) {
+        const b1 = document.getElementById('btnAdmin1');
+        const b2 = document.getElementById('btnAdmin2');
+        const bReject = document.getElementById('btnReject');
+        
+        b1.onclick = () => approveStep(app.id, 1);
+        b2.onclick = () => approveStep(app.id, 2);
+        bReject.onclick = () => rejectStep(app.id);
 
-    // Safety check: if buttons are missing, stop here
-    if (!b1 || !b2 || !bReject) {
-        console.error("Approval buttons not found in HTML!");
-        return;
+        if (loggedInAdmin.role === 'admin1') { b2.disabled = true; b2.style.opacity = 0.5; }
+        if (app.admin_one_status === 'approved') { b1.innerText = "Admin 1 ✅"; b1.disabled = true; }
+        if (app.admin_two_status === 'approved') { b2.innerText = "Admin 2 ✅"; b2.disabled = true; }
     }
-
-    // Reset states
-    b1.disabled = false; b2.disabled = false; bReject.disabled = false;
-    b1.style.opacity = "1"; b2.style.opacity = "1";
-    b1.innerText = "Admin 1: Approve";
-    b2.innerText = "Admin 2: Approve";
-    b1.style.background = "#2563eb";
-    b2.style.background = "#2563eb";
-
-    // Admin 1 restriction
-    if (loggedInAdmin.role === 'admin1') {
-        b2.disabled = true;
-        b2.style.opacity = "0.5";
-        b2.innerText = "Waiting for Super Admin";
-    }
-
-    // Update based on database status
-    if (app.admin_one_status === 'approved') {
-        b1.disabled = true;
-        b1.innerText = "Admin 1: ✅ Approved";
-        b1.style.background = "#16a34a";
-    }
-
-    if (app.admin_two_status === 'approved') {
-        b2.disabled = true;
-        b2.innerText = "Admin 2: ✅ Approved";
-        b2.style.background = "#16a34a";
-    }
-
-    if (app.status === 'rejected') {
-        statusDiv.innerHTML = `<span class="status-badge rejected">REJECTED: ${app.rejection_reason || ''}</span>`;
-    }
-
-    b1.onclick = () => approveStep(app.id, 1);
-    b2.onclick = () => approveStep(app.id, 2);
-    bReject.onclick = () => rejectStep(app.id);
-}
+      
 
     function closeModal() { document.getElementById('detailsModal').style.display = "none"; }
+    function downloadReview() { window.print(); }
     async function handleLogout() {
         await _supabase.auth.signOut();
         window.location.href = "login.html";
