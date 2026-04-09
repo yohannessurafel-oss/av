@@ -1,13 +1,12 @@
 // config.js
 const supabaseUrl = 'https://oxzthrubidohuwwhxsrk.supabase.co';
-const supabaseKey = 'sb_publishable_ORZuRj6_fb0rMSYDsd1raw_GoMNuYPS';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Ensure this is your full Project API Key
 
-onst _supabase = supabase.createClient(supabaseUrl, supabaseKey);
-// We attach it to 'window' so it becomes a global variable
-// that your other scripts can see.
+// Initialize the client
 if (typeof supabase !== 'undefined') {
+    // We use window._supabase so it's globally accessible across your HTML files
     window._supabase = supabase.createClient(supabaseUrl, supabaseKey);
     console.log("Supabase Engine: Connected ✅");
 } else {
-    console.error("Supabase Engine: Not Loaded ❌ (Check your CDN link)");
+    console.error("Supabase Engine: Not Loaded ❌ (Check your CDN link in HTML)");
 }
