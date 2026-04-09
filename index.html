@@ -189,8 +189,12 @@
         e.preventDefault();
         const btn = document.getElementById('submitBtn');
         
+        if (typeof _supabase === 'undefined' && typeof window._supabase !== 'undefined') {
+            var _supabase = window._supabase;
+        }
+
         if (typeof _supabase === 'undefined') {
-            alert("Database not connected. Check config.js");
+            alert("Database not connected. Still check if config.js is in the same folder.");
             return;
         }
 
