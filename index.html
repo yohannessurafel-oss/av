@@ -162,34 +162,80 @@
         return data.path;
     }
 
+   // 1. Core Repayment Logic
     function calculateRepayment() {
         const amount = parseFloat(document.getElementById('loanAmount').value);
         const duration = document.getElementById('loanDuration').value;
         const summaryBox = document.getElementById('repaymentSummary');
+        const installmentList = document.getElementById('installmentList');
         
         if (isNaN(amount) || amount <= 0) { 
             summaryBox.style.display = "none"; 
             return; 
         }
 
-        const fees = amount * 0.10; // 6% + 3% + 1%
-        const interestRate = (duration === '60') ? 0.12 : (duration === '90' ? 0.18 : 0);
-        const totalRepayable = amount + (amount * interestRate);
+        // Rates
+        const serviceRate = 0.06;
+        const insuranceRate = 0.03;
+        const disasterRate = 0.01;
+        let interestRate = 0; 
+        if (duration === '60') interestRate = 0.12;
+        else if (duration === '90') interestRate = 0.18;
+        else if (duration === '30' || duration === '7') interestRate = 0.10; // Assuming 10% for 30 days based on your example
 
+        // Calculations
+        const valService = amount * serviceRate;
+        const valInsurance = amount * insuranceRate;
+        const valDisaster = amount * disasterRate;
+        const netDisbursed = amount - (valService + valInsurance + valDisaster);
+        
+        const interestAmount = amount * interestRate;
+        const totalRepayable = amount + interestAmount;
+
+        // UI Updates - Disbursement
         summaryBox.style.display = "block";
         document.getElementById('summaryPrincipal').innerText = amount.toLocaleString() + " ETB";
-        document.getElementById('summaryFees').innerText = fees.toLocaleString() + " ETB";
-        document.getElementById('summaryNet').innerText = (amount - fees).toLocaleString() + " ETB";
-        document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString() + " ETB";
-        
-        // Dynamic Installment Text
-        const installmentText = duration === '7' || duration === '30' 
-            ? `Single payment of <strong>${totalRepayable.toLocaleString()} ETB</strong> due in ${duration} days.`
-            : `Split into installments as per ${duration} days schedule.`;
-        document.getElementById('installmentList').innerHTML = installmentText;
+        document.getElementById('feeService').innerText = valService.toLocaleString() + " ETB";
+        document.getElementById('feeInsurance').innerText = valInsurance.toLocaleString() + " ETB";
+        document.getElementById('feeDisaster').innerText = valDisaster.toLocaleString() + " ETB";
+        document.getElementById('summaryNet').innerText = netDisbursed.toLocaleString() + " ETB";
+
+        // UI Updates - Repayment Header
+        document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
+        document.getElementById('percentPrincipal').innerText = ((amount / totalRepayable) * 100).toFixed(1) + "%";
+        document.getElementById('percentInterest').innerText = ((interestAmount / totalRepayable) * 100).toFixed(1) + "%";
+
+        // Installment Breakdown
+        let installments = 1;
+        if (duration === '60') installments = 2;
+        if (duration === '90') installments = 3;
+
+        const principalPerInst = amount / installments;
+        const interestPerInst = interestAmount / installments;
+        const totalPerInst = totalRepayable / installments;
+
+        let html = "";
+        for(let i = 1; i <= installments; i++) {
+            const dayLabel = (i * 30) > parseInt(duration) ? duration : (i * 30);
+            html += `
+                <div style="margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px dashed #eee;">
+                    <div style="display: flex; justify-content: space-between; font-weight: 600; color: #0f172a;">
+                        <span>Installment ${i} (Day ${dayLabel})</span>
+                        <span>${totalPerInst.toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                        <span>Principal:</span> <span>${principalPerInst.toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b;">
+                        <span>Interest:</span> <span>${interestPerInst.toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span>
+                    </div>
+                </div>`;
+        }
+        installmentList.innerHTML = html;
     }
 
-    form.onsubmit = async (e) => {
+
+form.onsubmit = async (e) => {
         e.preventDefault();
         const btn = document.getElementById('submitBtn');
         btn.disabled = true;
@@ -262,6 +308,8 @@
             btn.innerText = "Submit Loan Request";
         }
     };
+
+    
 </script>
 </body>
 </html>
