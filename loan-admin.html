@@ -102,7 +102,13 @@
         
         .close-modal { position: absolute; right: 24px; top: 24px; cursor: pointer; font-size: 1.5rem; color: var(--text-muted); }
 
-
+.btn-action {
+    transition: all 0.2s ease;
+}
+.btn-action:hover {
+    filter: brightness(90%);
+    transform: translateY(-1px);
+}
 
 @media print {
     body * { visibility: hidden; }
@@ -402,32 +408,40 @@
         { label: 'Digital Signature', path: app.digital_signature }
     ];
 
-    docsContainer.innerHTML = ''; // Clear previous
+   docsContainer.innerHTML = ''; 
 
-    docMapping.forEach(doc => {
-        if (doc.path) {
-            const { data } = _supabase.storage.from('kyc-docs').getPublicUrl(doc.path);
-            const isPDF = doc.path.toLowerCase().endsWith('.pdf');
+docMapping.forEach(doc => {
+    if (doc.path) {
+        const { data } = _supabase.storage.from('kyc-docs').getPublicUrl(doc.path);
+        const publicUrl = data.publicUrl;
+        const isPDF = doc.path.toLowerCase().endsWith('.pdf');
+        
+        const docElement = document.createElement('div');
+        docElement.className = 'doc-item';
+        docElement.style.display = 'flex';
+        docElement.style.flexDirection = 'column';
+        docElement.style.gap = '8px';
+
+        docElement.innerHTML = `
+            <div class="img-container" style="height: 120px; background: #f1f5f9; border-radius: 4px; overflow: hidden;">
+                ${isPDF ? 
+                    `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; font-size:0.7rem; color:#64748b;">
+                        <span style="font-size:1.5rem;">📄</span> PDF DOCUMENT
+                     </div>` : 
+                    `<img src="${publicUrl}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${publicUrl}', '_blank')">`
+                }
+            </div>
+            <div style="font-size: 0.75rem; font-weight: bold; color: var(--text-main);">${doc.label}</div>
             
-            const docElement = document.createElement('div');
-            docElement.className = 'doc-item';
-            docElement.innerHTML = `
-                <div class="img-container">
-                    ${isPDF ? 
-                        `<div style="padding:20px; text-align:center">📄 PDF Document</div>` : 
-                        `<img src="${data.publicUrl}" onclick="window.open('${data.publicUrl}', '_blank')">`
-                    }
-                </div>
-                <div style="font-size: 0.75rem; font-weight: bold; text-align:center; margin-bottom:5px;">${doc.label}</div>
-                <a href="${data.publicUrl}" target="_blank" class="btn-download">Open Full File</a>
-            `;
-            docsContainer.appendChild(docElement);
-        }
-    });
-
-    document.getElementById('detailsModal').style.display = "block";
-    updateApprovalUI(app);
-}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                <a href="${publicUrl}" target="_blank" class="btn-action" style="background:#e2e8f0; color:#0f172a; text-decoration:none; padding:5px; font-size:0.65rem; text-align:center; border-radius:4px; font-weight:bold;">VIEW</a>
+                
+                <button onclick="forceDownload('${publicUrl}', '${doc.label}_${app.first_name}')" class="btn-action" style="background:var(--primary); color:white; border:none; padding:5px; font-size:0.65rem; text-align:center; border-radius:4px; cursor:pointer; font-weight:bold;">DOWNLOAD</button>
+            </div>
+        `;
+        docsContainer.appendChild(docElement);
+    }
+});
 
     // 7. APPROVAL LOGIC
     async function approveStep(id, adminNumber) {
@@ -516,6 +530,26 @@ function updateApprovalUI(app) {
         await _supabase.auth.signOut();
         window.location.href = "login.html";
     }
+async function forceDownload(url, fileName) {
+    try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName.replace(/\s+/g, '_'); // Replace spaces with underscores
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+        console.error("Download failed:", error);
+        // Fallback: just open in new tab if fetch fails
+        window.open(url, '_blank');
+    }
+}
+      
 function downloadReview() {
     window.print();
     // 1. Get the applicant's name for the filename
