@@ -2,7 +2,7 @@
 const supabaseUrl = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 // WARNING: Go to Supabase > Settings > API and copy the 'anon' 'public' key. 
 // It should be a very long string starting with 'eyJ...'
-const supabaseKey = 'YOUR_ACTUAL_ANON_PUBLIC_KEY_HERE'; 
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'; 
 
 if (typeof supabase !== 'undefined') {
     window._supabase = supabase.createClient(supabaseUrl, supabaseKey);
