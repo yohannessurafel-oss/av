@@ -167,11 +167,11 @@
 </div>
 
 <script>
-    // 1. GLOBAL VARIABLES (Declared only once)
+    // 1. GLOBAL VARIABLES
     let currentApplications = [];
     let loggedInAdmin = null;
 
-    // 2. INITIALIZATION (Checks auth and fetches profile)
+    // 2. INITIALIZATION
     async function initializeDashboard() {
         const { data: { user }, error: authError } = await _supabase.auth.getUser();
 
@@ -192,16 +192,14 @@
         }
 
         loggedInAdmin = profile;
-        fetchApplications(); // Load data once we know the admin's branch
+        fetchApplications();
     }
 
-    // 3. FETCH DATA (Filtered by branch for Admin 1)
+    // 3. FETCH DATA
     async function fetchApplications() {
         if (!loggedInAdmin) return;
-
         let query = _supabase.from('loan_applications').select('*');
 
-        // Apply branch filter if they are a standard Admin 1
         if (loggedInAdmin.role === 'admin1' && loggedInAdmin.assigned_branch) {
             query = query.eq('nearby_branch', loggedInAdmin.assigned_branch);
         }
@@ -213,7 +211,7 @@
         renderTable();
     }
 
-    // 4. RENDER TABLE (Displays the data in HTML)
+    // 4. RENDER TABLE
     function renderTable() {
         const tbody = document.getElementById('appTableBody');
         tbody.innerHTML = currentApplications.length ? currentApplications.map((app, i) => `
@@ -228,20 +226,96 @@
         `).join('') : '<tr><td colspan="6" style="text-align:center">No records found.</td></tr>';
     }
 
-    // 5. LOGOUT
-   async function handleLogout() {
-    // Add '.auth' before '.signOut()'
-    const { error } = await _supabase.auth.signOut();
-    
-    if (error) {
-        console.error("Error logging out:", error.message);
-    } else {
-        // Redirect back to your login page
-        window.location.href = "login.html";
-    }
-}
+    // 5. EXPORT TO EXCEL
+    function exportToExcel() {
+        if (typeof XLSX === 'undefined') {
+            alert("Excel library is not loaded. Please wait a moment or check your connection.");
+            return;
+        }
 
-    // 6. ACTION FUNCTIONS (Approve/Reject/Modal)
+        if (currentApplications.length === 0) {
+            alert("No data available to export.");
+            return;
+        }
+
+        const excelData = currentApplications.map(app => ({
+            'Application Date': new Date(app.created_at).toLocaleDateString(),
+            'Status': app.status.toUpperCase(),
+            'First Name': app.first_name,
+            'Father Name': app.father_name,
+            'Grandfather Name': app.grandfather_name,
+            'Mother Name': app.mother_name,
+            'Gender': app.gender,
+            'Phone Number': app.phone_number,
+            'Loan Amount (ETB)': app.loan_amount,
+            'Duration (Days)': app.loan_duration,
+            'Total Repayable': app.total_repayable,
+            'Nearby Branch': app.nearby_branch,
+            'Organization': app.org_name,
+            'Net Salary': app.net_salary,
+            'National ID Num': app.national_id_number,
+            'Admin 1 Status': app.admin_one_status,
+            'Admin 2 Status': app.admin_two_status
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Loan Applications");
+
+        const fileName = `Africa_Village_Loans_${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(workbook, fileName);
+    }
+
+    // 6. VIEW DETAILS (MODAL POPULATION)
+    async function viewDetails(index) {
+        const app = currentApplications[index];
+        const detailsContainer = document.getElementById('modalDetails');
+        const docsContainer = document.getElementById('modalDocs');
+
+        detailsContainer.innerHTML = `
+            <div class="info-group">
+                <h4>Applicant Information</h4>
+                <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name} ${app.grandfather_name}</div>
+                <div class="info-item"><span>Mother's Name:</span> ${app.mother_name}</div>
+                <div class="info-item"><span>Phone:</span> ${app.phone_number}</div>
+                <div class="info-item"><span>Gender:</span> ${app.gender}</div>
+            </div>
+            <div class="info-group">
+                <h4>Loan Details</h4>
+                <div class="info-item"><span>Requested:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
+                <div class="info-item"><span>Repayable:</span> ${Number(app.total_repayable).toLocaleString()} ETB</div>
+                <div class="info-item"><span>Duration:</span> ${app.loan_duration} Days</div>
+                <div class="info-item"><span>Branch:</span> ${app.nearby_branch}</div>
+            </div>
+        `;
+
+        const docKeys = [
+            { label: 'National ID Front', path: app.nat_id_front },
+            { label: 'National ID Back', path: app.nat_id_back },
+            { label: 'Personal Photo', path: app.personal_photo }
+        ];
+
+        docsContainer.innerHTML = '<p>Loading documents...</p>';
+
+        const docItems = await Promise.all(docKeys.map(async doc => {
+            if (!doc.path) return `<div class="doc-item"><span>${doc.label}</span><br>N/A</div>`;
+            const { data } = _supabase.storage.from('kyc-docs').getPublicUrl(doc.path);
+            return `
+                <div class="doc-item">
+                    <div class="img-container">
+                        <img src="${data.publicUrl}" onclick="window.open('${data.publicUrl}', '_blank')">
+                    </div>
+                    <div style="font-size: 0.7rem; font-weight: bold;">${doc.label}</div>
+                </div>
+            `;
+        }));
+
+        docsContainer.innerHTML = docItems.join('');
+        document.getElementById('detailsModal').style.display = "block";
+        updateApprovalUI(app);
+    }
+
+    // 7. APPROVAL LOGIC
     async function approveStep(id, adminNumber) {
         const updateData = {};
         const column = adminNumber === 1 ? 'admin_one_status' : 'admin_two_status';
@@ -250,15 +324,11 @@
         const app = currentApplications.find(a => a.id === id);
         const otherAdminApproved = (adminNumber === 1 ? app.admin_two_status : app.admin_one_status) === 'approved';
         
-        if (otherAdminApproved) {
-            updateData.status = 'approved';
-        }
+        if (otherAdminApproved) updateData.status = 'approved';
 
         const { error } = await _supabase.from('loan_applications').update(updateData).eq('id', id);
-
-        if (error) {
-            alert("Error: " + error.message);
-        } else {
+        if (error) alert(error.message);
+        else {
             alert(`Admin ${adminNumber} Approval Recorded!`);
             closeModal();
             fetchApplications();
@@ -268,11 +338,7 @@
     async function rejectStep(id) {
         const reason = document.getElementById('rejectionReason').value;
         if (!reason) return alert("Please provide a reason.");
-
-        const { error } = await _supabase.from('loan_applications')
-            .update({ status: 'rejected', rejection_reason: reason })
-            .eq('id', id);
-
+        const { error } = await _supabase.from('loan_applications').update({ status: 'rejected', rejection_reason: reason }).eq('id', id);
         if (error) alert(error.message);
         else {
             alert("Rejected.");
@@ -285,33 +351,18 @@
         const b1 = document.getElementById('btnAdmin1');
         const b2 = document.getElementById('btnAdmin2');
         const bReject = document.getElementById('btnReject');
-        const statusDiv = document.getElementById('finalStatus');
-
-        b1.disabled = false; b2.disabled = false; bReject.disabled = false;
-        b1.style.opacity = "1"; b2.style.opacity = "1";
-
+        
+        b1.disabled = false; b2.disabled = false;
+        
         if (loggedInAdmin.role === 'admin1') {
             b2.disabled = true;
             b2.style.opacity = "0.5";
-            b2.innerText = "Waiting for Super Admin";
-        }
-
-        if (app.status === 'rejected') {
-            b1.disabled = true; b2.disabled = true; bReject.disabled = true;
-            statusDiv.innerHTML = `<span class="status-badge rejected">REJECTED</span>`;
-            return;
         }
 
         if (app.admin_one_status === 'approved') {
             b1.disabled = true;
-            b1.innerText = "Admin 1: ✅ Approved";
             b1.style.background = "#16a34a";
-        }
-
-        if (app.admin_two_status === 'approved') {
-            b2.disabled = true;
-            b2.innerText = "Admin 2: ✅ Approved";
-            b2.style.background = "#16a34a";
+            b1.innerText = "Admin 1: ✅ Approved";
         }
 
         b1.onclick = () => approveStep(app.id, 1);
@@ -319,156 +370,12 @@
         bReject.onclick = () => rejectStep(app.id);
     }
 
-
-function exportToExcel() {
-    // Check if the library actually loaded
-    if (typeof XLSX === 'undefined') {
-        alert("Excel library is not loaded. Please check your internet connection or the script tag in the head.");
-        return;
-    }
-
-    if (currentApplications.length === 0) {
-        alert("No data available to export.");
-        return;
-    }
-
-    // ... rest of your mapping code ...
-    const excelData = currentApplications.map(app => ({
-        'Full Name': `${app.first_name} ${app.father_name}`,
-        'Amount': app.loan_amount,
-        // etc...
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Loans");
-    XLSX.writeFile(workbook, "Loan_Report.xlsx");
-}
-
-    // 1. Prepare and clean the data for Excel
-    const excelData = currentApplications.map(app => ({
-        'Application Date': new Date(app.created_at).toLocaleDateString(),
-        'Status': app.status.toUpperCase(),
-        'First Name': app.first_name,
-        'Father Name': app.father_name,
-        'Grandfather Name': app.grandfather_name,
-        'Mother Name': app.mother_name,
-        'Gender': app.gender,
-        'Phone Number': app.phone_number,
-        'Alt Phone': app.alt_phone || 'N/A',
-        'Loan Amount (ETB)': app.loan_amount,
-        'Duration (Days)': app.loan_duration,
-        'Total Repayable': app.total_repayable,
-        'Nearby Branch': app.nearby_branch,
-        'Organization': app.org_name,
-        'Net Salary': app.net_salary,
-        'National ID Num': app.national_id_number,
-        'Region': app.res_region,
-        'City': app.res_city,
-        'Sub City': app.res_subcity,
-        'House Number': app.res_house_num,
-        'Admin 1 Status': app.admin_one_status,
-        'Admin 2 Status': app.admin_two_status,
-        'Rejection Reason': app.rejection_reason || ''
-    }));
-
-    // 2. Create a new workbook and worksheet
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Loan Applications");
-
-    // 3. Set column widths (optional, makes it look professional)
-    const wscols = [
-        {wch: 15}, {wch: 12}, {wch: 15}, {wch: 15}, {wch: 15}, 
-        {wch: 15}, {wch: 10}, {wch: 15}, {wch: 15}, {wch: 15}
-    ];
-    worksheet['!cols'] = wscols;
-
-    // 4. Generate the file and trigger download
-    const fileName = `Africa_Village_Loans_${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
-}
-
-
-    
-    async function viewDetails(index) {
-    const app = currentApplications[index];
-    const detailsContainer = document.getElementById('modalDetails');
-    const docsContainer = document.getElementById('modalDocs');
-
-    // 1. Populate Text Information
-    detailsContainer.innerHTML = `
-        <div class="info-group">
-            <h4>Applicant Information</h4>
-            <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name} ${app.grandfather_name}</div>
-            <div class="info-item"><span>Mother's Name:</span> ${app.mother_name}</div>
-            <div class="info-item"><span>Phone:</span> ${app.phone_number}</div>
-            <div class="info-item"><span>Alt Phone:</span> ${app.alt_phone || 'N/A'}</div>
-            <div class="info-item"><span>Gender:</span> ${app.gender}</div>
-            <div class="info-item"><span>Birthday:</span> ${app.birthday}</div>
-        </div>
-        <div class="info-group">
-            <h4>Loan Details</h4>
-            <div class="info-item"><span>Requested:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
-            <div class="info-item"><span>Repayable:</span> ${Number(app.total_repayable).toLocaleString()} ETB</div>
-            <div class="info-item"><span>Duration:</span> ${app.loan_duration} Days</div>
-            <div class="info-item"><span>Branch:</span> ${app.nearby_branch}</div>
-        </div>
-        <div class="info-group">
-            <h4>Employment</h4>
-            <div class="info-item"><span>Organization:</span> ${app.org_name}</div>
-            <div class="info-item"><span>Salary:</span> ${Number(app.net_salary).toLocaleString()} ETB</div>
-            <div class="info-item"><span>National ID:</span> ${app.national_id_number}</div>
-        </div>
-        <div class="info-group">
-            <h4>Residential Address</h4>
-            <div class="info-item"><span>Region:</span> ${app.res_region}</div>
-            <div class="info-item"><span>City:</span> ${app.res_city}</div>
-            <div class="info-item"><span>Subcity:</span> ${app.res_subcity}</div>
-            <div class="info-item"><span>House No:</span> ${app.res_house_num}</div>
-        </div>
-    `;
-
-    // 2. Populate Photos with Signed URLs
-    const docKeys = [
-        { label: 'National ID Front', path: app.nat_id_front },
-        { label: 'National ID Back', path: app.nat_id_back },
-        { label: 'Employee ID Front', path: app.emp_id_front },
-        { label: 'Employee ID Back', path: app.emp_id_back },
-        { label: 'Employment Letter', path: app.employment_letter },
-        { label: 'Personal Photo', path: app.personal_photo },
-        { label: 'Digital Signature', path: app.digital_signature }
-    ];
-
-    docsContainer.innerHTML = '<p>Loading documents...</p>';
-
-    const docItems = await Promise.all(docKeys.map(async doc => {
-        if (!doc.path) return `<div class="doc-item"><span>${doc.label}</span><br>Not uploaded</div>`;
-        
-        // Generate a public URL for the image
-        const { data } = _supabase.storage.from('kyc-docs').getPublicUrl(doc.path);
-        
-        return `
-            <div class="doc-item">
-                <div class="img-container">
-                    <img src="${data.publicUrl}" alt="${doc.label}" onclick="window.open('${data.publicUrl}', '_blank')">
-                </div>
-                <div style="font-size: 0.7rem; font-weight: bold;">${doc.label}</div>
-                <a href="${data.publicUrl}" target="_blank" class="btn-download">View Full Size</a>
-            </div>
-        `;
-    }));
-
-    docsContainer.innerHTML = docItems.join('');
-
-    // 3. Show Modal and Update Approval Buttons
-    document.getElementById('detailsModal').style.display = "block";
-    updateApprovalUI(app);
-}
-
     function closeModal() { document.getElementById('detailsModal').style.display = "none"; }
+    async function handleLogout() {
+        await _supabase.auth.signOut();
+        window.location.href = "login.html";
+    }
 
-    // RUN ON LOAD
     initializeDashboard();
 </script>
 </body>
