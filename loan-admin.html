@@ -26,50 +26,15 @@
             margin: 0; 
             padding: 24px; 
         }
-        /* Ensure the grid displays 4 items on large screens */
-.info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 20px;
-}
-
-/* Better document containers */
-.img-container img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    cursor: zoom-in;
-    transition: transform 0.2s;
-}
-
-.img-container img:hover {
-    transform: scale(1.05);
-}
-.btn-action {
-    transition: all 0.2s ease;
-}
-.btn-action:hover {
-    filter: brightness(90%);
-    transform: translateY(-1px);
-}
-.btn-download {
-    text-decoration: none;
-    color: var(--primary);
-    border: 1px solid var(--primary);
-    padding: 4px 8px;
-    border-radius: 4px;
-    display: block;
-    text-align: center;
-    font-size: 0.7rem;
-}
-
-.btn-download:hover {
-    background: var(--primary);
-    color: white;
-}
 
         .container { max-width: 1200px; margin: 0 auto; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+        
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 32px; 
+        }
 
         .card { 
             background: var(--card-bg); 
@@ -77,6 +42,7 @@
             border-radius: var(--radius); 
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
             border: 1px solid var(--border);
+            overflow-x: auto;
         }
 
         table { width: 100%; border-collapse: collapse; }
@@ -88,116 +54,50 @@
         .approved { background: #ecfdf5; color: #065f46; }
         .rejected { background: #fef2f2; color: #991b1b; }
 
+        /* Modal Styles */
         .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); z-index: 100; overflow-y: auto; padding: 20px; }
         .modal-content { background: white; max-width: 900px; margin: 20px auto; padding: 32px; border-radius: var(--radius); position: relative; }
         
-        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-top: 20px; }
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; margin-top: 20px; }
         .info-group h4 { margin: 0 0 12px 0; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 5px; }
         .info-item { font-size: 0.85rem; margin-bottom: 6px; }
         .info-item span { font-weight: 600; color: var(--text-muted); margin-right: 5px; }
 
+        /* Document Display */
         .doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 24px; }
-        .doc-item { border: 1px solid var(--border); padding: 12px; border-radius: 8px; background: #fff; }
-        .img-container { background: #000; height: 140px; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 10px; }
-        .doc-item img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .doc-item { border: 1px solid var(--border); padding: 12px; border-radius: 8px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
+        .img-container { background: #f1f5f9; height: 140px; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); }
+        .doc-item img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; transition: transform 0.2s; }
+        .doc-item img:hover { transform: scale(1.05); }
 
-        .btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; transition: 0.2s; }
+        .btn { padding: 10px 20px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; transition: 0.2s; }
         .btn-view { background: var(--primary); color: white; }
-        .btn-download { display: block; text-align: center; text-decoration: none; background: #f1f5f9; color: var(--text-main); font-size: 0.75rem; padding: 8px; border-radius: 4px; border: 1px solid var(--border); }
-        .btn-download:hover { background: var(--primary); color: white; }
+        .btn-action { border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s ease; }
+        .btn-action:hover { filter: brightness(90%); transform: translateY(-1px); }
         
         .close-modal { position: absolute; right: 24px; top: 24px; cursor: pointer; font-size: 1.5rem; color: var(--text-muted); }
 
-.btn-action {
-    transition: all 0.2s ease;
-}
-.btn-action:hover {
-    filter: brightness(90%);
-    transform: translateY(-1px);
-}
-
-@media print {
-    body * { visibility: hidden; }
-    #detailsModal, #detailsModal * { visibility: visible; }
-    #detailsModal { 
-        position: absolute; 
-        left: 0; 
-        top: 0; 
-        width: 100%; 
-        box-shadow: none; 
-    }
-    .btn, .close-modal, #rejectionReason { display: none !important; }
-    .modal { position: relative; display: block; background: white; }
-    .img-container { height: auto !important; border: 1px solid #eee; }
-}
-        
-@media print {
-    /* Hide everything on the page */
-    body * {
-        visibility: hidden;
-    }
-    /* Show only the modal content */
-    #detailsModal, #detailsModal * {
-        visibility: visible;
-    }
-    #detailsModal {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        background: white;
-    }
-    /* Fix images for print */
-    .img-container {
-        height: auto !important;
-        border: none !important;
-    }
-    .doc-item img {
-        max-width: 300px;
-        height: auto;
-    }
-}
-
-.img-container { 
-    background: #f1f5f9; /* Light grey instead of black */
-    height: 140px; 
-    border-radius: 4px; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    overflow: hidden; 
-    margin-bottom: 10px;
-    border: 1px solid var(--border);
-}
-
-.doc-item img { 
-    width: 100%; 
-    height: 100%; 
-    object-fit: cover; /* This fills the box better than 'contain' */
-}
-
-        
+        @media print {
+            body * { visibility: hidden; }
+            #detailsModal, #detailsModal * { visibility: visible; }
+            #detailsModal { position: absolute; left: 0; top: 0; width: 100%; background: white; }
+            .btn, .close-modal, #approvalSection, #rejectionReason { display: none !important; }
+            .img-container { height: auto !important; border: 1px solid #eee; }
+            .doc-item img { max-width: 300px; height: auto; }
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <h1>Loan Applications</h1>
-        <button onclick="fetchApplications()" class="btn btn-view">Refresh List</button>
+        <h1>Loan Administration</h1>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="handleLogout()" class="btn" style="background: #64748b; color: white;">Logout</button>
+            <button onclick="exportToExcel()" class="btn" style="background: #16a34a; color: white;">Export Excel</button>
+            <button onclick="fetchApplications()" class="btn btn-view">Refresh List</button>
+        </div>
     </div>
-  <button onclick="handleLogout()" class="btn" style="background: #64748b; color: white;">Logout</button>
-
-
-    <div class="header">
-    <h1>Loan Applications</h1>
-    <div style="display: flex; gap: 10px;">
-        <button onclick="exportToExcel()" class="btn" style="background: #16a34a; color: white;">
-    Export to Excel
-</button>
-        <button onclick="fetchApplications()" class="btn btn-view">Refresh List</button>
-    </div>
-</div>
 
     <div class="card">
         <table>
@@ -212,7 +112,7 @@
                 </tr>
             </thead>
             <tbody id="appTableBody">
-                <tr><td colspan="6" style="text-align:center">Loading...</td></tr>
+                <tr><td colspan="6" style="text-align:center">Loading loan applications...</td></tr>
             </tbody>
         </table>
     </div>
@@ -223,8 +123,8 @@
         <span class="close-modal" onclick="closeModal()">&times;</span>
         
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2 style="margin:0">Review Application</h2>
-            <button onclick="downloadReview()" class="btn" style="background: #ef4444; color: white;">Download PDF</button>
+            <h2 style="margin:0">Application Review</h2>
+            <button onclick="downloadReview()" class="btn" style="background: #ef4444; color: white;">Print / Save PDF</button>
         </div>
 
         <div id="modalDetails" class="info-grid"></div>
@@ -233,42 +133,29 @@
         <div class="doc-grid" id="modalDocs"></div>
 
         <div id="approvalSection" style="margin-top: 30px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border);">
-            <h3 style="margin-top:0">Multi-Admin Review</h3>
+            <h3 style="margin-top:0">Administrative Review</h3>
             <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 20px;">
-                <button id="btnAdmin1" class="btn" style="background: #2563eb; color: white;">Admin 1: Approve</button>
+                <button id="btnAdmin1" class="btn" style="background: #2563eb; color: white;">Admin 1 Approve</button>
                 <div style="font-size: 1.5rem; color: var(--border);">→</div>
-                <button id="btnAdmin2" class="btn" style="background: #2563eb; color: white;">Admin 2: Approve</button>
+                <button id="btnAdmin2" class="btn" style="background: #2563eb; color: white;">Admin 2 Approve</button>
             </div>
+            
             <div style="border-top: 1px solid var(--border); padding-top: 20px;">
-                <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted);">Rejection Notes:</label>
-                <textarea id="rejectionReason" style="width: 100%; margin: 8px 0; padding: 10px; border-radius: 6px; border: 1px solid var(--border);" placeholder="Reason for rejection..."></textarea>
+                <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted);">Rejection Reason:</label>
+                <textarea id="rejectionReason" style="width: 100%; margin: 8px 0; padding: 10px; border-radius: 6px; border: 1px solid var(--border); font-family: inherit;" rows="3" placeholder="Enter reason if rejecting..."></textarea>
                 <button id="btnReject" class="btn" style="background: #dc2626; color: white; width: 100%;">Reject Application</button>
             </div>
-            <div id="finalStatus" style="margin-top: 15px; font-weight: bold;"></div>
         </div>
-    </div>
-</div>
-
-
-
-            
-        </div>
-        
-        <h3 style="margin-top:32px">Submitted Documents</h3>
-        <div class="doc-grid" id="modalDocs"></div>
     </div>
 </div>
 
 <script>
-    // 1. GLOBAL VARIABLES
-   // 1. GLOBAL VARIABLES
     let currentApplications = [];
     let loggedInAdmin = null;
 
-    // 2. INITIALIZATION
+    // 1. Initialization
     async function initializeDashboard() {
         const { data: { user }, error: authError } = await _supabase.auth.getUser();
-
         if (authError || !user) {
             window.location.href = "login.html"; 
             return;
@@ -281,7 +168,7 @@
             .single();
 
         if (profileError) {
-            console.error("Profile not found:", profileError);
+            console.error("Profile Error:", profileError);
             return;
         }
 
@@ -289,26 +176,33 @@
         fetchApplications();
     }
 
-    / 3. FETCH DATA
+    // 2. Fetch Data
     async function fetchApplications() {
         if (!loggedInAdmin) return;
+        
         let query = _supabase.from('loan_applications').select('*');
 
+        // Filter by branch if Admin 1
         if (loggedInAdmin.role === 'admin1' && loggedInAdmin.assigned_branch) {
             query = query.eq('nearby_branch', loggedInAdmin.assigned_branch);
         }
 
         const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) return alert("Error fetching loans: " + error.message);
+        if (error) return alert("Error fetching data: " + error.message);
 
         currentApplications = data;
         renderTable();
     }
 
-   // 4. RENDER TABLE
+    // 3. Render Logic
     function renderTable() {
         const tbody = document.getElementById('appTableBody');
-        tbody.innerHTML = currentApplications.length ? currentApplications.map((app, i) => `
+        if (!currentApplications.length) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No applications found.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = currentApplications.map((app, i) => `
             <tr>
                 <td><strong>${app.first_name} ${app.father_name}</strong><br><small>${app.nearby_branch || 'General'}</small></td>
                 <td>${Number(app.loan_amount).toLocaleString()}</td>
@@ -317,140 +211,76 @@
                 <td><span class="status-badge ${app.status}">${app.status}</span></td>
                 <td><button onclick="viewDetails(${i})" class="btn btn-view">Review</button></td>
             </tr>
-        `).join('') : '<tr><td colspan="6" style="text-align:center">No records found.</td></tr>';
-    }
-    
-    // 5. EXPORT TO EXCEL
-    function exportToExcel() {
-        if (typeof XLSX === 'undefined') {
-            alert("Excel library is not loaded. Please wait a moment or check your connection.");
-            return;
-        }
-
-        if (currentApplications.length === 0) {
-            alert("No data available to export.");
-            return;
-        }
-
-        const excelData = currentApplications.map(app => ({
-            'Application Date': new Date(app.created_at).toLocaleDateString(),
-            'Status': app.status.toUpperCase(),
-            'First Name': app.first_name,
-            'Father Name': app.father_name,
-            'Grandfather Name': app.grandfather_name,
-            'Mother Name': app.mother_name,
-            'Gender': app.gender,
-            'Phone Number': app.phone_number,
-            'Loan Amount (ETB)': app.loan_amount,
-            'Duration (Days)': app.loan_duration,
-            'Total Repayable': app.total_repayable,
-            'Nearby Branch': app.nearby_branch,
-            'Organization': app.org_name,
-            'Net Salary': app.net_salary,
-            'National ID Num': app.national_id_number,
-            'Admin 1 Status': app.admin_one_status,
-            'Admin 2 Status': app.admin_two_status
-        }));
-
-        const worksheet = XLSX.utils.json_to_sheet(excelData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Loan Applications");
-
-        const fileName = `Africa_Village_Loans_${new Date().toISOString().split('T')[0]}.xlsx`;
-        XLSX.writeFile(workbook, fileName);
+        `).join('');
     }
 
-    // 6. VIEW DETAILS (MODAL POPULATION)
-  async function viewDetails(index) {
-    const app = currentApplications[index];
-    const detailsContainer = document.getElementById('modalDetails');
-    const docsContainer = document.getElementById('modalDocs');
+    // 4. Detail View & Modal Population
+    async function viewDetails(index) {
+        const app = currentApplications[index];
+        const detailsContainer = document.getElementById('modalDetails');
+        const docsContainer = document.getElementById('modalDocs');
 
-    // 1. Populate full data fields
-    detailsContainer.innerHTML = `
-        <div class="info-group">
-            <h4>Personal Information</h4>
-            <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name} ${app.grandfather_name}</div>
-            <div class="info-item"><span>Mother's Name:</span> ${app.mother_name}</div>
-            <div class="info-item"><span>Phone:</span> ${app.phone_number}</div>
-            <div class="info-item"><span>Alt Phone:</span> ${app.phone_number2 || 'None'}</div>
-            <div class="info-item"><span>Gender:</span> ${app.gender}</div>
-            <div class="info-item"><span>Nationality:</span> ${app.nationality}</div>
-            <div class="info-item"><span>Birthday:</span> ${app.birthday}</div>
-        </div>
-        <div class="info-group">
-            <h4>Residential Address</h4>
-            <div class="info-item"><span>Region:</span> ${app.res_region || 'N/A'}</div>
-            <div class="info-item"><span>City:</span> ${app.res_city || 'N/A'}</div>
-            <div class="info-item"><span>Sub-City/Woreda:</span> ${app.res_sub_city || 'N/A'} / ${app.res_woreda || 'N/A'}</div>
-            <div class="info-item"><span>House No:</span> ${app.res_house_num || 'N/A'}</div>
-            <div class="info-item"><span>Branch:</span> ${app.nearby_branch}</div>
-        </div>
-        <div class="info-group">
-            <h4>Guarantor & Financials</h4>
-            <div class="info-item"><span>Guarantor:</span> ${app.guarantor_name || 'N/A'}</div>
-            <div class="info-item"><span>G-Phone:</span> ${app.guarantor_phone || 'N/A'}</div>
-            <div class="info-item"><span>G-Address:</span> ${app.guarantor_address || 'N/A'}</div>
-            <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
-            <div class="info-item"><span>Employer:</span> ${app.org_name}</div>
-            <div class="info-item"><span>Net Salary:</span> ${Number(app.net_salary).toLocaleString()} ETB</div>
-        </div>
-        <div class="info-group">
-            <h4>Loan Summary</h4>
-            <div class="info-item"><span>Requested:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
-            <div class="info-item"><span>Duration:</span> ${app.loan_duration} Days</div>
-            <div class="info-item"><span>Repayable:</span> <strong style="color:var(--primary)">${Number(app.total_repayable).toLocaleString()} ETB</strong></div>
-            <div class="info-item"><span>ID Number:</span> ${app.national_id_number}</div>
-        </div>
-    `;
-
-    // 2. Define all document paths for display
-    const docMapping = [
-        { label: 'National ID Front', path: app.nat_id_front },
-        { label: 'National ID Back', path: app.nat_id_back },
-        { label: 'Employee ID Front', path: app.emp_id_front },
-        { label: 'Employee ID Back', path: app.emp_id_back },
-        { label: 'Employment Letter', path: app.employment_letter },
-        { label: 'Personal Photo', path: app.personal_photo },
-        { label: 'Digital Signature', path: app.digital_signature }
-    ];
-
-   docsContainer.innerHTML = ''; 
-
-docMapping.forEach(doc => {
-    if (doc.path) {
-        const { data } = _supabase.storage.from('kyc-docs').getPublicUrl(doc.path);
-        const publicUrl = data.publicUrl;
-        const isPDF = doc.path.toLowerCase().endsWith('.pdf');
-        
-        const docElement = document.createElement('div');
-        docElement.className = 'doc-item';
-        docElement.style.display = 'flex';
-        docElement.style.flexDirection = 'column';
-        docElement.style.gap = '8px';
-
-        docElement.innerHTML = `
-            <div class="img-container" style="height: 120px; background: #f1f5f9; border-radius: 4px; overflow: hidden;">
-                ${isPDF ? 
-                    `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; font-size:0.7rem; color:#64748b;">
-                        <span style="font-size:1.5rem;">📄</span> PDF DOCUMENT
-                     </div>` : 
-                    `<img src="${publicUrl}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${publicUrl}', '_blank')">`
-                }
+        detailsContainer.innerHTML = `
+            <div class="info-group">
+                <h4>Personal Information</h4>
+                <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name} ${app.grandfather_name}</div>
+                <div class="info-item"><span>Phone:</span> ${app.phone_number}</div>
+                <div class="info-item"><span>Gender:</span> ${app.gender}</div>
+                <div class="info-item"><span>ID Number:</span> ${app.national_id_number}</div>
             </div>
-            <div style="font-size: 0.75rem; font-weight: bold; color: var(--text-main);">${doc.label}</div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
-                <a href="${publicUrl}" target="_blank" class="btn-action" style="background:#e2e8f0; color:#0f172a; text-decoration:none; padding:5px; font-size:0.65rem; text-align:center; border-radius:4px; font-weight:bold;">VIEW</a>
-                
-                <button onclick="forceDownload('${publicUrl}', '${doc.label}_${app.first_name}')" class="btn-action" style="background:var(--primary); color:white; border:none; padding:5px; font-size:0.65rem; text-align:center; border-radius:4px; cursor:pointer; font-weight:bold;">DOWNLOAD</button>
+            <div class="info-group">
+                <h4>Residential Information</h4>
+                <div class="info-item"><span>City:</span> ${app.res_city || 'N/A'}</div>
+                <div class="info-item"><span>Woreda:</span> ${app.res_woreda || 'N/A'}</div>
+                <div class="info-item"><span>House No:</span> ${app.res_house_num || 'N/A'}</div>
+                <div class="info-item"><span>Branch:</span> ${app.nearby_branch}</div>
+            </div>
+            <div class="info-group">
+                <h4>Employment & Loan</h4>
+                <div class="info-item"><span>Organization:</span> ${app.org_name}</div>
+                <div class="info-item"><span>Net Salary:</span> ${Number(app.net_salary).toLocaleString()} ETB</div>
+                <div class="info-item"><span>Loan Requested:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
+                <div class="info-item"><span>Total Repayable:</span> ${Number(app.total_repayable).toLocaleString()} ETB</div>
             </div>
         `;
-        docsContainer.appendChild(docElement);
-    }
-});
 
-    // 8. APPROVAL SYSTEM
+        const docMapping = [
+            { label: 'ID Front', path: app.nat_id_front },
+            { label: 'ID Back', path: app.nat_id_back },
+            { label: 'Employee ID', path: app.emp_id_front },
+            { label: 'Employment Letter', path: app.employment_letter },
+            { label: 'Photo', path: app.personal_photo },
+            { label: 'Signature', path: app.digital_signature }
+        ];
+
+        docsContainer.innerHTML = ''; 
+        docMapping.forEach(doc => {
+            if (doc.path) {
+                const { data } = _supabase.storage.from('kyc-docs').getPublicUrl(doc.path);
+                const publicUrl = data.publicUrl;
+                const isPDF = doc.path.toLowerCase().endsWith('.pdf');
+                
+                const docElement = document.createElement('div');
+                docElement.className = 'doc-item';
+                docElement.innerHTML = `
+                    <div class="img-container">
+                        ${isPDF ? `<span>📄 PDF File</span>` : `<img src="${publicUrl}" onclick="window.open('${publicUrl}', '_blank')">`}
+                    </div>
+                    <div style="font-size: 0.75rem; font-weight: bold; text-align:center;">${doc.label}</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                        <a href="${publicUrl}" target="_blank" class="btn-action" style="background:#e2e8f0; color:#0f172a; text-decoration:none; padding:5px; font-size:0.65rem; text-align:center; border-radius:4px;">VIEW</a>
+                        <button onclick="forceDownload('${publicUrl}', '${doc.label}_${app.first_name}')" class="btn-action" style="background:var(--primary); color:white; padding:5px; font-size:0.65rem; border-radius:4px;">SAVE</button>
+                    </div>
+                `;
+                docsContainer.appendChild(docElement);
+            }
+        });
+
+        document.getElementById('detailsModal').style.display = "block";
+        updateApprovalUI(app);
+    }
+
+    // 5. Actions: Approval/Rejection/Logout
     async function approveStep(id, num) {
         const updateData = {};
         const col = num === 1 ? 'admin_one_status' : 'admin_two_status';
@@ -458,22 +288,28 @@ docMapping.forEach(doc => {
         
         const app = currentApplications.find(a => a.id === id);
         const otherApproved = (num === 1 ? app.admin_two_status : app.admin_one_status) === 'approved';
+        
+        // Final approval if both admins sign off
         if (otherApproved) updateData.status = 'approved';
 
         const { error } = await _supabase.from('loan_applications').update(updateData).eq('id', id);
-        if (!error) { fetchApplications(); closeModal(); }
+        if (error) alert(error.message);
+        else { fetchApplications(); closeModal(); }
     }
-      
 
-   async function rejectStep(id) {
+    async function rejectStep(id) {
         const reason = document.getElementById('rejectionReason').value;
-        if (!reason) return alert("Enter reason.");
-        await _supabase.from('loan_applications').update({ status: 'rejected', rejection_reason: reason }).eq('id', id);
-        fetchApplications(); closeModal();
+        if (!reason) return alert("Please enter a rejection reason.");
+        
+        const { error } = await _supabase.from('loan_applications')
+            .update({ status: 'rejected', rejection_reason: reason })
+            .eq('id', id);
+            
+        if (error) alert(error.message);
+        else { fetchApplications(); closeModal(); }
     }
-      
 
-   function updateApprovalUI(app) {
+    function updateApprovalUI(app) {
         const b1 = document.getElementById('btnAdmin1');
         const b2 = document.getElementById('btnAdmin2');
         const bReject = document.getElementById('btnReject');
@@ -482,20 +318,25 @@ docMapping.forEach(doc => {
         b2.onclick = () => approveStep(app.id, 2);
         bReject.onclick = () => rejectStep(app.id);
 
+        // UI Logic based on current state
+        b1.disabled = false; b1.innerText = "Admin 1 Approve"; b1.style.opacity = 1;
+        b2.disabled = false; b2.innerText = "Admin 2 Approve"; b2.style.opacity = 1;
+
         if (loggedInAdmin.role === 'admin1') { b2.disabled = true; b2.style.opacity = 0.5; }
         if (app.admin_one_status === 'approved') { b1.innerText = "Admin 1 ✅"; b1.disabled = true; }
         if (app.admin_two_status === 'approved') { b2.innerText = "Admin 2 ✅"; b2.disabled = true; }
     }
-      
 
-    function closeModal() { document.getElementById('detailsModal').style.display = "none"; }
-    function downloadReview() { window.print(); }
     async function handleLogout() {
         await _supabase.auth.signOut();
         window.location.href = "login.html";
     }
-      
-// 7. DOWNLOAD HELPER
+
+    // 6. Helpers
+    function closeModal() { document.getElementById('detailsModal').style.display = "none"; }
+    
+    function downloadReview() { window.print(); }
+
     async function forceDownload(url, fileName) {
         try {
             const response = await fetch(url);
@@ -509,30 +350,15 @@ docMapping.forEach(doc => {
             document.body.removeChild(link);
         } catch (e) { window.open(url, '_blank'); }
     }
-      
-      
-function downloadReview() {
-    window.print();
-    // 1. Get the applicant's name for the filename
-    const name = document.querySelector("#modalDetails .info-item:first-child").innerText || "Application";
-    
-    // 2. Temporarily hide the approval buttons and close icon so they don't show in the PDF
-    const approvalSection = document.getElementById('approvalSection');
-    const closeBtn = document.querySelector('.close-modal');
-    const downloadBtn = event.target;
-    
-    approvalSection.style.display = 'none';
-    closeBtn.style.display = 'none';
-    downloadBtn.style.display = 'none';
 
-    // 3. Trigger Print
-    window.print();
+    function exportToExcel() {
+        if (!currentApplications.length) return alert("No data to export.");
+        const worksheet = XLSX.utils.json_to_sheet(currentApplications);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Loans");
+        XLSX.writeFile(workbook, `Loans_${new Date().toLocaleDateString()}.xlsx`);
+    }
 
-    // 4. Show them again after printing
-    approvalSection.style.display = 'block';
-    closeBtn.style.display = 'block';
-    downloadBtn.style.display = 'block';
-}
     initializeDashboard();
 </script>
 </body>
