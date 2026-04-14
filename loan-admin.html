@@ -147,29 +147,50 @@
     let currentApplications = [];
     let loggedInAdmin = null;
 
+    /**
+     * Initialize Dashboard: Authenticate user and fetch profile
+     */
     async function initializeDashboard() {
         const { data: { user }, error: authError } = await _supabase.auth.getUser();
-        if (authError || !user) { window.location.href = "login.html"; return; }
+        if (authError || !user) { 
+            window.location.href = "login.html"; 
+            return; 
+        }
 
         const { data: profile } = await _supabase.from('profiles').select('role, assigned_branch').eq('id', user.id).single();
         loggedInAdmin = profile;
         fetchApplications();
     }
 
+    /**
+     * Fetch Applications based on Admin Role/Branch
+     */
     async function fetchApplications() {
         if (!loggedInAdmin) return;
         let query = _supabase.from('loan_applications').select('*');
+        
+        // Filter by branch if Admin 1
         if (loggedInAdmin.role === 'admin1' && loggedInAdmin.assigned_branch) {
             query = query.eq('nearby_branch', loggedInAdmin.assigned_branch);
         }
+        
         const { data, error } = await query.order('created_at', { ascending: false });
         if (error) return alert("Error: " + error.message);
+        
         currentApplications = data;
         renderTable();
     }
 
+    /**
+     * Render the Application Table
+     */
     function renderTable() {
         const tbody = document.getElementById('appTableBody');
+        if (currentApplications.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No applications found.</td></tr>';
+            return;
+        }
+
         tbody.innerHTML = currentApplications.map((app, i) => `
             <tr>
                 <td><strong>${app.first_name} ${app.father_name}</strong><br><small>${app.nearby_branch || 'General'}</small></td>
@@ -182,6 +203,9 @@
         `).join('');
     }
 
+    /**
+     * View Detailed Application & Documents
+     */
     async function viewDetails(index) {
         const app = currentApplications[index];
         const detailsContainer = document.getElementById('modalDetails');
@@ -209,7 +233,6 @@
                 <div class="info-item"><span>Name:</span> ${app.guarantor_name}</div>
                 <div class="info-item"><span>Address:</span> ${app.guarantor_address}</div>
                 <div class="info-item"><span>Phone:</span> ${app.guarantor_phone}</div>
-                <div class="info-item"><span>Guarantor ID:</span> ${app.guarantor_id_number || 'N/A'}</div>
                 <div class="info-item"><span>Guarantor Salary:</span> ${Number(app.guarantor_gross).toLocaleString()} ETB</div>
             </div>
             <div class="info-group">
@@ -228,7 +251,7 @@
             { label: 'Employee ID Back', path: app.emp_id_back },
             { label: 'Guarantor Letter', path: app.guarantor_letter },
             { label: 'Guarantor ID Front', path: app.g_nat_id_front },
-        { label: 'Guarantor ID Back', path: app.g_nat_id_back },
+            { label: 'Guarantor ID Back', path: app.g_nat_id_back },
             { label: 'Employment Letter', path: app.employment_letter },
             { label: 'Photo', path: app.personal_photo },
             { label: 'Signature', path: app.digital_signature }
@@ -261,7 +284,9 @@
         updateApprovalUI(app);
     }
 
-    // Workflow Actions
+    /**
+     * Approval Logic
+     */
     async function approveStep(id, num) {
         const updateData = {};
         const col = num === 1 ? 'admin_one_status' : 'admin_two_status';
@@ -269,59 +294,89 @@
         
         const app = currentApplications.find(a => a.id === id);
         const otherApproved = (num === 1 ? app.admin_two_status : app.admin_one_status) === 'approved';
+        
+        // If both admins approved, set final status to approved
         if (otherApproved) updateData.status = 'approved';
 
         const { error } = await _supabase.from('loan_applications').update(updateData).eq('id', id);
         if (error) alert(error.message);
-        else { fetchApplications(); closeModal(); }
+        else { 
+            fetchApplications(); 
+            closeModal(); 
+        }
     }
 
+    /**
+     * Rejection Logic
+     */
     async function rejectStep(id) {
         const reason = document.getElementById('rejectionReason').value;
         if (!reason) return alert("Please enter reason.");
-        const { error } = await _supabase.from('loan_applications').update({ status: 'rejected', rejection_reason: reason }).eq('id', id);
+        
+        const { error } = await _supabase.from('loan_applications').update({ 
+            status: 'rejected', 
+            rejection_reason: reason 
+        }).eq('id', id);
+        
         if (error) alert(error.message);
-        else { fetchApplications(); closeModal(); }
+        else { 
+            fetchApplications(); 
+            closeModal(); 
+        }
     }
 
+    /**
+     * Manage UI Buttons and Roles
+     */
     function updateApprovalUI(app) {
-       const b1 = document.getElementById('btnAdmin1');
-    const b2 = document.getElementById('btnAdmin2');
+        const b1 = document.getElementById('btnAdmin1');
+        const b2 = document.getElementById('btnAdmin2');
         const bReject = document.getElementById('btnReject');
+
+        // Reset onclick events
         b1.onclick = () => approveStep(app.id, 1);
         b2.onclick = () => approveStep(app.id, 2);
         bReject.onclick = () => rejectStep(app.id);
 
-       // Enable/Disable based on roles
-    b1.disabled = (loggedInAdmin.role !== 'admin1' && loggedInAdmin.role !== 'superadmin') || app.admin_one_status === 'approved';
-    b2.disabled = (loggedInAdmin.role !== 'admin2' && loggedInAdmin.role !== 'superadmin') || app.admin_two_status === 'approved';
-       // Visual feedback for already approved steps
-    if (app.admin_one_status === 'approved') {
-        b1.innerText = "Admin 1 ✅ Approved";
-        b1.style.background = "#16a34a";
-    } else {
-        b1.innerText = "Admin 1 Approve";
-        b1.style.background = "#2563eb";
+        // Enable/Disable based on roles and current status
+        b1.disabled = (loggedInAdmin.role !== 'admin1' && loggedInAdmin.role !== 'superadmin') || app.admin_one_status === 'approved';
+        b2.disabled = (loggedInAdmin.role !== 'admin2' && loggedInAdmin.role !== 'superadmin') || app.admin_two_status === 'approved';
+
+        // Update Visuals for Admin 1
+        if (app.admin_one_status === 'approved') {
+            b1.innerText = "Admin 1 ✅ Approved";
+            b1.style.background = "#16a34a";
+        } else {
+            b1.innerText = "Admin 1 Approve";
+            b1.style.background = "#2563eb";
+        }
+
+        // Update Visuals for Admin 2
+        if (app.admin_two_status === 'approved') {
+            b2.innerText = "Admin 2 ✅ Approved";
+            b2.style.background = "#16a34a";
+        } else {
+            b2.innerText = "Admin 2 Approve";
+            b2.style.background = "#2563eb";
+        }
     }
 
-    if (app.admin_two_status === 'approved') {
-        b2.innerText = "Admin 2 ✅ Approved";
-        b2.style.background = "#16a34a";
-    } else {
-        b2.innerText = "Admin 2 Approve";
-        b2.style.background = "#2563eb";
+    /**
+     * Helper Functions
+     */
+    async function handleLogout() { 
+        await _supabase.auth.signOut(); 
+        window.location.href = "login.html"; 
     }
 
+    function closeModal() { 
+        document.getElementById('detailsModal').style.display = "none"; 
+    }
 
+    function downloadReview() { 
+        window.print(); 
+    }
 
-// Wire up buttons
-    b1.onclick = () => approveStep(app.id, 1);
-    b2.onclick = () => approveStep(app.id, 2);
-
-    
-    async function handleLogout() { await _supabase.auth.signOut(); window.location.href = "login.html"; }
-    function closeModal() { document.getElementById('detailsModal').style.display = "none"; }
-    function downloadReview() { window.print(); }
     async function forceDownload(url, fileName) {
         const response = await fetch(url);
         const blob = await response.blob();
@@ -330,6 +385,7 @@
         link.download = fileName.replace(/\s+/g, '_') + '.png';
         link.click();
     }
+
     function exportToExcel() {
         const worksheet = XLSX.utils.json_to_sheet(currentApplications);
         const workbook = XLSX.utils.book_new();
@@ -337,6 +393,7 @@
         XLSX.writeFile(workbook, `Loans_${new Date().toLocaleDateString()}.xlsx`);
     }
 
+    // Run on load
     initializeDashboard();
 </script>
 </body>
