@@ -285,21 +285,40 @@
     }
 
     function updateApprovalUI(app) {
-        const b1 = document.getElementById('btnAdmin1');
-        const b2 = document.getElementById('btnAdmin2');
+       const b1 = document.getElementById('btnAdmin1');
+    const b2 = document.getElementById('btnAdmin2');
         const bReject = document.getElementById('btnReject');
         b1.onclick = () => approveStep(app.id, 1);
         b2.onclick = () => approveStep(app.id, 2);
         bReject.onclick = () => rejectStep(app.id);
 
-        b1.disabled = false; b1.innerText = "Admin 1 Approve"; b1.style.opacity = 1;
-        b2.disabled = false; b2.innerText = "Admin 2 Approve"; b2.style.opacity = 1;
-
-        if (loggedInAdmin.role === 'admin1') { b2.disabled = true; b2.style.opacity = 0.5; }
-        if (app.admin_one_status === 'approved') { b1.innerText = "Admin 1 ✅"; b1.disabled = true; }
-        if (app.admin_two_status === 'approved') { b2.innerText = "Admin 2 ✅"; b2.disabled = true; }
+       // Enable/Disable based on roles
+    b1.disabled = (loggedInAdmin.role !== 'admin1' && loggedInAdmin.role !== 'superadmin') || app.admin_one_status === 'approved';
+    b2.disabled = (loggedInAdmin.role !== 'admin2' && loggedInAdmin.role !== 'superadmin') || app.admin_two_status === 'approved';
+       // Visual feedback for already approved steps
+    if (app.admin_one_status === 'approved') {
+        b1.innerText = "Admin 1 ✅ Approved";
+        b1.style.background = "#16a34a";
+    } else {
+        b1.innerText = "Admin 1 Approve";
+        b1.style.background = "#2563eb";
     }
 
+    if (app.admin_two_status === 'approved') {
+        b2.innerText = "Admin 2 ✅ Approved";
+        b2.style.background = "#16a34a";
+    } else {
+        b2.innerText = "Admin 2 Approve";
+        b2.style.background = "#2563eb";
+    }
+
+
+
+// Wire up buttons
+    b1.onclick = () => approveStep(app.id, 1);
+    b2.onclick = () => approveStep(app.id, 2);
+
+    
     async function handleLogout() { await _supabase.auth.signOut(); window.location.href = "login.html"; }
     function closeModal() { document.getElementById('detailsModal').style.display = "none"; }
     function downloadReview() { window.print(); }
