@@ -4,31 +4,173 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Africa Village Loan Form | የብድር መጠየቂያ</title>
-    <style>
+   <style>
         :root { 
-            --primary: #2563eb; --primary-hover: #1d4ed8;
-            --bg: #f8fafc; --card-bg: #ffffff;
-            --text-main: #0f172a; --text-muted: #64748b;
-            --border: #e2e8f0; --radius: 12px;
-            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --primary: #0156D3; 
+            --primary-hover: #0044a8;
+            --accent: #FFB200;
+            --bg: #f4f7fa; 
+            --card-bg: #ffffff;
+            --text-main: #1a202c; 
+            --text-muted: #718096;
+            --border: #cbd5e0; 
+            --radius: 10px;
+            --shadow: 0 10px 25px rgba(0, 86, 211, 0.1);
         }
-        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text-main); margin: 0; padding: 40px 20px; display: flex; justify-content: center; }
-        .form-container { background: var(--card-bg); width: 100%; max-width: 800px; padding: 40px; border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); }
-        h2 { margin-top: 0; color: var(--text-main); border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
-        .section-title { font-size: 0.9rem; font-weight: 700; color: var(--primary); margin: 30px 0 15px 0; text-transform: uppercase; display: flex; align-items: center; }
-        .section-title::after { content: ""; height: 1px; background: var(--border); flex-grow: 1; margin-left: 15px; }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background: var(--bg); 
+            color: var(--text-main); 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            justify-content: center; 
+        }
+
+        .form-container { 
+            background: var(--card-bg); 
+            width: 100%; 
+            max-width: 850px; 
+            padding: 0; 
+            border-radius: var(--radius); 
+            box-shadow: var(--shadow); 
+            overflow: hidden;
+            border-top: 6px solid var(--primary);
+        }
+
+        .form-header {
+            background: #fff;
+            padding: 30px 40px;
+            border-bottom: 1px solid #edf2f7;
+            text-align: center;
+        }
+
+        .form-header h2 { 
+            margin: 0; 
+            color: var(--primary); 
+            font-size: 1.8rem;
+            letter-spacing: -0.5px;
+        }
+
+        .form-header p {
+            margin: 5px 0 0;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        form { padding: 40px; }
+
+        .section-title { 
+            font-size: 0.85rem; 
+            font-weight: 800; 
+            color: var(--primary); 
+            margin: 40px 0 20px 0; 
+            text-transform: uppercase; 
+            display: flex; 
+            align-items: center; 
+            letter-spacing: 1px;
+        }
+
+        .section-title:first-child { margin-top: 0; }
+
+        .section-title::after { 
+            content: ""; 
+            height: 2px; 
+            background: #e2e8f0; 
+            flex-grow: 1; 
+            margin-left: 15px; 
+        }
+
+        .form-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+        }
+
         .form-group { display: flex; flex-direction: column; }
         .full-width { grid-column: 1 / -1; }
-        label { margin-bottom: 6px; font-size: 0.85rem; font-weight: 600; color: #475569; }
-        input, select { padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; transition: border-color 0.2s; }
-        input:focus { outline: none; border-color: var(--primary); }
-        .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f1f5f9; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-        .btn-submit { margin-top: 30px; padding: 16px; width: 100%; background-color: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .btn-submit:hover { background-color: var(--primary-hover); }
-        .btn-submit:disabled { background-color: #94a3b8; cursor: not-allowed; }
-        .status-msg { margin-top: 20px; padding: 15px; border-radius: 8px; display: none; text-align: center; font-weight: 500; }
-        @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+
+        label { 
+            margin-bottom: 8px; 
+            font-size: 0.85rem; 
+            font-weight: 600; 
+            color: #4a5568; 
+        }
+
+        input, select { 
+            padding: 12px 15px; 
+            border: 1px solid var(--border); 
+            border-radius: 6px; 
+            font-size: 0.95rem; 
+            transition: all 0.2s; 
+            background: #fff;
+        }
+
+        input:focus, select:focus { 
+            outline: none; 
+            border-color: var(--primary); 
+            box-shadow: 0 0 0 3px rgba(1, 86, 211, 0.1);
+        }
+
+        .upload-card {
+            background: #f8fafc;
+            border: 1px dashed var(--border);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .btn-submit { 
+            margin-top: 40px; 
+            padding: 18px; 
+            width: 100%; 
+            background-color: var(--primary); 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: 700; 
+            font-size: 1.1rem;
+            cursor: pointer; 
+            transition: transform 0.1s, background 0.2s;
+        }
+
+        .btn-submit:hover { 
+            background-color: var(--primary-hover); 
+            transform: translateY(-1px);
+        }
+
+        .btn-submit:active { transform: translateY(0); }
+
+        /* Summary Box Styling */
+        #repaymentSummary {
+            margin-top: 25px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        .summary-disburse { background: #fff; padding: 20px; border-bottom: 1px solid #e2e8f0; }
+        .summary-repay { background: #F7FAFC; padding: 20px; }
+        
+        .net-amount {
+            color: var(--primary);
+            font-size: 1.4rem;
+            font-weight: 800;
+        }
+
+        .total-repay {
+            color: #2d3748;
+            font-size: 1.4rem;
+            font-weight: 800;
+        }
+
+        .highlight-text { color: var(--accent); font-weight: bold; }
+
+        @media (max-width: 600px) { 
+            .form-grid { grid-template-columns: 1fr; }
+            form { padding: 20px; }
+        }
     </style>
 </head>
 <body>
