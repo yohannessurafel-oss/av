@@ -210,6 +210,7 @@
                 <div class="info-item"><span>Address:</span> ${app.guarantor_address}</div>
                 <div class="info-item"><span>Phone:</span> ${app.guarantor_phone}</div>
                 <div class="info-item"><span>Guarantor ID:</span> ${app.guarantor_id_number || 'N/A'}</div>
+                <div class="info-item"><span>Guarantor Salary:</span> ${Number(app.guarantor_gross).toLocaleString()} ETB</div>
             </div>
             <div class="info-group">
                 <h4>Employment & Loan</h4>
@@ -226,6 +227,8 @@
             { label: 'Employee ID Front', path: app.emp_id_front },
             { label: 'Employee ID Back', path: app.emp_id_back },
             { label: 'Guarantor Letter', path: app.guarantor_letter },
+            { label: 'Guarantor ID Front', path: app.g_nat_id_front },
+        { label: 'Guarantor ID Back', path: app.g_nat_id_back },
             { label: 'Employment Letter', path: app.employment_letter },
             { label: 'Photo', path: app.personal_photo },
             { label: 'Signature', path: app.digital_signature }
