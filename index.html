@@ -292,21 +292,19 @@
             <div class="form-group"><label>Guarantor's address</label><input type="text" id="gadress" required></div>
             <div class="form-group"><label>phone's Number</label><input type="text" id="gphone" required></div>
             <div class="upload-grid">
-           
+           <div class="form-group"><label>Guarantor Gross Salary (ETB)</label><input type="number" id="gGross" required></div>
                
              <div class="form-group"><label>Guarantier Letter</label><input type="file" id="gLetter" accept="image/*,application/pdf" required></div>
                   <div class="form-group"><label>Gross  (ETB)</label><input type="number" id="Gross" required></div>
                  <div class="upload-grid">
-            <div class="form-group"><label>Guarantor National ID Number</label>
-    <input type="text" id="gIDNum" required>
-</div>
-                     
+          <div class="form-group"><label>Guarantor National ID Number</label><input type="text" id="gIDNum" required></div>
     <div class="form-group"><label>Guarantor National ID Front</label><input type="file" id="gnatIdFront" accept="image/*" required></div>
     <div class="form-group"><label>Guarantor National ID Back</label><input type="file" id="gnatIdBack" accept="image/*" required></div>
-    
     <div class="form-group"><label>Guarantor Employee ID Front</label><input type="file" id="gempIdFront" accept="image/*" required></div>
     <div class="form-group"><label>Guarantor Employee ID Back</label><input type="file" id="gempIdBack" accept="image/*" required></div>
-                          </div>
+
+
+                     
       <div class="section-title">Employment Information</div>
         <div class="form-grid">
             <div class="form-group"><label>Organization Name</label><input type="text" id="orgName" required></div>
@@ -371,9 +369,10 @@
 </div>
 
         
-          <div>Submitted Documents</div>
-        <div class="upload-grid">
-            <div class="form-group full-width"><label>National ID Number</label><input type="text" id="nationalIDNum" required></div>
+       <div class="section-title">Submitted Documents</div>
+<div class="form-grid">
+    <div class="form-group full-width"><label>National ID Number</label><input type="text" id="nationalIDNum" required></div>
+    </div>
     <div class="form-group"><label>National ID Front</label><input type="file" id="natIdFront" accept="image/*" required></div>
     <div class="form-group"><label>National ID Back</label><input type="file" id="natIdBack" accept="image/*" required></div>
     
@@ -386,7 +385,7 @@
     <div class="form-group"><label>Digital Signature</label><input type="file" id="digitalSig" accept="image/*" required></div>
 </div>
 
-        <<button type="submit" class="btn-submit" id="submitBtn">Submit Loan Application</button>
+        <button type="submit" class="btn-submit" id="submitBtn">Submit Loan Application</button>
         <div id="statusMsg" style="margin-top:20px; padding:15px; border-radius:8px; display:none; text-align:center;"></div>
     </form>
 </div>
@@ -397,8 +396,12 @@
 
 
 <script>
-    const form = document.getElementById('loanForm');
+   const form = document.getElementById('loanForm');
     const statusMsg = document.getElementById('statusMsg');
+    const getFile = (id) => {
+        const el = document.getElementById(id);
+        return el && el.files ? el.files[0] : null;
+    };
 
     async function uploadDoc(file, folder, userId) {
         if (!file) return null;
@@ -476,24 +479,24 @@
 
 
 form.onsubmit = async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('submitBtn');
-    const amount = parseFloat(document.getElementById('loanAmount').value);
+   e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        const amount = parseFloat(document.getElementById('loanAmount').value);
     
-    btn.disabled = true;
-    btn.innerText = "Uploading Documents...";
+   btn.disabled = true;
+        btn.innerText = "Uploading Documents...";
 
-    try {
-        const { data: { user } } = await _supabase.auth.getUser();
-        const userId = user ? user.id : "guest_" + Date.now();
+ try {
+            const { data: { user } } = await _supabase.auth.getUser();
+            const userId = user ? user.id : "guest_" + Date.now();
 
         const getFile = (id) => {
             const el = document.getElementById(id);
             return el && el.files ? el.files[0] : null;
         };
 
-        // Upload documents - Corrected mapping
-        const [natF, natB, empF, empB, letter, photo, sig, gletter] = await Promise.all([
+       // Upload all docs
+        const [natF, natB, empF, empB, letter, photo, sig, gletter, gnatF, gnatB, gempF, gempB] = await Promise.all([
             uploadDoc(getFile('natIdFront'), 'nat_front', userId),
             uploadDoc(getFile('natIdBack'), 'nat_back', userId),
             uploadDoc(getFile('empIdFront'), 'emp_front', userId),
@@ -501,10 +504,15 @@ form.onsubmit = async (e) => {
             uploadDoc(getFile('empLetter'), 'employment_letter', userId),
             uploadDoc(getFile('userPhoto'), 'passport_photo', userId),
             uploadDoc(getFile('digitalSig'), 'signature', userId),
-            uploadDoc(getFile('gLetter'), 'guarantor_letter', userId)
+            uploadDoc(getFile('gLetter'), 'guarantor_letter', userId),
+            uploadDoc(getFile('gnatIdFront'), 'g_nat_front', userId),
+            uploadDoc(getFile('gnatIdBack'), 'g_nat_back', userId),
+            uploadDoc(getFile('gempIdFront'), 'g_emp_front', userId),
+            uploadDoc(getFile('gempIdBack'), 'g_emp_back', userId)
         ]);
 
-        const totalRepayableValue = parseFloat(document.getElementById('summaryTotal').innerText.replace(/[^0-9.]/g, ''));
+       const totalRepayableValue = parseFloat(document.getElementById('summaryTotal').innerText.replace(/[^0-9.]/g, ''));
+            const netAmountValue = parseFloat(document.getElementById('summaryNet').innerText.replace(/[^0-9.]/g, ''));
 
         // Insert into Supabase - Added missing address and branch fields
         const { error: dbError } = await _supabase.from('loan_applications').insert([{
@@ -529,7 +537,14 @@ form.onsubmit = async (e) => {
             guarantor_address: document.getElementById('gadress').value,
             guarantor_phone: document.getElementById('gphone').value,
             guarantor_id_number: document.getElementById('geIDNum').value,
+            
             guarantor_letter: gletter,
+
+            // Guarantor Documents (Added)
+            g_nat_id_front: gnatF,
+            g_nat_id_back: gnatB,
+            g_emp_id_front: gempF,
+            g_emp_id_back: gempB,
 
             // Loan & Job
             loan_amount: amount,
@@ -538,6 +553,9 @@ form.onsubmit = async (e) => {
             net_: parseFloat(document.getElementById('net').value),
             national_id_number: document.getElementById('nationalIDNum').value,
             total_repayable: totalRepayableValue,
+            gross_salary: parseFloat(document.getElementById('grossSalary').value),
+         guarantor_gross: parseFloat(document.getElementById('gGross').value),
+            net_disbursed: netAmountValue,
 
             // Documents
             nat_id_front: natF, 
