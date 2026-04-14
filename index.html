@@ -436,10 +436,15 @@
     const valFees = amount * totalDeductionRate;
     const netDisbursed = amount - valFees;
 
-    // 2. Interest Logic
-    let interestRate = 0.10; // Default
-    if (duration === 60) interestRate = 0.12;
-    if (duration === 90) interestRate = 0.18;
+    // 2. Interest Logic (Updated for Interest-Free 1-30 Days)
+    let interestRate = 0; 
+    if (duration === 60) {
+        interestRate = 0.12; // 12% for 60 days
+    } else if (duration === 90) {
+        interestRate = 0.18; // 18% for 90 days
+    } else {
+        interestRate = 0;    // 0% for 7 and 30 days
+    }
 
     const interestAmount = amount * interestRate;
     const totalRepayable = amount + interestAmount;
@@ -457,7 +462,7 @@
 
     // Update the small description text dynamically
     const feeNote = document.querySelector('.summary-disburse small');
-    feeNote.innerText = `Deducted: Service (6%), Insurance (${insuranceRate * 100}%), Disaster (1%)`;
+    feeNote.innerText = `Deducted: Service (6%), Insurance (${(insuranceRate * 100).toFixed(0)}%), Disaster (1%)`;
 
     // 4. Installments
     let installments = 1;
