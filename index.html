@@ -292,16 +292,25 @@
             <div class="form-group"><label>garantier's address</label><input type="text" id="gadress" required></div>
             <div class="form-group"><label>phone's Number</label><input type="text" id="gphone" required></div>
             <div class="upload-grid">
-            <div class="form-group full-width"><label>Garantor employeID Number</label><input type="text" id="geIDNum" required></div>
+           
+               
              <div class="form-group"><label>Guarantier Letter</label><input type="file" id="gLetter" accept="image/*,application/pdf" required></div>
+                  <div class="form-group"><label>Gross  (ETB)</label><input type="number" id="Gross" required></div>
+                 <div class="upload-grid">
+            <div class="form-group full-width"><label>garantier National ID Number</label><input type="text" id="nationalIDNum" required></div>
+    <div class="form-group"><label>garantier National ID Front</label><input type="file" id="gnatIdFront" accept="image/*" required></div>
+    <div class="form-group"><label>garantier National ID Back</label><input type="file" id="gnatIdBack" accept="image/*" required></div>
+    
+    <div class="form-group"><label>garantier Employee ID Front</label><input type="file" id="gempIdFront" accept="image/*" required></div>
+    <div class="form-group"><label>garantier Employee ID Back</label><input type="file" id="gempIdBack" accept="image/*" required></div>
                           </div>
       <div class="section-title">Employment Information</div>
         <div class="form-grid">
             <div class="form-group"><label>Organization Name</label><input type="text" id="orgName" required></div>
             <div class="form-group"><label>Job Title</label><input type="text" id="jobTitle" required></div>
             <div class="form-group"><label>Employment Type</label><input type="text" id="empType" required></div>
-            <div class="form-group"><label>Gross Salary (ETB)</label><input type="number" id="grossSalary" required></div>
-            <div class="form-group"><label>Net Salary (ETB)</label><input type="number" id="netSalary" required></div>
+            <div class="form-group"><label>Gross  (ETB)</label><input type="number" id="grossSalary" required></div>
+          
             <div class="form-group"><label>Organization Phone</label><input type="tel" id="orgPhone" required></div>
             <div class="form-group"><label>Pension Number</label><input type="text" id="pensionNumber" required></div>
             <div class="form-group full-width"><label>Organization Address</label><input type="text" id="orgAddress" required></div>
@@ -528,7 +537,7 @@ form.onsubmit = async (e) => {
             loan_amount: amount,
             loan_duration: document.getElementById('loanDuration').value,
             org_name: document.getElementById('orgName').value,
-            net_salary: parseFloat(document.getElementById('netSalary').value),
+            net_: parseFloat(document.getElementById('net').value),
             national_id_number: document.getElementById('nationalIDNum').value,
             total_repayable: totalRepayableValue,
 
