@@ -39,21 +39,21 @@
             border-top: 6px solid var(--primary);
         }
 .logo-container img {
-    /* Adjust these numbers to get the exact size you want */
-    height: 45px; 
-    width: auto; /* Maintains the aspect ratio so it doesn't look stretched */
-    
+    height: 50px;           /* Professional small height */
+    width: auto;
     display: block;
-    object-fit: contain;
+    margin-bottom: 5px;
 }
        
-     .form-header {
+.form-header {
     background: #fff;
-    padding: 20px 40px; /* Reduced padding for a slimmer header */
+    padding: 30px 20px; /* Generous padding for a clean look */
     border-bottom: 1px solid #edf2f7;
     display: flex; 
-    align-items: center; 
-    gap: 15px;
+    flex-direction: column; /* Stacks logo on top of text */
+    align-items: center;    /* Centers everything horizontally */
+    text-align: center;
+    gap: 12px;              /* Space between logo and text */
 }
 
         .form-header h2 { 
@@ -181,6 +181,22 @@
             .form-grid { grid-template-columns: 1fr; }
             form { padding: 20px; }
         }
+
+.header-text p {
+    margin: 5px 0 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+       
+       .header-text h2 { 
+    margin: 0; 
+    color: var(--primary); 
+    font-size: 1.5rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
     </style>
 </head>
 <body>
