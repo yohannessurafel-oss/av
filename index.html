@@ -38,13 +38,23 @@
             overflow: hidden;
             border-top: 6px solid var(--primary);
         }
-
-        .form-header {
-            background: #fff;
-            padding: 30px 40px;
-            border-bottom: 1px solid #edf2f7;
-            text-align: center;
-        }
+.logo-container img {
+    /* Adjust these numbers to get the exact size you want */
+    height: 45px; 
+    width: auto; /* Maintains the aspect ratio so it doesn't look stretched */
+    
+    display: block;
+    object-fit: contain;
+}
+       
+     .form-header {
+    background: #fff;
+    padding: 20px 40px; /* Reduced padding for a slimmer header */
+    border-bottom: 1px solid #edf2f7;
+    display: flex; 
+    align-items: center; 
+    gap: 15px;
+}
 
         .form-header h2 { 
             margin: 0; 
