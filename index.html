@@ -69,9 +69,45 @@
             <label>Nearby Branch</label>
             <select id="nearbyBranch" required>
                 <option value="">-- Select Your Nearest Branch --</option>
-                <option value="Kality">Kality</option><option value="kazanchis">Kazanchis</option>
-                <option value="hana">Hanamariam</option><option value="Kolfe">Kolfe</option>
-                <option value="Main(Agona)">Main (Agona)</option>
+
+
+
+             <option value="adama">Adama</option>
+                <option value="Batu">Batu</option>
+                <option value="Bishoftu1">Bishoftu1</option>
+                <option value="Bishoftu2">Bishoftu2</option>
+                <option value="Burayou">Burayou</option>
+                 <option value="Butajira">Butajira</option>
+
+
+ <option value="Dirediwa">Dirediwa</option>
+                <option value="Djibruk">Djibruk</option>
+                <option value="Dukem">Dukem</option>
+                <option value="Ejire">Ejire</option>
+
+
+
+                
+                <option value="Furi">Furi</option>
+                <option value="Gimbichu">Gimbichu</option>
+                <option value="hana">Hanamariam</option>
+                <option value="HeadOf">Head Offfice</option>
+ <option value="Holta">Holta</option>
+ <option value="Kality">Kality</option>
+<option value="kazanchis">Kazanchis</option>
+  <option value="Kirkos">Kirkos</option>
+                <option value="Kolfe">Kolfe</option>
+
+                
+                 <option value="Main(Agona)">Main (Agona)</option>
+                 <option value="Mekele">Mekele</option>
+                 <option value="Meki">Meki</option>
+                <option value="Modjo">Modjo</option>
+                <option value="Sendafa">Sendafa</option>
+
+               
+                <option value="Sheno">Sheno</option>
+
                 </select>
         </div>
  <div class="section-title">garantier Information</div>
@@ -79,6 +115,9 @@
             <div class="form-group"><label>Full  Name</label><input type="text" id="gfname" required></div>
             <div class="form-group"><label>garantier's address</label><input type="text" id="gadress" required></div>
             <div class="form-group"><label>phone's Number</label><input type="text" id="gphone" required></div>
+            <div class="upload-grid">
+            <div class="form-group full-width"><label>Garantor employeID Number</label><input type="text" id="geIDNum" required></div>
+             <div class="form-group"><label>Guarantier Letter</label><input type="file" id="gLetter" accept="image/*,application/pdf" required></div>
                           </div>
       <div class="section-title">Employment & Documents</div>
         <div class="form-grid">
@@ -271,14 +310,15 @@ form.onsubmit = async (e) => {
         };
 
         // Upload documents
-        const [natF, natB, empF, empB, letter, photo, sig] = await Promise.all([
+        const [natF, natB, empF, empB, letter,gletter, photo, sig] = await Promise.all([
             uploadDoc(getFile('natIdFront'), 'nat_front', userId),
             uploadDoc(getFile('natIdBack'), 'nat_back', userId),
             uploadDoc(getFile('empIdFront'), 'emp_front', userId),
             uploadDoc(getFile('empIdBack'), 'emp_back', userId),
             uploadDoc(getFile('empLetter'), 'employment_letter', userId),
             uploadDoc(getFile('userPhoto'), 'passport_photo', userId),
-            uploadDoc(getFile('digitalSig'), 'signature', userId)
+            uploadDoc(getFile('digitalSig'), 'signature', userId),
+             uploadDoc(getFile('gLetter'), 'guarantor_letter', userId)
         ]);
 
         const totalRepayableValue = parseFloat(document.getElementById('summaryTotal').innerText.replace(/[^0-9.]/g, ''));
@@ -297,7 +337,7 @@ form.onsubmit = async (e) => {
             guarantor_name: document.getElementById('gfname').value,
             guarantor_address: document.getElementById('gadress').value,
             guarantor_phone: document.getElementById('gphone').value,
-
+              guarantor_letter: document.getElementById('gletter').value,
             loan_amount: amount,
             loan_duration: document.getElementById('loanDuration').value,
             org_name: document.getElementById('orgName').value,
@@ -309,6 +349,7 @@ form.onsubmit = async (e) => {
             emp_id_front: empF, 
             emp_id_back: empB,
             employment_letter: letter,
+            guarantor_letter: gletter,
             personal_photo: photo,
             digital_signature: sig,
             status: 'pending'
