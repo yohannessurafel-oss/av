@@ -405,52 +405,59 @@
     const summaryBox = document.getElementById('repaymentSummary');
     const installmentList = document.getElementById('installmentList');
     
-    // Check if amount is valid
     if (isNaN(amount) || amount < 500) { 
         summaryBox.style.display = "none"; 
         return; 
     }
 
-    // 1. Fee Calculations (Upfront deductions)
-    const serviceRate = 0.06;
-    const insuranceRate = 0.03;
-    const disasterRate = 0.01;
+    // --- UPDATED INSURANCE LOGIC ---
+    const serviceRate = 0.06;   // 6% fixed
+    const disasterRate = 0.01;  // 1% fixed
     
-    const valFees = amount * (serviceRate + insuranceRate + disasterRate);
+    // Insurance is 0% for 1-30 days, 3% for 31-90 days
+    let insuranceRate = 0;
+    if (parseInt(duration) > 30) {
+        insuranceRate = 0.03;
+    }
+
+    const totalDeductionRate = serviceRate + insuranceRate + disasterRate;
+    const valFees = amount * totalDeductionRate;
     const netDisbursed = amount - valFees;
 
-    // 2. Interest Calculations (Added to payback)
-    let interestRate = 0.10; // Default 10% for 7 and 30 days
+    // --- INTEREST RATES ---
+    let interestRate = 0.10; // Default 10%
     if (duration === '60') interestRate = 0.12;
     else if (duration === '90') interestRate = 0.18;
 
     const interestAmount = amount * interestRate;
     const totalRepayable = amount + interestAmount;
 
-    // 3. Update UI
+    // --- UI UPDATES ---
     summaryBox.style.display = "block";
     document.getElementById('summaryPrincipal').innerText = amount.toLocaleString() + " ETB";
     document.getElementById('totalFeesDisplay').innerText = "- " + valFees.toLocaleString() + " ETB";
     document.getElementById('summaryNet').innerText = netDisbursed.toLocaleString() + " ETB";
     document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
     
-    // Percentages
+    // Dynamic Fee Label Update (Optional: lets the user know why fees changed)
+    const feeNote = document.querySelector('.summary-disburse small');
+    if(feeNote) {
+        feeNote.innerText = `Deducted: Service (6%), Insurance (${(insuranceRate * 100)}%), Disaster (1%)`;
+    }
+
+    // Percentages and Installment loop remains the same as previous code...
     document.getElementById('percentPrincipal').innerText = ((amount / totalRepayable) * 100).toFixed(0) + "%";
     document.getElementById('percentInterest').innerText = ((interestAmount / totalRepayable) * 100).toFixed(0) + "%";
 
-    // 4. Installment Breakdown
     let installments = 1;
     if (duration === '60') installments = 2;
     if (duration === '90') installments = 3;
 
     const totalPerInst = totalRepayable / installments;
-
     let html = "";
     for(let i = 1; i <= installments; i++) {
-        // Calculate the due day (e.g., 30, 60, 90)
         let dueDay = i * 30;
         if (dueDay > parseInt(duration)) dueDay = duration; 
-
         html += `
             <div style="display: flex; justify-content: space-between; font-size: 0.85rem; padding: 4px 0; border-bottom: ${i < installments ? '1px solid #f1f5f9' : 'none'};">
                 <span style="color: #64748b;">Installment ${i} (Day ${dueDay})</span>
