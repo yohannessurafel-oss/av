@@ -54,26 +54,22 @@
         .approved { background: #ecfdf5; color: #065f46; }
         .rejected { background: #fef2f2; color: #991b1b; }
 
-        /* Modal Styles */
         .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); z-index: 100; overflow-y: auto; padding: 20px; }
-        .modal-content { background: white; max-width: 900px; margin: 20px auto; padding: 32px; border-radius: var(--radius); position: relative; }
+        .modal-content { background: white; max-width: 1000px; margin: 20px auto; padding: 32px; border-radius: var(--radius); position: relative; }
         
-        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; margin-top: 20px; }
-        .info-group h4 { margin: 0 0 12px 0; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-top: 20px; }
+        .info-group h4 { margin: 0 0 12px 0; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 5px; font-size: 0.9rem; }
         .info-item { font-size: 0.85rem; margin-bottom: 6px; }
         .info-item span { font-weight: 600; color: var(--text-muted); margin-right: 5px; }
 
-        /* Document Display */
-        .doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 24px; }
+        .doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 24px; }
         .doc-item { border: 1px solid var(--border); padding: 12px; border-radius: 8px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
         .img-container { background: #f1f5f9; height: 140px; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); }
-        .doc-item img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; transition: transform 0.2s; }
-        .doc-item img:hover { transform: scale(1.05); }
+        .doc-item img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; }
 
         .btn { padding: 10px 20px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; transition: 0.2s; }
         .btn-view { background: var(--primary); color: white; }
-        .btn-action { border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s ease; }
-        .btn-action:hover { filter: brightness(90%); transform: translateY(-1px); }
+        .btn-action { border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         
         .close-modal { position: absolute; right: 24px; top: 24px; cursor: pointer; font-size: 1.5rem; color: var(--text-muted); }
 
@@ -82,8 +78,6 @@
             #detailsModal, #detailsModal * { visibility: visible; }
             #detailsModal { position: absolute; left: 0; top: 0; width: 100%; background: white; }
             .btn, .close-modal, #approvalSection, #rejectionReason { display: none !important; }
-            .img-container { height: auto !important; border: 1px solid #eee; }
-            .doc-item img { max-width: 300px; height: auto; }
         }
     </style>
 </head>
@@ -142,7 +136,7 @@
             
             <div style="border-top: 1px solid var(--border); padding-top: 20px;">
                 <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted);">Rejection Reason:</label>
-                <textarea id="rejectionReason" style="width: 100%; margin: 8px 0; padding: 10px; border-radius: 6px; border: 1px solid var(--border); font-family: inherit;" rows="3" placeholder="Enter reason if rejecting..."></textarea>
+                <textarea id="rejectionReason" style="width: 100%; margin: 8px 0; padding: 10px; border-radius: 6px; border: 1px solid var(--border);" rows="2" placeholder="Enter reason if rejecting..."></textarea>
                 <button id="btnReject" class="btn" style="background: #dc2626; color: white; width: 100%;">Reject Application</button>
             </div>
         </div>
@@ -153,55 +147,29 @@
     let currentApplications = [];
     let loggedInAdmin = null;
 
-    // 1. Initialization
     async function initializeDashboard() {
         const { data: { user }, error: authError } = await _supabase.auth.getUser();
-        if (authError || !user) {
-            window.location.href = "login.html"; 
-            return;
-        }
+        if (authError || !user) { window.location.href = "login.html"; return; }
 
-        const { data: profile, error: profileError } = await _supabase
-            .from('profiles')
-            .select('role, assigned_branch')
-            .eq('id', user.id)
-            .single();
-
-        if (profileError) {
-            console.error("Profile Error:", profileError);
-            return;
-        }
-
+        const { data: profile } = await _supabase.from('profiles').select('role, assigned_branch').eq('id', user.id).single();
         loggedInAdmin = profile;
         fetchApplications();
     }
 
-    // 2. Fetch Data
     async function fetchApplications() {
         if (!loggedInAdmin) return;
-        
         let query = _supabase.from('loan_applications').select('*');
-
-        // Filter by branch if Admin 1
         if (loggedInAdmin.role === 'admin1' && loggedInAdmin.assigned_branch) {
             query = query.eq('nearby_branch', loggedInAdmin.assigned_branch);
         }
-
         const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) return alert("Error fetching data: " + error.message);
-
+        if (error) return alert("Error: " + error.message);
         currentApplications = data;
         renderTable();
     }
 
-    // 3. Render Logic
     function renderTable() {
         const tbody = document.getElementById('appTableBody');
-        if (!currentApplications.length) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No applications found.</td></tr>';
-            return;
-        }
-
         tbody.innerHTML = currentApplications.map((app, i) => `
             <tr>
                 <td><strong>${app.first_name} ${app.father_name}</strong><br><small>${app.nearby_branch || 'General'}</small></td>
@@ -214,7 +182,6 @@
         `).join('');
     }
 
-    // 4. Detail View & Modal Population
     async function viewDetails(index) {
         const app = currentApplications[index];
         const detailsContainer = document.getElementById('modalDetails');
@@ -224,30 +191,41 @@
             <div class="info-group">
                 <h4>Personal Information</h4>
                 <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name} ${app.grandfather_name}</div>
+                <div class="info-item"><span>Mother's Name:</span> ${app.mother_name}</div>
                 <div class="info-item"><span>Phone:</span> ${app.phone_number}</div>
-                <div class="info-item"><span>Gender:</span> ${app.gender}</div>
-                <div class="info-item"><span>ID Number:</span> ${app.national_id_number}</div>
+                <div class="info-item"><span>Nationality:</span> ${app.nationality}</div>
+                <div class="info-item"><span>ID Num:</span> ${app.national_id_number}</div>
             </div>
             <div class="info-group">
-                <h4>Residential Information</h4>
-                <div class="info-item"><span>City:</span> ${app.res_city || 'N/A'}</div>
-                <div class="info-item"><span>Woreda:</span> ${app.res_woreda || 'N/A'}</div>
-                <div class="info-item"><span>House No:</span> ${app.res_house_num || 'N/A'}</div>
+                <h4>Residential Details</h4>
+                <div class="info-item"><span>Region:</span> ${app.res_region || 'N/A'}</div>
+                <div class="info-item"><span>City:</span> ${app.res_city}</div>
+                <div class="info-item"><span>Sub-City:</span> ${app.res_subcity || 'N/A'}</div>
+                <div class="info-item"><span>Woreda/House:</span> ${app.res_woreda} / ${app.res_house_num}</div>
                 <div class="info-item"><span>Branch:</span> ${app.nearby_branch}</div>
             </div>
             <div class="info-group">
+                <h4>Guarantor Info</h4>
+                <div class="info-item"><span>Name:</span> ${app.guarantor_name}</div>
+                <div class="info-item"><span>Address:</span> ${app.guarantor_address}</div>
+                <div class="info-item"><span>Phone:</span> ${app.guarantor_phone}</div>
+                <div class="info-item"><span>Guarantor ID:</span> ${app.guarantor_id_number || 'N/A'}</div>
+            </div>
+            <div class="info-group">
                 <h4>Employment & Loan</h4>
-                <div class="info-item"><span>Organization:</span> ${app.org_name}</div>
+                <div class="info-item"><span>Org:</span> ${app.org_name}</div>
                 <div class="info-item"><span>Net Salary:</span> ${Number(app.net_salary).toLocaleString()} ETB</div>
-                <div class="info-item"><span>Loan Requested:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
-                <div class="info-item"><span>Total Repayable:</span> ${Number(app.total_repayable).toLocaleString()} ETB</div>
+                <div class="info-item"><span>Requested:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
+                <div class="info-item"><span>Total Repay:</span> ${Number(app.total_repayable).toLocaleString()} ETB</div>
             </div>
         `;
 
         const docMapping = [
             { label: 'ID Front', path: app.nat_id_front },
             { label: 'ID Back', path: app.nat_id_back },
-            { label: 'Employee ID', path: app.emp_id_front },
+            { label: 'Employee ID Front', path: app.emp_id_front },
+            { label: 'Employee ID Back', path: app.emp_id_back },
+            { label: 'Guarantor Letter', path: app.guarantor_letter },
             { label: 'Employment Letter', path: app.employment_letter },
             { label: 'Photo', path: app.personal_photo },
             { label: 'Signature', path: app.digital_signature }
@@ -264,12 +242,12 @@
                 docElement.className = 'doc-item';
                 docElement.innerHTML = `
                     <div class="img-container">
-                        ${isPDF ? `<span>📄 PDF File</span>` : `<img src="${publicUrl}" onclick="window.open('${publicUrl}', '_blank')">`}
+                        ${isPDF ? `<span>📄 PDF</span>` : `<img src="${publicUrl}" onclick="window.open('${publicUrl}', '_blank')">`}
                     </div>
-                    <div style="font-size: 0.75rem; font-weight: bold; text-align:center;">${doc.label}</div>
+                    <div style="font-size: 0.7rem; font-weight: bold; text-align:center;">${doc.label}</div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
-                        <a href="${publicUrl}" target="_blank" class="btn-action" style="background:#e2e8f0; color:#0f172a; text-decoration:none; padding:5px; font-size:0.65rem; text-align:center; border-radius:4px;">VIEW</a>
-                        <button onclick="forceDownload('${publicUrl}', '${doc.label}_${app.first_name}')" class="btn-action" style="background:var(--primary); color:white; padding:5px; font-size:0.65rem; border-radius:4px;">SAVE</button>
+                        <a href="${publicUrl}" target="_blank" class="btn-action" style="background:#e2e8f0; color:#0f172a; text-decoration:none; padding:5px; font-size:0.6rem; text-align:center; border-radius:4px;">VIEW</a>
+                        <button onclick="forceDownload('${publicUrl}', '${doc.label}_${app.first_name}')" class="btn-action" style="background:var(--primary); color:white; padding:5px; font-size:0.6rem; border-radius:4px;">SAVE</button>
                     </div>
                 `;
                 docsContainer.appendChild(docElement);
@@ -280,7 +258,7 @@
         updateApprovalUI(app);
     }
 
-    // 5. Actions: Approval/Rejection/Logout
+    // Workflow Actions
     async function approveStep(id, num) {
         const updateData = {};
         const col = num === 1 ? 'admin_one_status' : 'admin_two_status';
@@ -288,8 +266,6 @@
         
         const app = currentApplications.find(a => a.id === id);
         const otherApproved = (num === 1 ? app.admin_two_status : app.admin_one_status) === 'approved';
-        
-        // Final approval if both admins sign off
         if (otherApproved) updateData.status = 'approved';
 
         const { error } = await _supabase.from('loan_applications').update(updateData).eq('id', id);
@@ -299,12 +275,8 @@
 
     async function rejectStep(id) {
         const reason = document.getElementById('rejectionReason').value;
-        if (!reason) return alert("Please enter a rejection reason.");
-        
-        const { error } = await _supabase.from('loan_applications')
-            .update({ status: 'rejected', rejection_reason: reason })
-            .eq('id', id);
-            
+        if (!reason) return alert("Please enter reason.");
+        const { error } = await _supabase.from('loan_applications').update({ status: 'rejected', rejection_reason: reason }).eq('id', id);
         if (error) alert(error.message);
         else { fetchApplications(); closeModal(); }
     }
@@ -313,12 +285,10 @@
         const b1 = document.getElementById('btnAdmin1');
         const b2 = document.getElementById('btnAdmin2');
         const bReject = document.getElementById('btnReject');
-        
         b1.onclick = () => approveStep(app.id, 1);
         b2.onclick = () => approveStep(app.id, 2);
         bReject.onclick = () => rejectStep(app.id);
 
-        // UI Logic based on current state
         b1.disabled = false; b1.innerText = "Admin 1 Approve"; b1.style.opacity = 1;
         b2.disabled = false; b2.innerText = "Admin 2 Approve"; b2.style.opacity = 1;
 
@@ -327,32 +297,18 @@
         if (app.admin_two_status === 'approved') { b2.innerText = "Admin 2 ✅"; b2.disabled = true; }
     }
 
-    async function handleLogout() {
-        await _supabase.auth.signOut();
-        window.location.href = "login.html";
-    }
-
-    // 6. Helpers
+    async function handleLogout() { await _supabase.auth.signOut(); window.location.href = "login.html"; }
     function closeModal() { document.getElementById('detailsModal').style.display = "none"; }
-    
     function downloadReview() { window.print(); }
-
     async function forceDownload(url, fileName) {
-        try {
-            const response = await fetch(url);
-            const blob = await response.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = fileName.replace(/\s+/g, '_') + '.png'; 
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } catch (e) { window.open(url, '_blank'); }
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = fileName.replace(/\s+/g, '_') + '.png';
+        link.click();
     }
-
     function exportToExcel() {
-        if (!currentApplications.length) return alert("No data to export.");
         const worksheet = XLSX.utils.json_to_sheet(currentApplications);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Loans");
