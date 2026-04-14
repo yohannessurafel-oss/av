@@ -536,7 +536,7 @@ form.onsubmit = async (e) => {
             guarantor_name: document.getElementById('gfname').value,
             guarantor_address: document.getElementById('gadress').value,
             guarantor_phone: document.getElementById('gphone').value,
-            guarantor_id_number: document.getElementById('geIDNum').value,
+            guarantor_id_number: document.getElementById('gIDNum').value,
             
             guarantor_letter: gletter,
 
@@ -547,15 +547,15 @@ form.onsubmit = async (e) => {
             g_emp_id_back: gempB,
 
             // Loan & Job
-            loan_amount: amount,
-            loan_duration: document.getElementById('loanDuration').value,
-            org_name: document.getElementById('orgName').value,
-            net_: parseFloat(document.getElementById('net').value),
-            national_id_number: document.getElementById('nationalIDNum').value,
-            total_repayable: totalRepayableValue,
-            gross_salary: parseFloat(document.getElementById('grossSalary').value),
-         guarantor_gross: parseFloat(document.getElementById('gGross').value),
-            net_disbursed: netAmountValue,
+    loan_amount: amount,
+    loan_duration: document.getElementById('loanDuration').value,
+    org_name: document.getElementById('orgName').value,
+    net_: netAmountValue, // FIXED: use the variable instead of looking for an element
+    national_id_number: document.getElementById('nationalIDNum').value,
+    total_repayable: totalRepayableValue,
+    gross_salary: parseFloat(document.getElementById('grossSalary').value),
+    guarantor_gross: parseFloat(document.getElementById('gGross').value),
+    net_disbursed: netAmountValue,
 
             // Documents
             nat_id_front: natF, 
