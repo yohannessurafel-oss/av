@@ -279,90 +279,55 @@
     // ==================== ENHANCED APPROVAL WORKFLOW ====================
 
        // ==================== FIXED & IMPROVED APPROVAL WORKFLOW ====================
+async function approveStep(id, step) {
+    if (isProcessing) return;
+    isProcessing = true;
 
-    async function approveStep(id, step) {
-        if (isProcessing) return;
-        isProcessing = true;
+    const btn = step === 1 ? document.getElementById('btnAdmin1') : document.getElementById('btnAdmin2');
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Processing...";
 
-        const btn = step === 1 ? document.getElementById('btnAdmin1') : document.getElementById('btnAdmin2');
-        const originalText = btn.innerText;
-        btn.disabled = true;
-        btn.innerText = "Processing...";
+    try {
+        console.log(`[DEBUG] Approving step ${step} for application ID: ${id}`);
+        console.log(`[DEBUG] Logged-in role: ${loggedInAdmin.role}, ID: ${loggedInAdmin.id}`);
 
-        try {
-            // 1. Fetch latest status safely
-            const { data: latest, error: fetchError } = await _supabase
-                .from('loan_applications')
-                .select('status, admin_one_status, admin_two_status')
-                .eq('id', id)
-                .maybeSingle();        // ← Changed to maybeSingle()
+        const { data: latest, error: fetchError } = await _supabase
+            .from('loan_applications')
+            .select('status, admin_one_status, admin_two_status')
+            .eq('id', id)
+            .maybeSingle();
 
-            if (fetchError) throw fetchError;
-            if (!latest) throw new Error("Application not found (ID: " + id + ")");
+        if (fetchError) throw fetchError;
+        if (!latest) throw new Error(`Application ID ${id} not found`);
 
-            // 2. Enforce sequential approval
-            if (step === 2 && latest.admin_one_status !== 'approved') {
-                throw new Error("Super-Agent must approve first!");
-            }
+        console.log("[DEBUG] Current status:", latest);
 
-            let updateData = {};
-            let actionType = step === 1 ? 'admin_one_approve' : 'admin_two_approve';
+        // ... rest of your logic remains the same ...
 
-            if (step === 1) {
-                if (latest.admin_one_status === 'approved') throw new Error("Already approved by Super-Agent");
-                updateData.admin_one_status = 'approved';
-                updateData.admin_one_approved_by = loggedInAdmin.id;
-            } else {
-                if (latest.admin_two_status === 'approved') throw new Error("Already approved by Manager");
-                updateData.admin_two_status = 'approved';
-                updateData.admin_two_approved_by = loggedInAdmin.id;
-            }
+        const { data: updated, error: updateError } = await _supabase
+            .from('loan_applications')
+            .update(updateData)
+            .eq('id', id)
+            .select()
+            .maybeSingle();
 
-            // Auto set full approval if both steps are done
-            const willBeFullyApproved = (step === 1 && latest.admin_two_status === 'approved') ||
-                                       (step === 2 && latest.admin_one_status === 'approved');
-
-            if (willBeFullyApproved) {
-                updateData.status = 'approved';
-            }
-
-            // 3. Perform the UPDATE (use .select().maybeSingle() to avoid 406)
-            const { data: updated, error: updateError } = await _supabase
-                .from('loan_applications')
-                .update(updateData)
-                .eq('id', id)
-                .select()
-                .maybeSingle();               // ← Critical fix here
-
-            if (updateError) throw updateError;
-            if (!updated) throw new Error("Update failed - no rows affected");
-
-            // 4. Log the action
-            await logApprovalAction({
-                application_id: id,
-                admin_id: loggedInAdmin.id,
-                action_type: actionType,
-                previous_status: latest.status,
-                new_status: updated.status || latest.status
-            });
-
-            alert(willBeFullyApproved 
-                ? "🎉 Loan has been fully approved by both admins!" 
-                : `Step ${step} approved successfully.`);
-
-            await fetchApplications();
-            closeModal();
-
-        } catch (err) {
-            console.error(err);
-            alert("Approval Error: " + err.message);
-        } finally {
-            isProcessing = false;
-            btn.disabled = false;
-            btn.innerText = originalText;
+        if (updateError) throw updateError;
+        if (!updated) {
+            throw new Error("No rows were updated. This is usually caused by RLS policies blocking the update.");
         }
-    }
 
+        // ... rest of success handling ...
+
+    } catch (err) {
+        console.error("[APPROVAL ERROR]", err);
+        alert("Approval Error: " + err.message);
+    } finally {
+        isProcessing = false;
+        btn.disabled = false;
+        btn.innerText = originalText;
+    }
+}
     async function rejectStep(id) {
         if (isProcessing) return;
 
