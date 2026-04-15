@@ -162,24 +162,20 @@
         fetchApplications();
     }
 
-    /**
-     * Fetch Applications based on Admin Role/Branch
-     */
-    async function fetchApplications() {
-        if (!loggedInAdmin) return;
-        let query = _supabase.from('loan_applications').select('*');
-        
-        // Filter by branch if Admin 1
-        if (loggedInAdmin.role === 'admin1' && loggedInAdmin.assigned_branch) {
-            query = query.eq('nearby_branch', loggedInAdmin.assigned_branch);
-        }
-        
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) return alert("Error: " + error.message);
-        
-        currentApplications = data;
-        renderTable();
-    }
+   async function fetchApplications() {
+    if (!loggedInAdmin) return;
+    
+    let query = _supabase.from('loan_applications').select('*');
+    
+    // If the user is a super-agent or manager, they see EVERYTHING (centralized)
+    // No extra .eq() filter needed for these roles!
+    
+    const { data, error } = await query.order('created_at', { ascending: false });
+    if (error) return alert("Error: " + error.message);
+    
+    currentApplications = data;
+    renderTable();
+}
 
     /**
      * Render the Application Table
@@ -325,41 +321,42 @@
         }
     }
 
-    /**
-     * Manage UI Buttons and Roles
-     */
-    function updateApprovalUI(app) {
-        const b1 = document.getElementById('btnAdmin1');
-        const b2 = document.getElementById('btnAdmin2');
-        const bReject = document.getElementById('btnReject');
+   function updateApprovalUI(app) {
+    const b1 = document.getElementById('btnAdmin1'); // This is your Super-Agent button
+    const b2 = document.getElementById('btnAdmin2'); // This is your Manager button
+    const bReject = document.getElementById('btnReject');
 
-        // Reset onclick events
-        b1.onclick = () => approveStep(app.id, 1);
-        b2.onclick = () => approveStep(app.id, 2);
-        bReject.onclick = () => rejectStep(app.id);
+    // Reset onclick events
+    b1.onclick = () => approveStep(app.id, 1);
+    b2.onclick = () => approveStep(app.id, 2);
+    bReject.onclick = () => rejectStep(app.id);
 
-        // Enable/Disable based on roles and current status
-        b1.disabled = (loggedInAdmin.role !== 'admin1' && loggedInAdmin.role !== 'superadmin') || app.admin_one_status === 'approved';
-        b2.disabled = (loggedInAdmin.role !== 'admin2' && loggedInAdmin.role !== 'superadmin') || app.admin_two_status === 'approved';
+    // FIX: Match these strings EXACTLY to your database 'role' column
+    const isSuperAgent = loggedInAdmin.role === 'super-agent';
+    const isManager = loggedInAdmin.role === 'manager';
 
-        // Update Visuals for Admin 1
-        if (app.admin_one_status === 'approved') {
-            b1.innerText = "Admin 1 ✅ Approved";
-            b1.style.background = "#16a34a";
-        } else {
-            b1.innerText = "Admin 1 Approve";
-            b1.style.background = "#2563eb";
-        }
+    // Enable/Disable buttons based on the NEW roles
+    b1.disabled = !isSuperAgent || app.admin_one_status === 'approved';
+    b2.disabled = !isManager || app.admin_two_status === 'approved';
 
-        // Update Visuals for Admin 2
-        if (app.admin_two_status === 'approved') {
-            b2.innerText = "Admin 2 ✅ Approved";
-            b2.style.background = "#16a34a";
-        } else {
-            b2.innerText = "Admin 2 Approve";
-            b2.style.background = "#2563eb";
-        }
+    // Update Visuals for Super-Agent (Admin 1)
+    if (app.admin_one_status === 'approved') {
+        b1.innerText = "Super-Agent ✅ Approved";
+        b1.style.background = "#16a34a";
+    } else {
+        b1.innerText = "Super-Agent Approve";
+        b1.style.background = "#2563eb";
     }
+
+    // Update Visuals for Manager (Admin 2)
+    if (app.admin_two_status === 'approved') {
+        b2.innerText = "Manager ✅ Approved";
+        b2.style.background = "#16a34a";
+    } else {
+        b2.innerText = "Manager Approve";
+        b2.style.background = "#2563eb";
+    }
+}
 
     /**
      * Helper Functions
