@@ -19,14 +19,11 @@
         }
 
         body { 
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-            background: var(--bg); 
-            color: var(--text-main); 
-            margin: 0; 
-            padding: 20px; 
-            display: flex; 
-            justify-content: center; 
-        }
+    display: flex; 
+    justify-content: center; 
+    align-items: flex-start; /* Aligns to top with padding */
+    padding: 40px 20px;
+}
 
         .form-container { 
             background: var(--card-bg); 
@@ -39,21 +36,22 @@
             border-top: 6px solid var(--primary);
         }
 .logo-container img {
-    height: 50px;           /* Professional small height */
+    height: 60px; /* Adjusted slightly for better visibility */
     width: auto;
     display: block;
-    margin-bottom: 5px;
+    margin: 0 auto; /* Redundant but safe for centering */
 }
        
+/* The header needs to be a column-flex to stack logo and text */
 .form-header {
     background: #fff;
-    padding: 30px 20px; /* Generous padding for a clean look */
+    padding: 30px 20px;
     border-bottom: 1px solid #edf2f7;
     display: flex; 
-    flex-direction: column; /* Stacks logo on top of text */
-    align-items: center;    /* Centers everything horizontally */
+    flex-direction: column; 
+    align-items: center;    /* This centers the logo and text horizontally */
     text-align: center;
-    gap: 12px;              /* Space between logo and text */
+    gap: 15px;
 }
 
         .form-header h2 { 
@@ -190,10 +188,10 @@
 }
 
        
-       .header-text h2 { 
+.header-text h2 { 
     margin: 0; 
     color: var(--primary); 
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     text-transform: uppercase;
     letter-spacing: 1px;
 }
@@ -201,16 +199,22 @@
 </head>
 <body>
 
-<div class="form-header">
-    <div class="logo-container">
-        <img src="logo.png" alt="Africa Village Logo">
+<body>
+    <div class="form-container">
+        <div class="form-header">
+            <div class="logo-container">
+                <img src="logo.png" alt="Africa Village Logo">
+            </div>
+            <div class="header-text">
+                <h2>Loan Registration Form</h2>
+                <p>Africa Village Microfinance | የብድር መጠየቂያ ቅጽ</p>
+            </div>
+        </div>
+        
+        <form id="loanForm">
+            </form>
     </div>
-
-    <div class="header-text">
-        <h2>Loan Registration Form</h2>
-        <p>Africa Village Microfinance | የብድር መጠየቂያ ቅጽ</p>
-    </div>
-</div>
+</body>
     
     <form id="loanForm">
         <div class="section-title">Personal Information</div>
