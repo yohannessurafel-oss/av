@@ -278,6 +278,8 @@
 
     // ==================== ENHANCED APPROVAL WORKFLOW ====================
 
+       // ==================== FIXED & IMPROVED APPROVAL WORKFLOW ====================
+
     async function approveStep(id, step) {
         if (isProcessing) return;
         isProcessing = true;
@@ -286,57 +288,56 @@
         const originalText = btn.innerText;
         btn.disabled = true;
         btn.innerText = "Processing...";
-        btn.classList.add('loading');
 
         try {
-            // Fetch latest status
+            // 1. Fetch latest status safely
             const { data: latest, error: fetchError } = await _supabase
                 .from('loan_applications')
                 .select('status, admin_one_status, admin_two_status')
                 .eq('id', id)
-                .single();
+                .maybeSingle();        // ← Changed to maybeSingle()
 
-            if (fetchError) throw new Error("Failed to fetch latest status");
+            if (fetchError) throw fetchError;
+            if (!latest) throw new Error("Application not found (ID: " + id + ")");
 
-            // Enforce sequential approval
+            // 2. Enforce sequential approval
             if (step === 2 && latest.admin_one_status !== 'approved') {
                 throw new Error("Super-Agent must approve first!");
             }
 
             let updateData = {};
-            let actionType = '';
+            let actionType = step === 1 ? 'admin_one_approve' : 'admin_two_approve';
 
             if (step === 1) {
                 if (latest.admin_one_status === 'approved') throw new Error("Already approved by Super-Agent");
                 updateData.admin_one_status = 'approved';
                 updateData.admin_one_approved_by = loggedInAdmin.id;
-                actionType = 'admin_one_approve';
             } else {
                 if (latest.admin_two_status === 'approved') throw new Error("Already approved by Manager");
                 updateData.admin_two_status = 'approved';
                 updateData.admin_two_approved_by = loggedInAdmin.id;
-                actionType = 'admin_two_approve';
             }
 
-            // Auto-complete if both steps done
-            const isFullyApproved = (step === 1 && latest.admin_two_status === 'approved') ||
-                                    (step === 2 && latest.admin_one_status === 'approved');
+            // Auto set full approval if both steps are done
+            const willBeFullyApproved = (step === 1 && latest.admin_two_status === 'approved') ||
+                                       (step === 2 && latest.admin_one_status === 'approved');
 
-            if (isFullyApproved) {
+            if (willBeFullyApproved) {
                 updateData.status = 'approved';
             }
 
-            // Update application
+            // 3. Perform the UPDATE (use .select().maybeSingle() to avoid 406)
             const { data: updated, error: updateError } = await _supabase
                 .from('loan_applications')
                 .update(updateData)
                 .eq('id', id)
                 .select()
-                .single();
+                .maybeSingle();               // ← Critical fix here
 
             if (updateError) throw updateError;
+            if (!updated) throw new Error("Update failed - no rows affected");
 
-            // Log the action
+            // 4. Log the action
             await logApprovalAction({
                 application_id: id,
                 admin_id: loggedInAdmin.id,
@@ -345,25 +346,26 @@
                 new_status: updated.status || latest.status
             });
 
-            alert(isFullyApproved 
-                ? "🎉 Loan has been fully approved!" 
-                : `Step ${step} approved successfully. Waiting for the next approver.`);
+            alert(willBeFullyApproved 
+                ? "🎉 Loan has been fully approved by both admins!" 
+                : `Step ${step} approved successfully.`);
 
             await fetchApplications();
             closeModal();
 
         } catch (err) {
-            alert("Error: " + err.message);
+            console.error(err);
+            alert("Approval Error: " + err.message);
         } finally {
             isProcessing = false;
             btn.disabled = false;
             btn.innerText = originalText;
-            btn.classList.remove('loading');
         }
     }
 
     async function rejectStep(id) {
         if (isProcessing) return;
+
         const reason = document.getElementById('rejectionReason').value.trim();
         if (!reason) return alert("Please enter a rejection reason.");
 
@@ -374,13 +376,16 @@
         btn.innerText = "Rejecting...";
 
         try {
-            const { data: latest } = await _supabase
+            const { data: latest, error: fetchError } = await _supabase
                 .from('loan_applications')
                 .select('status')
                 .eq('id', id)
-                .single();
+                .maybeSingle();
 
-            const { error } = await _supabase
+            if (fetchError) throw fetchError;
+            if (!latest) throw new Error("Application not found");
+
+            const { error: updateError } = await _supabase
                 .from('loan_applications')
                 .update({
                     status: 'rejected',
@@ -389,7 +394,7 @@
                 })
                 .eq('id', id);
 
-            if (error) throw error;
+            if (updateError) throw updateError;
 
             await logApprovalAction({
                 application_id: id,
@@ -400,7 +405,7 @@
                 rejection_reason: reason
             });
 
-            alert("Application rejected successfully.");
+            alert("✅ Application rejected successfully.");
             await fetchApplications();
             closeModal();
 
@@ -413,12 +418,10 @@
         }
     }
 
+    // Keep the log function as before
     async function logApprovalAction(logData) {
-        const { error } = await _supabase
-            .from('loan_approval_logs')
-            .insert(logData);
-        
-        if (error) console.warn("Audit log failed:", error.message);
+        const { error } = await _supabase.from('loan_approval_logs').insert(logData);
+        if (error) console.warn("Failed to write audit log:", error.message);
     }
 
     function updateApprovalUI(app) {
