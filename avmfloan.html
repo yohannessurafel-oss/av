@@ -284,7 +284,7 @@
      * Approval Logic
      */
  async function approveStep(id, num) {
-    // 1. Fetch the LATEST record from the database to see the REAL status
+    // 1. Fetch the LATEST record to ensure we have the most recent admin statuses
     const { data: latestApp, error: fetchError } = await _supabase
         .from('loan_applications')
         .select('admin_one_status, admin_two_status')
@@ -297,15 +297,13 @@
     const col = num === 1 ? 'admin_one_status' : 'admin_two_status';
     updateData[col] = 'approved';
     
-    // 2. Check the status from the LATEST data we just fetched
-    const otherAdminCol = num === 1 ? 'admin_two_status' : 'admin_one_status';
-    const isOtherAlreadyApproved = latestApp[otherAdminCol] === 'approved';
+    // 2. LOGIC FIX: Check if the other admin IS ALREADY approved OR if we are approving it RIGHT NOW
+    const admin1IsApproved = (num === 1) ? true : (latestApp.admin_one_status === 'approved');
+    const admin2IsApproved = (num === 2) ? true : (latestApp.admin_two_status === 'approved');
     
-    let fullyApproved = false;
-
-    if (isOtherAlreadyApproved) {
+    // If BOTH are now set to approved, flip the main status
+    if (admin1IsApproved && admin2IsApproved) {
         updateData.status = 'approved';
-        fullyApproved = true;
     }
 
     // 3. Perform the update
@@ -317,12 +315,12 @@
     if (updateError) {
         alert("Update Error: " + updateError.message);
     } else {
-        if (fullyApproved) {
+        if (updateData.status === 'approved') {
             alert("🎉 SUCCESS: Loan has been fully approved!");
         } else {
             alert("Step 1 Complete: Waiting for the other administrator's approval.");
         }
-        await fetchApplications(); // Refresh the list
+        await fetchApplications(); 
         closeModal(); 
     }
 }
