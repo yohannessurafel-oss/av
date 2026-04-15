@@ -5,155 +5,135 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Africa Village Loan Form | የብድር መጠየቂያ</title>
     <style>
-        :root { 
-            --primary: #0156D3; 
+        :root {
+            --primary: #0156D3;
             --primary-hover: #0044a8;
             --accent: #FFB200;
-            --bg: #f4f7fa; 
+            --bg: #f4f7fa;
             --card-bg: #ffffff;
-            --text-main: #1a202c; 
+            --text-main: #1a202c;
             --text-muted: #718096;
-            --border: #cbd5e0; 
+            --border: #cbd5e0;
             --radius: 10px;
             --shadow: 0 10px 25px rgba(0, 86, 211, 0.1);
         }
-
-        body { 
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-            background: var(--bg); 
-            color: var(--text-main); 
-            margin: 0; 
-            padding: 40px 20px; 
-            display: flex; 
-            justify-content: center; 
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
             align-items: flex-start;
         }
-
-        .form-container { 
-            background: var(--card-bg); 
-            width: 100%; 
-            max-width: 850px; 
-            border-radius: var(--radius); 
-            box-shadow: var(--shadow); 
+        .form-container {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 850px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
             overflow: hidden;
             border-top: 6px solid var(--primary);
         }
-
         .form-header {
             background: #fff;
             padding: 30px 20px;
             border-bottom: 1px solid #edf2f7;
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             text-align: center;
             gap: 15px;
         }
-
         .logo-container img {
             height: 60px;
             width: auto;
             display: block;
         }
-
-        .header-text h2 { 
-            margin: 0; 
-            color: var(--primary); 
+        .header-text h2 {
+            margin: 0;
+            color: var(--primary);
             font-size: 1.6rem;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
-
         .header-text p {
             margin: 5px 0 0;
             color: var(--text-muted);
             font-size: 0.9rem;
             font-weight: 600;
         }
-
         form { padding: 40px; }
-
-        .section-title { 
-            font-size: 0.85rem; 
-            font-weight: 800; 
-            color: var(--primary); 
-            margin: 40px 0 20px 0; 
-            text-transform: uppercase; 
-            display: flex; 
-            align-items: center; 
+        .section-title {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin: 40px 0 20px 0;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
             letter-spacing: 1px;
         }
-
         .section-title:first-child { margin-top: 0; }
-
-        .section-title::after { 
-            content: ""; 
-            height: 2px; 
-            background: #e2e8f0; 
-            flex-grow: 1; 
-            margin-left: 15px; 
+        .section-title::after {
+            content: "";
+            height: 2px;
+            background: #e2e8f0;
+            flex-grow: 1;
+            margin-left: 15px;
         }
-
-        .form-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 20px; 
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
         }
-
         .form-group { display: flex; flex-direction: column; }
         .full-width { grid-column: 1 / -1; }
-
-        label { 
-            margin-bottom: 8px; 
-            font-size: 0.85rem; 
-            font-weight: 600; 
-            color: #4a5568; 
+        label {
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #4a5568;
         }
-
-        input, select { 
-            padding: 12px 15px; 
-            border: 1px solid var(--border); 
-            border-radius: 6px; 
-            font-size: 0.95rem; 
-            transition: all 0.2s; 
+        input, select {
+            padding: 12px 15px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            transition: all 0.2s;
             background: #fff;
         }
-
-        input:focus, select:focus { 
-            outline: none; 
-            border-color: var(--primary); 
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(1, 86, 211, 0.1);
         }
-
-        .btn-submit { 
-            margin-top: 40px; 
-            padding: 18px; 
-            width: 100%; 
-            background-color: var(--primary); 
-            color: white; 
-            border: none; 
-            border-radius: 8px; 
-            font-weight: 700; 
+        .btn-submit {
+            margin-top: 40px;
+            padding: 18px;
+            width: 100%;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
             font-size: 1.1rem;
-            cursor: pointer; 
+            cursor: pointer;
             transition: transform 0.1s, background 0.2s;
         }
-
-        .btn-submit:hover { 
-            background-color: var(--primary-hover); 
+        .btn-submit:hover {
+            background-color: var(--primary-hover);
             transform: translateY(-1px);
         }
-
         .net-amount { color: var(--primary); font-size: 1.4rem; font-weight: 800; }
-
-        @media (max-width: 600px) { 
+        @media (max-width: 600px) {
             .form-grid { grid-template-columns: 1fr; }
             form { padding: 20px; }
         }
     </style>
 </head>
 <body>
-
 <div class="form-container">
     <div class="form-header">
         <div class="logo-container">
@@ -164,8 +144,8 @@
             <p>Africa Village Microfinance | የብድር መጠየቂያ ቅጽ</p>
         </div>
     </div>
-
     <form id="loanForm">
+        <!-- All your form fields remain exactly the same -->
         <div class="section-title">Personal Information</div>
         <div class="form-grid">
             <div class="form-group"><label>First Name</label><input type="text" id="firstName" required></div>
@@ -226,6 +206,9 @@
             </div>
         </div>
 
+        <!-- Guarantor, Employment, Loan Details, and Documents sections remain unchanged -->
+        <!-- ... (keeping them exactly as you provided) ... -->
+
         <div class="section-title">Guarantor Information</div>
         <div class="form-grid">
             <div class="form-group"><label>Full Name</label><input type="text" id="gfname" required></div>
@@ -273,6 +256,7 @@
         </div>
 
         <div id="repaymentSummary" style="display: none; margin: 25px 0;">
+            <!-- Repayment summary content remains the same -->
             <div class="summary-disburse" style="padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px 8px 0 0; background: #fff;">
                 <h4 style="margin:0 0 10px 0; color:var(--text-muted); font-size:0.8rem; text-transform:uppercase;">Disbursement Estimate</h4>
                 <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
@@ -294,7 +278,7 @@
                 <h4 style="margin: 0 0 10px 0; color: #166534; font-size: 0.8rem; text-transform:uppercase;">Repayment Details</h4>
                 <div id="installmentList" style="background: #ffffff; padding: 10px; border-radius: 6px; border: 1px solid #dcfce7;"></div>
                 <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: #166534; margin-top: 12px;">
-                    <span>Total to Pay Back:</span> 
+                    <span>Total to Pay Back:</span>
                     <span id="summaryTotal">0.00 ETB</span>
                 </div>
             </div>
@@ -319,18 +303,15 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-
 <script>
     const form = document.getElementById('loanForm');
     const statusMsg = document.getElementById('statusMsg');
 
-    // Tool to get file object
     const getFile = (id) => {
         const el = document.getElementById(id);
         return el && el.files ? el.files[0] : null;
     };
 
-    // Upload function
     async function uploadDoc(file, folder, userId) {
         if (!file) return null;
         const fileExt = file.name.split('.').pop();
@@ -346,35 +327,31 @@
         const amount = parseFloat(document.getElementById('loanAmount').value);
         const duration = parseInt(document.getElementById('loanDuration').value);
         const summaryBox = document.getElementById('repaymentSummary');
-        
-        if (isNaN(amount) || amount < 500) { 
-            summaryBox.style.display = "none"; 
-            return; 
+       
+        if (isNaN(amount) || amount < 500) {
+            summaryBox.style.display = "none";
+            return;
         }
 
-        // 1. Fee Calculation
         const serviceRate = 0.06;
         const disasterRate = 0.01;
         let insuranceRate = (duration > 30) ? 0.03 : 0;
         const valFees = amount * (serviceRate + insuranceRate + disasterRate);
         const netDisbursed = amount - valFees;
 
-        // 2. Interest Calculation
-        let interestRate = 0; 
+        let interestRate = 0;
         if (duration === 60) interestRate = 0.12;
         else if (duration === 90) interestRate = 0.18;
 
         const interestAmount = amount * interestRate;
         const totalRepayable = amount + interestAmount;
 
-        // 3. UI Updates
         summaryBox.style.display = "block";
         document.getElementById('summaryPrincipal').innerText = amount.toLocaleString() + " ETB";
         document.getElementById('totalFeesDisplay').innerText = "- " + valFees.toLocaleString() + " ETB";
         document.getElementById('summaryNet').innerText = netDisbursed.toLocaleString() + " ETB";
         document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
 
-        // Installment Breakdown
         let installments = 1;
         if (duration === 60) installments = 2;
         if (duration === 90) installments = 3;
@@ -383,7 +360,7 @@
         let html = "";
         for(let i = 1; i <= installments; i++) {
             let dueDay = i * 30;
-            if (dueDay > duration) dueDay = duration; 
+            if (dueDay > duration) dueDay = duration;
             html += `
                 <div style="display: flex; justify-content: space-between; font-size: 0.85rem; padding: 5px 0; border-bottom: 1px dashed #eee;">
                     <span>Installment ${i} (Day ${dueDay})</span>
@@ -393,6 +370,7 @@
         document.getElementById('installmentList').innerHTML = html;
     }
 
+    // ==================== FORM SUBMISSION WITH TELEGRAM NOTIFICATION ====================
     form.onsubmit = async (e) => {
         e.preventDefault();
         const btn = document.getElementById('submitBtn');
@@ -403,7 +381,7 @@
             const { data: { user } } = await _supabase.auth.getUser();
             const userId = user ? user.id : "guest_" + Date.now();
 
-            // Perform Batch Upload
+            // Upload all documents
             const [natF, natB, empF, empB, letter, photo, sig, gLetter, gNatF, gNatB, gEmpF, gEmpB] = await Promise.all([
                 uploadDoc(getFile('natIdFront'), 'nat_front', userId),
                 uploadDoc(getFile('natIdBack'), 'nat_back', userId),
@@ -419,10 +397,10 @@
                 uploadDoc(getFile('gempIdBack'), 'g_emp_back', userId)
             ]);
 
-            const totalRepayableValue = parseFloat(document.getElementById('summaryTotal').innerText.replace(/[^0-9.]/g, ''));
-            const netAmountValue = parseFloat(document.getElementById('summaryNet').innerText.replace(/[^0-9.]/g, ''));
+            const totalRepayableValue = parseFloat(document.getElementById('summaryTotal').innerText.replace(/[^0-9.]/g, '')) || 0;
+            const netAmountValue = parseFloat(document.getElementById('summaryNet').innerText.replace(/[^0-9.]/g, '')) || 0;
 
-            // Supabase Database Insertion
+            // Insert into database
             const { error: dbError } = await _supabase.from('loan_applications').insert([{
                 first_name: document.getElementById('firstName').value,
                 father_name: document.getElementById('fatherName').value,
@@ -464,9 +442,38 @@
 
             if (dbError) throw dbError;
 
+            // ==================== TELEGRAM NOTIFICATION ====================
+            const botToken = "YOUR_TELEGRAM_BOT_TOKEN_HERE";   // ← Replace with your bot token
+            const chatId = "YOUR_TELEGRAM_CHAT_ID_HERE";       // ← Replace with your chat ID
+
+            const telegramMessage = `
+🔔 *New Loan Application Received!*
+
+👤 *Applicant:* ${document.getElementById('firstName').value} ${document.getElementById('fatherName').value}
+📞 *Phone:* ${document.getElementById('phoneNumber').value}
+🏦 *Branch:* ${document.getElementById('nearbyBranch').value || 'N/A'}
+💰 *Requested Amount:* ${document.getElementById('loanAmount').value} ETB
+⏳ *Duration:* ${document.getElementById('loanDuration').value} Days
+📅 *Submitted:* ${new Date().toLocaleString('en-ET')}
+
+✅ Application saved successfully.
+            `.trim();
+
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: telegramMessage,
+                    parse_mode: 'Markdown'
+                })
+            }).catch(err => console.warn("Telegram send failed:", err));
+
+            // Success message to user
             statusMsg.style.display = "block";
             statusMsg.style.backgroundColor = "#dcfce7";
-            statusMsg.innerText = "Success! Your application has been submitted.";
+            statusMsg.innerText = "Success! Your application has been submitted. You will be contacted soon.";
+            
             form.reset();
             document.getElementById('repaymentSummary').style.display = "none";
 
@@ -476,6 +483,7 @@
             statusMsg.style.backgroundColor = "#fee2e2";
             statusMsg.innerText = "Submission Error: " + err.message;
         } finally {
+            const btn = document.getElementById('submitBtn');
             btn.disabled = false;
             btn.innerText = "Submit Loan Application";
         }
