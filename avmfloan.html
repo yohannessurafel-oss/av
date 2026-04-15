@@ -283,7 +283,7 @@
     /**
      * Approval Logic
      */
-   async function approveStep(id, num) {
+ async function approveStep(id, num) {
     // 1. Fetch the LATEST record from the database to see the REAL status
     const { data: latestApp, error: fetchError } = await _supabase
         .from('loan_applications')
