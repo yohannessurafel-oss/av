@@ -10,6 +10,8 @@
     <style>
         :root {
             --primary: #2563eb;
+            --success: #16a34a;
+            --danger: #dc2626;
             --bg: #f8fafc;
             --card-bg: #ffffff;
             --text-main: #0f172a;
@@ -18,14 +20,13 @@
             --radius: 12px;
         }
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', -apple-system, sans-serif;
             background: var(--bg);
             color: var(--text-main);
             margin: 0;
             padding: 24px;
         }
         .container { max-width: 1200px; margin: 0 auto; }
-       
         .header {
             display: flex;
             justify-content: space-between;
@@ -40,48 +41,52 @@
             border: 1px solid var(--border);
             overflow-x: auto;
         }
-        table { width: 100%; border-collapse: collapse; }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
         th { padding: 12px; background: #f1f5f9; text-align: left; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); }
         td { padding: 16px; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
         .status-badge { padding: 4px 12px; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
         .pending { background: #fef3c7; color: #92400e; }
         .approved { background: #ecfdf5; color: #065f46; }
         .rejected { background: #fef2f2; color: #991b1b; }
+        
         .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); z-index: 100; overflow-y: auto; padding: 20px; }
         .modal-content { background: white; max-width: 1000px; margin: 20px auto; padding: 32px; border-radius: var(--radius); position: relative; }
-       
+        
         .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-top: 20px; }
         .info-group h4 { margin: 0 0 12px 0; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 5px; font-size: 0.9rem; }
         .info-item { font-size: 0.85rem; margin-bottom: 6px; }
         .info-item span { font-weight: 600; color: var(--text-muted); margin-right: 5px; }
+        
         .doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 24px; }
         .doc-item { border: 1px solid var(--border); padding: 12px; border-radius: 8px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
         .img-container { background: #f1f5f9; height: 140px; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); }
         .doc-item img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; }
+        
         .btn { padding: 10px 20px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; transition: 0.2s; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-view { background: var(--primary); color: white; }
-        .btn-action { border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-       
         .close-modal { position: absolute; right: 24px; top: 24px; cursor: pointer; font-size: 1.5rem; color: var(--text-muted); }
-        .loading { opacity: 0.7; pointer-events: none; }
+
         @media print {
             body * { visibility: hidden; }
             #detailsModal, #detailsModal * { visibility: visible; }
-            #detailsModal { position: absolute; left: 0; top: 0; width: 100%; background: white; }
-            .btn, .close-modal, #approvalSection, #rejectionReason { display: none !important; }
+            #detailsModal { position: absolute; left: 0; top: 0; width: 100%; }
+            .btn, .close-modal, #approvalSection { display: none !important; }
         }
     </style>
 </head>
 <body>
+
 <div class="container">
     <div class="header">
         <h1>Loan Administration</h1>
         <div style="display: flex; gap: 10px;">
             <button onclick="handleLogout()" class="btn" style="background: #64748b; color: white;">Logout</button>
-            <button onclick="exportToExcel()" class="btn" style="background: #16a34a; color: white;">Export Excel</button>
+            <button onclick="exportToExcel()" class="btn" style="background: var(--success); color: white;">Export Excel</button>
             <button onclick="fetchApplications()" class="btn btn-view">Refresh List</button>
         </div>
     </div>
+
     <div class="card">
         <table>
             <thead>
@@ -104,28 +109,30 @@
 <div id="detailsModal" class="modal">
     <div class="modal-content">
         <span class="close-modal" onclick="closeModal()">&times;</span>
-       
+        
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h2 style="margin:0">Application Review</h2>
-            <button onclick="downloadReview()" class="btn" style="background: #ef4444; color: white;">Print / Save PDF</button>
+            <button onclick="window.print()" class="btn" style="background: var(--danger); color: white;">Print / Save PDF</button>
         </div>
+
         <div id="modalDetails" class="info-grid"></div>
-       
+        
         <h3 style="margin-top:32px">Submitted Documents</h3>
         <div class="doc-grid" id="modalDocs"></div>
 
-        <div id="approvalSection" style="margin-top: 30px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border);">
-            <h3 style="margin-top:0">Administrative Review</h3>
-            <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 20px;">
-                <button id="btnAdmin1" class="btn" style="background: #2563eb; color: white; flex: 1;">Super-Agent Approve (Step 1)</button>
-                <div style="font-size: 1.8rem; color: var(--border);">→</div>
-                <button id="btnAdmin2" class="btn" style="background: #2563eb; color: white; flex: 1;">Manager Approve (Step 2)</button>
+        <div id="approvalSection" style="margin-top: 30px; padding: 24px; background: #f8fafc; border-radius: 12px; border: 1px solid var(--border);">
+            <h3 style="margin-top:0; font-size: 1.1rem;">Administrative Approval Workflow</h3>
+            
+            <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 24px; flex-wrap: wrap;">
+                <button id="btnAdmin1" class="btn" style="flex: 1; min-width: 200px;">Super-Agent Approve (Step 1)</button>
+                <div style="font-size: 1.5rem; color: var(--text-muted); font-weight: bold;">→</div>
+                <button id="btnAdmin2" class="btn" style="flex: 1; min-width: 200px;">Manager Approve (Step 2)</button>
             </div>
-           
-            <div style="border-top: 1px solid var(--border); padding-top: 20px;">
-                <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted);">Rejection Reason:</label>
-                <textarea id="rejectionReason" style="width: 100%; margin: 8px 0; padding: 10px; border-radius: 6px; border: 1px solid var(--border);" rows="3" placeholder="Enter detailed reason for rejection..."></textarea>
-                <button id="btnReject" class="btn" style="background: #dc2626; color: white; width: 100%; margin-top: 8px;">Reject Application</button>
+            
+            <div style="border-top: 2px dashed var(--border); padding-top: 20px;">
+                <label style="font-size: 0.8rem; font-weight: bold; color: var(--danger);">Rejection Controls:</label>
+                <textarea id="rejectionReason" style="width: 100%; margin: 10px 0; padding: 12px; border-radius: 8px; border: 1px solid var(--border); font-family: inherit;" rows="3" placeholder="State clearly why this application is being rejected..."></textarea>
+                <button id="btnReject" class="btn" style="background: var(--danger); color: white; width: 100%;">Reject Application</button>
             </div>
         </div>
     </div>
@@ -136,34 +143,39 @@
     let loggedInAdmin = null;
     let isProcessing = false;
 
-    // Initialize Dashboard
     async function initializeDashboard() {
         const { data: { user }, error: authError } = await _supabase.auth.getUser();
         if (authError || !user) {
             window.location.href = "login.html";
             return;
         }
-        const { data: profile, error: profileError } = await _supabase
+
+        const { data: profile } = await _supabase
             .from('profiles')
             .select('id, role, assigned_branch')
             .eq('id', user.id)
             .single();
-        if (profileError || !profile) {
-            alert("Failed to load admin profile.");
+
+        if (!profile) {
+            alert("Profile not found. Contact system admin.");
             return;
         }
+
         loggedInAdmin = profile;
         fetchApplications();
     }
 
     async function fetchApplications() {
-        if (!loggedInAdmin) return;
         let query = _supabase.from('loan_applications').select('*');
-        if (loggedInAdmin.role !== 'super-agent' && loggedInAdmin.role !== 'manager' && loggedInAdmin.assigned_branch) {
+        
+        // Filter by branch if not a top-level manager
+        if (loggedInAdmin.role !== 'manager' && loggedInAdmin.role !== 'super-agent' && loggedInAdmin.assigned_branch) {
             query = query.eq('nearby_branch', loggedInAdmin.assigned_branch);
         }
+
         const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) return alert("Error fetching applications: " + error.message);
+        if (error) return console.error(error);
+        
         currentApplications = data || [];
         renderTable();
     }
@@ -171,15 +183,16 @@
     function renderTable() {
         const tbody = document.getElementById('appTableBody');
         if (currentApplications.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No applications found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No pending applications.</td></tr>';
             return;
         }
+
         tbody.innerHTML = currentApplications.map((app, i) => `
             <tr>
-                <td><strong>${app.first_name} ${app.father_name}</strong><br><small>${app.nearby_branch || 'General'}</small></td>
-                <td>${Number(app.loan_amount || 0).toLocaleString()}</td>
-                <td>${app.loan_duration || 0} Days</td>
-                <td>${Number(app.total_repayable || 0).toLocaleString()}</td>
+                <td><strong>${app.first_name} ${app.father_name}</strong><br><small>${app.phone_number}</small></td>
+                <td>${Number(app.loan_amount).toLocaleString()}</td>
+                <td>${app.loan_duration} Days</td>
+                <td>${Number(app.total_repayable).toLocaleString()}</td>
                 <td><span class="status-badge ${app.status || 'pending'}">${app.status || 'pending'}</span></td>
                 <td><button onclick="viewDetails(${i})" class="btn btn-view">Review</button></td>
             </tr>
@@ -188,297 +201,138 @@
 
     async function viewDetails(index) {
         const app = currentApplications[index];
-        if (!app) return;
-
         const detailsContainer = document.getElementById('modalDetails');
         const docsContainer = document.getElementById('modalDocs');
 
         detailsContainer.innerHTML = `
             <div class="info-group">
-                <h4>Personal Information</h4>
-                <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name} ${app.grandfather_name || ''}</div>
-                <div class="info-item"><span>Mother's Name:</span> ${app.mother_name || 'N/A'}</div>
-                <div class="info-item"><span>Phone:</span> ${app.phone_number}</div>
-                <div class="info-item"><span>Nationality:</span> ${app.nationality}</div>
+                <h4>Applicant Details</h4>
+                <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name}</div>
+                <div class="info-item"><span>Branch:</span> ${app.nearby_branch}</div>
                 <div class="info-item"><span>ID Number:</span> ${app.national_id_number}</div>
             </div>
             <div class="info-group">
-                <h4>Residential Details</h4>
-                <div class="info-item"><span>Region:</span> ${app.res_region || 'N/A'}</div>
-                <div class="info-item"><span>City:</span> ${app.res_city}</div>
-                <div class="info-item"><span>Sub-City:</span> ${app.res_subcity || 'N/A'}</div>
-                <div class="info-item"><span>Woreda/House:</span> ${app.res_woreda} / ${app.res_house_num}</div>
-                <div class="info-item"><span>Branch:</span> ${app.nearby_branch}</div>
-            </div>
-            <div class="info-group">
-                <h4>Guarantor Info</h4>
-                <div class="info-item"><span>Name:</span> ${app.guarantor_name}</div>
-                <div class="info-item"><span>Address:</span> ${app.guarantor_address}</div>
-                <div class="info-item"><span>Phone:</span> ${app.guarantor_phone}</div>
-                <div class="info-item"><span>Guarantor Salary:</span> ${Number(app.guarantor_gross || 0).toLocaleString()} ETB</div>
-            </div>
-            <div class="info-group">
-                <h4>Employment & Loan</h4>
-                <div class="info-item"><span>Organization:</span> ${app.org_name}</div>
-                <div class="info-item"><span>Net Salary:</span> ${Number(app.net_salary || 0).toLocaleString()} ETB</div>
-                <div class="info-item"><span>Requested Amount:</span> ${Number(app.loan_amount || 0).toLocaleString()} ETB</div>
-                <div class="info-item"><span>Total Repayable:</span> ${Number(app.total_repayable || 0).toLocaleString()} ETB</div>
+                <h4>Financials</h4>
+                <div class="info-item"><span>Loan Amount:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
+                <div class="info-item"><span>Net Disbursed:</span> ${Number(app.net_disbursed).toLocaleString()} ETB</div>
+                <div class="info-item"><span>Repayable:</span> ${Number(app.total_repayable).toLocaleString()} ETB</div>
             </div>
         `;
 
-        const docMapping = [
+        // Render documents
+        const docs = [
             { label: 'ID Front', path: app.nat_id_front },
             { label: 'ID Back', path: app.nat_id_back },
-            { label: 'Employee ID Front', path: app.emp_id_front },
-            { label: 'Employee ID Back', path: app.emp_id_back },
-            { label: 'Guarantor Letter', path: app.guarantor_letter },
-            { label: 'Guarantor ID Front', path: app.g_nat_id_front },
-            { label: 'Guarantor ID Back', path: app.g_nat_id_back },
+            { label: 'User Photo', path: app.personal_photo },
             { label: 'Employment Letter', path: app.employment_letter },
-            { label: 'Personal Photo', path: app.personal_photo },
-            { label: 'Digital Signature', path: app.digital_signature }
+            { label: 'Signature', path: app.digital_signature }
         ];
 
         docsContainer.innerHTML = '';
-        docMapping.forEach(doc => {
+        docs.forEach(doc => {
             if (!doc.path) return;
             const { data } = _supabase.storage.from('kyc-docs').getPublicUrl(doc.path);
-            const publicUrl = data.publicUrl;
-            const isPDF = doc.path.toLowerCase().endsWith('.pdf');
-
-            const docElement = document.createElement('div');
-            docElement.className = 'doc-item';
-            docElement.innerHTML = `
-                <div class="img-container">
-                    ${isPDF ? `<span style="font-size:2rem">📄</span>` : `<img src="${publicUrl}" onclick="window.open('${publicUrl}', '_blank')">`}
-                </div>
-                <div style="font-size: 0.75rem; font-weight: bold; text-align:center;">${doc.label}</div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                    <a href="${publicUrl}" target="_blank" class="btn-action" style="background:#e2e8f0; color:#0f172a; text-decoration:none; padding:6px; font-size:0.65rem; text-align:center; border-radius:4px;">VIEW</a>
-                    <button onclick="forceDownload('${publicUrl}', '${doc.label.replace(/\s+/g,'_')}_${app.first_name}')" class="btn-action" style="background:var(--primary); color:white; padding:6px; font-size:0.65rem; border-radius:4px;">SAVE</button>
+            docsContainer.innerHTML += `
+                <div class="doc-item">
+                    <div class="img-container">
+                        <img src="${data.publicUrl}" onclick="window.open('${data.publicUrl}')">
+                    </div>
+                    <div style="font-size:0.7rem; font-weight:bold; text-align:center">${doc.label}</div>
+                    <a href="${data.publicUrl}" target="_blank" class="btn" style="font-size:0.6rem; text-align:center; background:#eee; color:#333; text-decoration:none;">DOWNLOAD</a>
                 </div>
             `;
-            docsContainer.appendChild(docElement);
         });
 
         document.getElementById('detailsModal').style.display = "block";
         updateApprovalUI(app);
     }
 
-    // ==================== FIXED APPROVAL WORKFLOW ====================
     async function approveStep(id, step) {
         if (isProcessing) return;
         isProcessing = true;
 
-        const btn = step === 1 ? document.getElementById('btnAdmin1') : document.getElementById('btnAdmin2');
-        const originalText = btn.innerText;
-        btn.disabled = true;
+        const btn = document.getElementById(step === 1 ? 'btnAdmin1' : 'btnAdmin2');
         btn.innerText = "Processing...";
 
         try {
-            console.log(`[DEBUG] Approving step ${step} for application ID: ${id}`);
-            console.log(`[DEBUG] Logged-in role: ${loggedInAdmin?.role}, ID: ${loggedInAdmin?.id}`);
-
-            // Fetch latest status
-            const { data: latest, error: fetchError } = await _supabase
-                .from('loan_applications')
-                .select('status, admin_one_status, admin_two_status')
-                .eq('id', id)
-                .maybeSingle();
-
-            if (fetchError) throw fetchError;
-            if (!latest) throw new Error(`Application ID ${id} not found`);
-
-            console.log("[DEBUG] Current status:", latest);
-
-            // Enforce sequential approval
-            if (step === 2 && latest.admin_one_status !== 'approved') {
-                throw new Error("Super-Agent must approve first!");
-            }
-
-            // Prepare update data
-            let updateData = {};
-            let actionType = step === 1 ? 'admin_one_approve' : 'admin_two_approve';
-
+            const updateData = {};
             if (step === 1) {
-                if (latest.admin_one_status === 'approved') throw new Error("Already approved by Super-Agent");
                 updateData.admin_one_status = 'approved';
                 updateData.admin_one_approved_by = loggedInAdmin.id;
             } else {
-                if (latest.admin_two_status === 'approved') throw new Error("Already approved by Manager");
                 updateData.admin_two_status = 'approved';
                 updateData.admin_two_approved_by = loggedInAdmin.id;
+                updateData.status = 'approved'; // Finalize
             }
 
-            // Auto-complete full approval if both steps are done
-            const willBeFullyApproved = (step === 1 && latest.admin_two_status === 'approved') ||
-                                       (step === 2 && latest.admin_one_status === 'approved');
+            const { error } = await _supabase.from('loan_applications').update(updateData).eq('id', id);
+            if (error) throw error;
 
-            if (willBeFullyApproved) {
-                updateData.status = 'approved';
-            }
-
-            // Perform the update
-            const { data: updated, error: updateError } = await _supabase
-                .from('loan_applications')
-                .update(updateData)
-                .eq('id', id)
-                .select()
-                .maybeSingle();
-
-            if (updateError) throw updateError;
-            if (!updated) {
-                throw new Error("No rows were updated. This is usually caused by RLS policies blocking the update.");
-            }
-
-            // Log the action
-            await logApprovalAction({
+            await _supabase.from('loan_approval_logs').insert({
                 application_id: id,
                 admin_id: loggedInAdmin.id,
-                action_type: actionType,
-                previous_status: latest.status,
-                new_status: updated.status || latest.status
+                action_type: step === 1 ? 'admin_one_approve' : 'admin_two_approve'
             });
 
-            alert(willBeFullyApproved 
-                ? "🎉 Loan has been fully approved by both admins!" 
-                : `Step ${step} approved successfully.`);
-
-            await fetchApplications();
+            alert(`Step ${step} completed successfully.`);
+            fetchApplications();
             closeModal();
-
         } catch (err) {
-            console.error("[APPROVAL ERROR]", err);
-            alert("Approval Error: " + err.message);
+            alert(err.message);
         } finally {
             isProcessing = false;
-            btn.disabled = false;
-            btn.innerText = originalText;
         }
     }
 
     async function rejectStep(id) {
-        if (isProcessing) return;
-        const reason = document.getElementById('rejectionReason').value.trim();
-        if (!reason) return alert("Please enter a rejection reason.");
+        const reason = document.getElementById('rejectionReason').value;
+        if (!reason) return alert("Please provide a reason.");
 
-        isProcessing = true;
-        const btn = document.getElementById('btnReject');
-        const originalText = btn.innerText;
-        btn.disabled = true;
-        btn.innerText = "Rejecting...";
+        const { error } = await _supabase.from('loan_applications').update({
+            status: 'rejected',
+            rejection_reason: reason
+        }).eq('id', id);
 
-        try {
-            const { data: latest, error: fetchError } = await _supabase
-                .from('loan_applications')
-                .select('status')
-                .eq('id', id)
-                .maybeSingle();
-
-            if (fetchError) throw fetchError;
-            if (!latest) throw new Error("Application not found");
-
-            const { error: updateError } = await _supabase
-                .from('loan_applications')
-                .update({
-                    status: 'rejected',
-                    rejection_reason: reason,
-                    rejected_by: loggedInAdmin.id
-                })
-                .eq('id', id);
-
-            if (updateError) throw updateError;
-
-            await logApprovalAction({
-                application_id: id,
-                admin_id: loggedInAdmin.id,
-                action_type: 'reject',
-                previous_status: latest.status,
-                new_status: 'rejected',
-                rejection_reason: reason
-            });
-
-            alert("✅ Application rejected successfully.");
-            await fetchApplications();
+        if (!error) {
+            alert("Application rejected.");
+            fetchApplications();
             closeModal();
-
-        } catch (err) {
-            alert("Rejection failed: " + err.message);
-        } finally {
-            isProcessing = false;
-            btn.disabled = false;
-            btn.innerText = originalText;
         }
-    }
-
-    async function logApprovalAction(logData) {
-        const { error } = await _supabase.from('loan_approval_logs').insert(logData);
-        if (error) console.warn("Failed to write audit log:", error.message);
     }
 
     function updateApprovalUI(app) {
         const b1 = document.getElementById('btnAdmin1');
         const b2 = document.getElementById('btnAdmin2');
-        const bReject = document.getElementById('btnReject');
-
-        const isSuperAgent = loggedInAdmin.role === 'super-agent';
+        const isSuper = loggedInAdmin.role === 'super-agent';
         const isManager = loggedInAdmin.role === 'manager';
 
+        // Admin 1 Logic
+        b1.disabled = !isSuper || app.admin_one_status === 'approved' || app.status === 'rejected';
+        b1.innerText = app.admin_one_status === 'approved' ? "✅ Step 1 Done" : "Approve Step 1 (Super-Agent)";
+        b1.style.background = app.admin_one_status === 'approved' ? "var(--success)" : "var(--primary)";
+        b1.style.color = "white";
         b1.onclick = () => approveStep(app.id, 1);
-        b1.disabled = !isSuperAgent || app.admin_one_status === 'approved' || app.status === 'approved' || app.status === 'rejected';
-        b1.innerText = app.admin_one_status === 'approved' 
-            ? "✅ Super-Agent Approved" 
-            : "Super-Agent Approve (Step 1)";
-        b1.style.background = app.admin_one_status === 'approved' ? "#16a34a" : "#2563eb";
 
+        // Admin 2 Logic (Depends on Admin 1)
+        b2.disabled = !isManager || app.admin_one_status !== 'approved' || app.admin_two_status === 'approved' || app.status === 'rejected';
+        b2.innerText = app.admin_two_status === 'approved' ? "✅ Final Approval Done" : "Approve Step 2 (Manager)";
+        b2.style.background = app.admin_two_status === 'approved' ? "var(--success)" : "var(--primary)";
+        b2.style.color = "white";
         b2.onclick = () => approveStep(app.id, 2);
-        b2.disabled = !isManager || app.admin_two_status === 'approved' || app.admin_one_status !== 'approved' || app.status === 'approved' || app.status === 'rejected';
-        b2.innerText = app.admin_two_status === 'approved' 
-            ? "✅ Manager Approved" 
-            : "Manager Approve (Step 2)";
-        b2.style.background = app.admin_two_status === 'approved' ? "#16a34a" : "#2563eb";
 
-        bReject.onclick = () => rejectStep(app.id);
-        bReject.disabled = app.status === 'approved' || app.status === 'rejected';
+        document.getElementById('btnReject').onclick = () => rejectStep(app.id);
     }
 
-    // Helper Functions
-    async function handleLogout() {
-        await _supabase.auth.signOut();
-        window.location.href = "login.html";
-    }
-
-    function closeModal() {
-        document.getElementById('detailsModal').style.display = "none";
-        document.getElementById('rejectionReason').value = '';
-    }
-
-    function downloadReview() {
-        window.print();
-    }
-
-    async function forceDownload(url, fileName) {
-        try {
-            const response = await fetch(url);
-            const blob = await response.blob();
-            const link = document.createElement('a');
-            link.href = window.URL.createObjectURL(blob);
-            link.download = fileName.replace(/\s+/g, '_') + (url.endsWith('.pdf') ? '.pdf' : '.png');
-            link.click();
-        } catch (e) {
-            alert("Download failed. Please use the VIEW button.");
-        }
-    }
+    function closeModal() { document.getElementById('detailsModal').style.display = "none"; }
+    async function handleLogout() { await _supabase.auth.signOut(); window.location.href = "login.html"; }
 
     function exportToExcel() {
-        if (currentApplications.length === 0) return alert("No data to export");
-        const worksheet = XLSX.utils.json_to_sheet(currentApplications);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Loans");
-        XLSX.writeFile(workbook, `Loan_Applications_${new Date().toLocaleDateString()}.xlsx`);
+        const ws = XLSX.utils.json_to_sheet(currentApplications);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Loans");
+        XLSX.writeFile(wb, "Africa_Village_Loans.xlsx");
     }
 
-    // Run on load
     initializeDashboard();
 </script>
 </body>
