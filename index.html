@@ -19,52 +19,56 @@
         }
 
         body { 
-    display: flex; 
-    justify-content: center; 
-    align-items: flex-start; /* Aligns to top with padding */
-    padding: 40px 20px;
-}
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background: var(--bg); 
+            color: var(--text-main); 
+            margin: 0; 
+            padding: 40px 20px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: flex-start;
+        }
 
         .form-container { 
             background: var(--card-bg); 
             width: 100%; 
             max-width: 850px; 
-            padding: 0; 
             border-radius: var(--radius); 
             box-shadow: var(--shadow); 
             overflow: hidden;
             border-top: 6px solid var(--primary);
         }
-.logo-container img {
-    height: 60px; /* Adjusted slightly for better visibility */
-    width: auto;
-    display: block;
-    margin: 0 auto; /* Redundant but safe for centering */
-}
-       
-/* The header needs to be a column-flex to stack logo and text */
-.form-header {
-    background: #fff;
-    padding: 30px 20px;
-    border-bottom: 1px solid #edf2f7;
-    display: flex; 
-    flex-direction: column; 
-    align-items: center;    /* This centers the logo and text horizontally */
-    text-align: center;
-    gap: 15px;
-}
 
-        .form-header h2 { 
-            margin: 0; 
-            color: var(--primary); 
-            font-size: 1.8rem;
-            letter-spacing: -0.5px;
+        .form-header {
+            background: #fff;
+            padding: 30px 20px;
+            border-bottom: 1px solid #edf2f7;
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;    /* Centers items horizontally */
+            text-align: center;
+            gap: 15px;
         }
 
-        .form-header p {
+        .logo-container img {
+            height: 60px;
+            width: auto;
+            display: block;
+        }
+
+        .header-text h2 { 
+            margin: 0; 
+            color: var(--primary); 
+            font-size: 1.6rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .header-text p {
             margin: 5px 0 0;
             color: var(--text-muted);
-            font-size: 0.95rem;
+            font-size: 0.9rem;
+            font-weight: 600;
         }
 
         form { padding: 40px; }
@@ -121,14 +125,6 @@
             box-shadow: 0 0 0 3px rgba(1, 86, 211, 0.1);
         }
 
-        .upload-card {
-            background: #f8fafc;
-            border: 1px dashed var(--border);
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-
         .btn-submit { 
             margin-top: 40px; 
             padding: 18px; 
@@ -148,53 +144,12 @@
             transform: translateY(-1px);
         }
 
-        .btn-submit:active { transform: translateY(0); }
-
-        /* Summary Box Styling */
-        #repaymentSummary {
-            margin-top: 25px;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #e2e8f0;
-        }
-
-        .summary-disburse { background: #fff; padding: 20px; border-bottom: 1px solid #e2e8f0; }
-        .summary-repay { background: #F7FAFC; padding: 20px; }
-        
-        .net-amount {
-            color: var(--primary);
-            font-size: 1.4rem;
-            font-weight: 800;
-        }
-
-        .total-repay {
-            color: #2d3748;
-            font-size: 1.4rem;
-            font-weight: 800;
-        }
-
-        .highlight-text { color: var(--accent); font-weight: bold; }
+        .net-amount { color: var(--primary); font-size: 1.4rem; font-weight: 800; }
 
         @media (max-width: 600px) { 
             .form-grid { grid-template-columns: 1fr; }
             form { padding: 20px; }
         }
-
-.header-text p {
-    margin: 5px 0 0;
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    font-weight: 600;
-}
-
-       
-.header-text h2 { 
-    margin: 0; 
-    color: var(--primary); 
-    font-size: 1.6rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
     </style>
 </head>
 <body>
