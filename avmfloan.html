@@ -144,13 +144,13 @@
 </div>
 
 <script>
-    let currentApplications = [];
+ let currentApplications = [];
     let loggedInAdmin = null;
 
     /**
      * Initialize Dashboard: Authenticate user and fetch profile
      */
-    async function initializeDashboard() {
+   async function initializeDashboard() {
         const { data: { user }, error: authError } = await _supabase.auth.getUser();
         if (authError || !user) { 
             window.location.href = "login.html"; 
@@ -162,21 +162,21 @@
         fetchApplications();
     }
 
-   async function fetchApplications() {
-    if (!loggedInAdmin) return;
-    
-    let query = _supabase.from('loan_applications').select('*');
-    
-    // If the user is a super-agent or manager, they see EVERYTHING (centralized)
-    // No extra .eq() filter needed for these roles!
-    
-    const { data, error } = await query.order('created_at', { ascending: false });
-    if (error) return alert("Error: " + error.message);
-    
-    currentApplications = data;
-    renderTable();
-}
-
+  async function fetchApplications() {
+        if (!loggedInAdmin) return;
+        let query = _supabase.from('loan_applications').select('*');
+        
+        // Filter by branch only if they aren't central admins
+        if (loggedInAdmin.role !== 'super-agent' && loggedInAdmin.role !== 'manager' && loggedInAdmin.assigned_branch) {
+            query = query.eq('nearby_branch', loggedInAdmin.assigned_branch);
+        }
+        
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error) return alert("Error: " + error.message);
+        
+        currentApplications = data;
+        renderTable();
+    }
     /**
      * Render the Application Table
      */
@@ -202,7 +202,7 @@
     /**
      * View Detailed Application & Documents
      */
-    async function viewDetails(index) {
+   async function viewDetails(index) {
         const app = currentApplications[index];
         const detailsContainer = document.getElementById('modalDetails');
         const docsContainer = document.getElementById('modalDocs');
@@ -276,32 +276,47 @@
             }
         });
 
-        document.getElementById('detailsModal').style.display = "block";
+       document.getElementById('detailsModal').style.display = "block";
         updateApprovalUI(app);
     }
 
     /**
      * Approval Logic
      */
-    async function approveStep(id, num) {
+   async function approveStep(id, num) {
+        const app = currentApplications.find(a => a.id === id);
         const updateData = {};
+        
+        // Determine current click
         const col = num === 1 ? 'admin_one_status' : 'admin_two_status';
         updateData[col] = 'approved';
         
-        const app = currentApplications.find(a => a.id === id);
-        const otherApproved = (num === 1 ? app.admin_two_status : app.admin_one_status) === 'approved';
+        // Check the OTHER admin's existing status in the database
+        const otherAdminCol = num === 1 ? 'admin_two_status' : 'admin_one_status';
+        const isOtherAlreadyApproved = app[otherAdminCol] === 'approved';
         
-        // If both admins approved, set final status to approved
-        if (otherApproved) updateData.status = 'approved';
+        let fullyApproved = false;
+
+        // If this click is the final one needed
+        if (isOtherAlreadyApproved) {
+            updateData.status = 'approved';
+            fullyApproved = true;
+        }
 
         const { error } = await _supabase.from('loan_applications').update(updateData).eq('id', id);
-        if (error) alert(error.message);
-        else { 
+        
+        if (error) {
+            alert("Error: " + error.message);
+        } else {
+            if (fullyApproved) {
+                alert("🎉 SUCCESS: Loan has been fully approved by both Super-Agent and Manager!");
+            } else {
+                alert("Step 1 Complete: Waiting for the other administrator's approval.");
+            }
             fetchApplications(); 
             closeModal(); 
         }
     }
-
     /**
      * Rejection Logic
      */
@@ -316,48 +331,46 @@
         
         if (error) alert(error.message);
         else { 
+            alert("Application Rejected.");
             fetchApplications(); 
             closeModal(); 
         }
     }
-
+    
    function updateApprovalUI(app) {
-    const b1 = document.getElementById('btnAdmin1'); // This is your Super-Agent button
-    const b2 = document.getElementById('btnAdmin2'); // This is your Manager button
-    const bReject = document.getElementById('btnReject');
+        const b1 = document.getElementById('btnAdmin1'); 
+        const b2 = document.getElementById('btnAdmin2'); 
+        const bReject = document.getElementById('btnReject');
 
-    // Reset onclick events
-    b1.onclick = () => approveStep(app.id, 1);
-    b2.onclick = () => approveStep(app.id, 2);
-    bReject.onclick = () => rejectStep(app.id);
+        b1.onclick = () => approveStep(app.id, 1);
+        b2.onclick = () => approveStep(app.id, 2);
+        bReject.onclick = () => rejectStep(app.id);
 
-    // FIX: Match these strings EXACTLY to your database 'role' column
-    const isSuperAgent = loggedInAdmin.role === 'super-agent';
-    const isManager = loggedInAdmin.role === 'manager';
+        const isSuperAgent = loggedInAdmin.role === 'super-agent';
+        const isManager = loggedInAdmin.role === 'manager';
 
-    // Enable/Disable buttons based on the NEW roles
-    b1.disabled = !isSuperAgent || app.admin_one_status === 'approved';
-    b2.disabled = !isManager || app.admin_two_status === 'approved';
+        // Set disabled state
+        b1.disabled = !isSuperAgent || app.admin_one_status === 'approved' || app.status === 'approved';
+        b2.disabled = !isManager || app.admin_two_status === 'approved' || app.status === 'approved';
 
-    // Update Visuals for Super-Agent (Admin 1)
-    if (app.admin_one_status === 'approved') {
-        b1.innerText = "Super-Agent ✅ Approved";
-        b1.style.background = "#16a34a";
-    } else {
-        b1.innerText = "Super-Agent Approve";
-        b1.style.background = "#2563eb";
+        // Super-Agent Visuals
+        if (app.admin_one_status === 'approved') {
+            b1.innerText = "Super-Agent ✅ Approved";
+            b1.style.background = "#16a34a";
+        } else {
+            b1.innerText = "Super-Agent Approve";
+            b1.style.background = "#2563eb";
+        }
+
+        // Manager Visuals
+        if (app.admin_two_status === 'approved') {
+            b2.innerText = "Manager ✅ Approved";
+            b2.style.background = "#16a34a";
+        } else {
+            b2.innerText = "Manager Approve";
+            b2.style.background = "#2563eb";
+        }
     }
-
-    // Update Visuals for Manager (Admin 2)
-    if (app.admin_two_status === 'approved') {
-        b2.innerText = "Manager ✅ Approved";
-        b2.style.background = "#16a34a";
-    } else {
-        b2.innerText = "Manager Approve";
-        b2.style.background = "#2563eb";
-    }
-}
-
     /**
      * Helper Functions
      */
