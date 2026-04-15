@@ -144,274 +144,201 @@
 </div>
 
 <script>
- let currentApplications = [];
-    let loggedInAdmin = null;
+ /**
+ * Enhanced Approval & Rejection Logic
+ */
 
-    /**
-     * Initialize Dashboard: Authenticate user and fetch profile
-     */
-   async function initializeDashboard() {
-        const { data: { user }, error: authError } = await _supabase.auth.getUser();
-        if (authError || !user) { 
-            window.location.href = "login.html"; 
-            return; 
+// Global loading state helper
+let isProcessing = false;
+
+async function approveStep(id, num) {
+    if (isProcessing) return;
+    isProcessing = true;
+
+    const btn = num === 1 ? document.getElementById('btnAdmin1') : document.getElementById('btnAdmin2');
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Processing...";
+
+    try {
+        // 1. Fetch absolute latest state
+        const { data: latestApp, error: fetchError } = await _supabase
+            .from('loan_applications')
+            .select('status, admin_one_status, admin_two_status')
+            .eq('id', id)
+            .single();
+
+        if (fetchError) throw new Error("Failed to fetch latest status: " + fetchError.message);
+
+        // 2. Enforce sequential approval
+        if (num === 2 && latestApp.admin_one_status !== 'approved') {
+            throw new Error("Super-Agent must approve first before Manager can approve.");
         }
 
-        const { data: profile } = await _supabase.from('profiles').select('role, assigned_branch').eq('id', user.id).single();
-        loggedInAdmin = profile;
-        fetchApplications();
-    }
+        // 3. Prepare update
+        let updateData = {};
+        let actionType = '';
 
-  async function fetchApplications() {
-        if (!loggedInAdmin) return;
-        let query = _supabase.from('loan_applications').select('*');
-        
-        // Filter by branch only if they aren't central admins
-        if (loggedInAdmin.role !== 'super-agent' && loggedInAdmin.role !== 'manager' && loggedInAdmin.assigned_branch) {
-            query = query.eq('nearby_branch', loggedInAdmin.assigned_branch);
-        }
-        
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) return alert("Error: " + error.message);
-        
-        currentApplications = data;
-        renderTable();
-    }
-    /**
-     * Render the Application Table
-     */
-    function renderTable() {
-        const tbody = document.getElementById('appTableBody');
-        if (currentApplications.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No applications found.</td></tr>';
-            return;
+        if (num === 1) {
+            if (latestApp.admin_one_status === 'approved') throw new Error("Already approved by Super-Agent.");
+            updateData.admin_one_status = 'approved';
+            updateData.admin_one_approved_by = loggedInAdmin.id; // assuming profile has .id from user
+            actionType = 'admin_one_approve';
+        } else {
+            if (latestApp.admin_two_status === 'approved') throw new Error("Already approved by Manager.");
+            updateData.admin_two_status = 'approved';
+            updateData.admin_two_approved_by = loggedInAdmin.id;
+            actionType = 'admin_two_approve';
         }
 
-        tbody.innerHTML = currentApplications.map((app, i) => `
-            <tr>
-                <td><strong>${app.first_name} ${app.father_name}</strong><br><small>${app.nearby_branch || 'General'}</small></td>
-                <td>${Number(app.loan_amount).toLocaleString()}</td>
-                <td>${app.loan_duration} Days</td>
-                <td>${Number(app.total_repayable).toLocaleString()}</td>
-                <td><span class="status-badge ${app.status}">${app.status}</span></td>
-                <td><button onclick="viewDetails(${i})" class="btn btn-view">Review</button></td>
-            </tr>
-        `).join('');
-    }
+        // 4. Check if this completes the approval
+        const willBeFullyApproved = (num === 1 && latestApp.admin_two_status === 'approved') ||
+                                   (num === 2 && latestApp.admin_one_status === 'approved');
 
-    /**
-     * View Detailed Application & Documents
-     */
-   async function viewDetails(index) {
-        const app = currentApplications[index];
-        const detailsContainer = document.getElementById('modalDetails');
-        const docsContainer = document.getElementById('modalDocs');
+        if (willBeFullyApproved) {
+            updateData.status = 'approved';
+        }
 
-        detailsContainer.innerHTML = `
-            <div class="info-group">
-                <h4>Personal Information</h4>
-                <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name} ${app.grandfather_name}</div>
-                <div class="info-item"><span>Mother's Name:</span> ${app.mother_name}</div>
-                <div class="info-item"><span>Phone:</span> ${app.phone_number}</div>
-                <div class="info-item"><span>Nationality:</span> ${app.nationality}</div>
-                <div class="info-item"><span>ID Num:</span> ${app.national_id_number}</div>
-            </div>
-            <div class="info-group">
-                <h4>Residential Details</h4>
-                <div class="info-item"><span>Region:</span> ${app.res_region || 'N/A'}</div>
-                <div class="info-item"><span>City:</span> ${app.res_city}</div>
-                <div class="info-item"><span>Sub-City:</span> ${app.res_subcity || 'N/A'}</div>
-                <div class="info-item"><span>Woreda/House:</span> ${app.res_woreda} / ${app.res_house_num}</div>
-                <div class="info-item"><span>Branch:</span> ${app.nearby_branch}</div>
-            </div>
-            <div class="info-group">
-                <h4>Guarantor Info</h4>
-                <div class="info-item"><span>Name:</span> ${app.guarantor_name}</div>
-                <div class="info-item"><span>Address:</span> ${app.guarantor_address}</div>
-                <div class="info-item"><span>Phone:</span> ${app.guarantor_phone}</div>
-                <div class="info-item"><span>Guarantor Salary:</span> ${Number(app.guarantor_gross).toLocaleString()} ETB</div>
-            </div>
-            <div class="info-group">
-                <h4>Employment & Loan</h4>
-                <div class="info-item"><span>Org:</span> ${app.org_name}</div>
-                <div class="info-item"><span>Net Salary:</span> ${Number(app.net_salary).toLocaleString()} ETB</div>
-                <div class="info-item"><span>Requested:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
-                <div class="info-item"><span>Total Repay:</span> ${Number(app.total_repayable).toLocaleString()} ETB</div>
-            </div>
-        `;
+        // 5. Perform the update
+        const { data: updatedRow, error: updateError } = await _supabase
+            .from('loan_applications')
+            .update(updateData)
+            .eq('id', id)
+            .select()
+            .single();
 
-        const docMapping = [
-            { label: 'ID Front', path: app.nat_id_front },
-            { label: 'ID Back', path: app.nat_id_back },
-            { label: 'Employee ID Front', path: app.emp_id_front },
-            { label: 'Employee ID Back', path: app.emp_id_back },
-            { label: 'Guarantor Letter', path: app.guarantor_letter },
-            { label: 'Guarantor ID Front', path: app.g_nat_id_front },
-            { label: 'Guarantor ID Back', path: app.g_nat_id_back },
-            { label: 'Employment Letter', path: app.employment_letter },
-            { label: 'Photo', path: app.personal_photo },
-            { label: 'Signature', path: app.digital_signature }
-        ];
+        if (updateError) throw updateError;
 
-        docsContainer.innerHTML = ''; 
-        docMapping.forEach(doc => {
-            if (doc.path) {
-                const { data } = _supabase.storage.from('kyc-docs').getPublicUrl(doc.path);
-                const publicUrl = data.publicUrl;
-                const isPDF = doc.path.toLowerCase().endsWith('.pdf');
-                
-                const docElement = document.createElement('div');
-                docElement.className = 'doc-item';
-                docElement.innerHTML = `
-                    <div class="img-container">
-                        ${isPDF ? `<span>📄 PDF</span>` : `<img src="${publicUrl}" onclick="window.open('${publicUrl}', '_blank')">`}
-                    </div>
-                    <div style="font-size: 0.7rem; font-weight: bold; text-align:center;">${doc.label}</div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
-                        <a href="${publicUrl}" target="_blank" class="btn-action" style="background:#e2e8f0; color:#0f172a; text-decoration:none; padding:5px; font-size:0.6rem; text-align:center; border-radius:4px;">VIEW</a>
-                        <button onclick="forceDownload('${publicUrl}', '${doc.label}_${app.first_name}')" class="btn-action" style="background:var(--primary); color:white; padding:5px; font-size:0.6rem; border-radius:4px;">SAVE</button>
-                    </div>
-                `;
-                docsContainer.appendChild(docElement);
-            }
+        // 6. Log the action
+        await logApprovalAction({
+            application_id: id,
+            admin_id: loggedInAdmin.id, // or use the auth user id
+            action_type: actionType,
+            previous_status: latestApp.status,
+            new_status: updatedRow.status || latestApp.status,
         });
 
-       document.getElementById('detailsModal').style.display = "block";
-        updateApprovalUI(app);
-    }
-
-    /**
-     * Approval Logic
-     */
- async function approveStep(id, num) {
-    // 1. Fetch the LATEST record to ensure we have the most recent admin statuses
-    const { data: latestApp, error: fetchError } = await _supabase
-        .from('loan_applications')
-        .select('admin_one_status, admin_two_status')
-        .eq('id', id)
-        .single();
-
-    if (fetchError) return alert("Error fetching status: " + fetchError.message);
-
-    const updateData = {};
-    const col = num === 1 ? 'admin_one_status' : 'admin_two_status';
-    updateData[col] = 'approved';
-    
-    // 2. LOGIC FIX: Check if the other admin IS ALREADY approved OR if we are approving it RIGHT NOW
-    const admin1IsApproved = (num === 1) ? true : (latestApp.admin_one_status === 'approved');
-    const admin2IsApproved = (num === 2) ? true : (latestApp.admin_two_status === 'approved');
-    
-    // If BOTH are now set to approved, flip the main status
-    if (admin1IsApproved && admin2IsApproved) {
-        updateData.status = 'approved';
-    }
-
-    // 3. Perform the update
-    const { error: updateError } = await _supabase
-        .from('loan_applications')
-        .update(updateData)
-        .eq('id', id);
-    
-    if (updateError) {
-        alert("Update Error: " + updateError.message);
-    } else {
-        if (updateData.status === 'approved') {
-            alert("🎉 SUCCESS: Loan has been fully approved!");
+        // Success feedback
+        if (updatedRow.status === 'approved') {
+            alert("🎉 Loan fully approved! Both steps completed.");
         } else {
-            alert("Step 1 Complete: Waiting for the other administrator's approval.");
+            alert(`Step ${num} approved successfully. Awaiting the next approver.`);
         }
-        await fetchApplications(); 
-        closeModal(); 
+
+        await fetchApplications(); // Refresh list
+        closeModal();
+
+    } catch (err) {
+        console.error(err);
+        alert("Error: " + err.message);
+    } finally {
+        isProcessing = false;
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = originalText;
+        }
     }
 }
-    /**
-     * Rejection Logic
-     */
-    async function rejectStep(id) {
-        const reason = document.getElementById('rejectionReason').value;
-        if (!reason) return alert("Please enter reason.");
-        
-        const { error } = await _supabase.from('loan_applications').update({ 
-            status: 'rejected', 
-            rejection_reason: reason 
-        }).eq('id', id);
-        
-        if (error) alert(error.message);
-        else { 
-            alert("Application Rejected.");
-            fetchApplications(); 
-            closeModal(); 
-        }
+
+async function rejectStep(id) {
+    if (isProcessing) return;
+    const reason = document.getElementById('rejectionReason').value.trim();
+    if (!reason) return alert("Please provide a rejection reason.");
+
+    isProcessing = true;
+    const btnReject = document.getElementById('btnReject');
+    const originalText = btnReject.innerText;
+    btnReject.disabled = true;
+    btnReject.innerText = "Rejecting...";
+
+    try {
+        const { data: latest, error: fetchErr } = await _supabase
+            .from('loan_applications')
+            .select('status')
+            .eq('id', id)
+            .single();
+
+        if (fetchErr) throw fetchErr;
+
+        const { error: updateError } = await _supabase
+            .from('loan_applications')
+            .update({
+                status: 'rejected',
+                rejection_reason: reason,
+                rejected_by: loggedInAdmin.id
+            })
+            .eq('id', id);
+
+        if (updateError) throw updateError;
+
+        // Log rejection
+        await logApprovalAction({
+            application_id: id,
+            admin_id: loggedInAdmin.id,
+            action_type: 'reject',
+            previous_status: latest.status,
+            new_status: 'rejected',
+            rejection_reason: reason
+        });
+
+        alert("Application has been rejected.");
+        await fetchApplications();
+        closeModal();
+
+    } catch (err) {
+        alert("Rejection failed: " + err.message);
+    } finally {
+        isProcessing = false;
+        btnReject.disabled = false;
+        btnReject.innerText = originalText;
     }
-    
-   function updateApprovalUI(app) {
-        const b1 = document.getElementById('btnAdmin1'); 
-        const b2 = document.getElementById('btnAdmin2'); 
-        const bReject = document.getElementById('btnReject');
+}
 
-        b1.onclick = () => approveStep(app.id, 1);
-        b2.onclick = () => approveStep(app.id, 2);
-        bReject.onclick = () => rejectStep(app.id);
+// Helper: Log every action
+async function logApprovalAction(logData) {
+    const { error } = await _supabase
+        .from('loan_approval_logs')
+        .insert(logData);
 
-        const isSuperAgent = loggedInAdmin.role === 'super-agent';
-        const isManager = loggedInAdmin.role === 'manager';
+    if (error) console.warn("Failed to log approval action:", error.message);
+    // Don't block the main flow if logging fails
+}
 
-        // Set disabled state
-        b1.disabled = !isSuperAgent || app.admin_one_status === 'approved' || app.status === 'approved';
-        b2.disabled = !isManager || app.admin_two_status === 'approved' || app.status === 'approved';
+// Updated UI function with better visuals and role enforcement
+function updateApprovalUI(app) {
+    const b1 = document.getElementById('btnAdmin1');
+    const b2 = document.getElementById('btnAdmin2');
+    const bReject = document.getElementById('btnReject');
 
-        // Super-Agent Visuals
-        if (app.admin_one_status === 'approved') {
-            b1.innerText = "Super-Agent ✅ Approved";
-            b1.style.background = "#16a34a";
-        } else {
-            b1.innerText = "Super-Agent Approve";
-            b1.style.background = "#2563eb";
-        }
+    const isSuperAgent = loggedInAdmin.role === 'super-agent' || loggedInAdmin.role === 'manager'; // adjust as needed
+    const isManager = loggedInAdmin.role === 'manager';
 
-        // Manager Visuals
-        if (app.admin_two_status === 'approved') {
-            b2.innerText = "Manager ✅ Approved";
-            b2.style.background = "#16a34a";
-        } else {
-            b2.innerText = "Manager Approve";
-            b2.style.background = "#2563eb";
-        }
-    }
-    /**
-     * Helper Functions
-     */
-    async function handleLogout() { 
-        await _supabase.auth.signOut(); 
-        window.location.href = "login.html"; 
+    // Button 1 - Super-Agent
+    b1.onclick = () => approveStep(app.id, 1);
+    b1.disabled = !isSuperAgent || app.admin_one_status === 'approved' || app.status !== 'pending';
+    if (app.admin_one_status === 'approved') {
+        b1.innerText = "✅ Super-Agent Approved";
+        b1.style.background = "#16a34a";
+    } else {
+        b1.innerText = "Super-Agent Approve (Step 1)";
+        b1.style.background = "#2563eb";
     }
 
-    function closeModal() { 
-        document.getElementById('detailsModal').style.display = "none"; 
+    // Button 2 - Manager (only enabled after Step 1)
+    b2.onclick = () => approveStep(app.id, 2);
+    b2.disabled = !isManager || app.admin_two_status === 'approved' || app.admin_one_status !== 'approved' || app.status !== 'pending';
+    if (app.admin_two_status === 'approved') {
+        b2.innerText = "✅ Manager Approved";
+        b2.style.background = "#16a34a";
+    } else {
+        b2.innerText = "Manager Approve (Step 2)";
+        b2.style.background = "#2563eb";
     }
 
-    function downloadReview() { 
-        window.print(); 
-    }
-
-    async function forceDownload(url, fileName) {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const link = document.createElement('a');
-        link.href = window.URL.createObjectURL(blob);
-        link.download = fileName.replace(/\s+/g, '_') + '.png';
-        link.click();
-    }
-
-    function exportToExcel() {
-        const worksheet = XLSX.utils.json_to_sheet(currentApplications);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Loans");
-        XLSX.writeFile(workbook, `Loans_${new Date().toLocaleDateString()}.xlsx`);
-    }
-
-    // Run on load
-    initializeDashboard();
+    // Rejection always available for pending apps
+    bReject.onclick = () => rejectStep(app.id);
+    bReject.disabled = app.status !== 'pending';
+}
 </script>
 </body>
 </html>
