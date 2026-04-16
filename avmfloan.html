@@ -85,15 +85,15 @@
     <div class="card">
         <table>
             <thead>
-                <tr>
-                    <th>Applicant</th>
-                    <th>Amount (ETB)</th>
-                    <th>Duration</th>
-                    <th>Repayable</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
+    <tr>
+        <th>Applicant</th>
+        <th>Amount (ETB)</th>
+        <th>Duration</th>
+        <th>Repayable</th>
+        <th>Status</th>
+        <th>Submitted Date</th> <th>Action</th>
+    </tr>
+</thead>
             <tbody id="appTableBody">
                 <tr><td colspan="6" style="text-align:center">Loading loan applications...</td></tr>
             </tbody>
@@ -168,23 +168,34 @@
         renderTable();
     }
 
-    function renderTable() {
-        const tbody = document.getElementById('appTableBody');
-        if (currentApplications.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No applications found.</td></tr>';
-            return;
-        }
-        tbody.innerHTML = currentApplications.map((app, i) => `
+   function renderTable() {
+    const tbody = document.getElementById('appTableBody');
+    if (currentApplications.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">No applications found.</td></tr>'; // Updated colspan to 7
+        return;
+    }
+
+    tbody.innerHTML = currentApplications.map((app, i) => {
+        // Format the date (e.g., "Oct 24, 2023")
+        const dateObj = new Date(app.created_at);
+        const formattedDate = dateObj.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+
+        return `
             <tr>
                 <td><strong>${app.first_name} ${app.father_name}</strong><br><small>${app.nearby_branch || 'General'}</small></td>
                 <td>${Number(app.loan_amount || 0).toLocaleString()}</td>
                 <td>${app.loan_duration || 0} Days</td>
                 <td>${Number(app.total_repayable || 0).toLocaleString()}</td>
                 <td><span class="status-badge ${app.status || 'pending'}">${app.status || 'pending'}</span></td>
-                <td><button onclick="viewDetails(${i})" class="btn btn-view">Review</button></td>
+                <td>${formattedDate}</td> <td><button onclick="viewDetails(${i})" class="btn btn-view">Review</button></td>
             </tr>
-        `).join('');
-    }
+        `;
+    }).join('');
+}
 
     async function viewDetails(index) {
         const app = currentApplications[index];
