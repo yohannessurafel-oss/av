@@ -427,7 +427,7 @@
 
     const getFile = (id) => document.getElementById(id)?.files[0] || null;
 
-        function calculateRepayment() {
+       function calculateRepayment() {
         const amount = parseFloat(document.getElementById('loanAmount').value);
         const duration = parseInt(document.getElementById('loanDuration').value);
         const summaryBox = document.getElementById('repaymentSummary');
@@ -472,12 +472,8 @@
         }
         document.getElementById('installmentList').innerHTML = html;
     }
-    form.onsubmit = async (e) => {
-        e.preventDefault();
-        // Your full submission logic with uploadDoc and Telegram goes here
-        // (copy from your previous working version)
-        alert("Form submitted! (Telegram notification sent)");
-    };
+
+
 
     // Initialize
     showStep(1);
