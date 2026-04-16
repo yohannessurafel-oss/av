@@ -317,7 +317,7 @@
 <script>
     let currentStep = 1;
     const totalSteps = 6;
-
+const getFile = (id) => document.getElementById(id)?.files[0] || null;
     function showStep(step) {
         document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
         document.getElementById(`step-${step}`).classList.add('active');
@@ -350,7 +350,7 @@
     const form = document.getElementById('loanForm');
     const statusMsg = document.getElementById('statusMsg');
 
-    const getFile = (id) => document.getElementById(id)?.files[0] || null;
+ 
 
     async function uploadDoc(file, folder, userId) {
         if (!file) return null;
