@@ -230,18 +230,33 @@
                         </select>
                     </div>
                 </div>
-                <div id="repaymentSummary" style="display: none; margin-top: 25px;">
-                    <div style="padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff;">
-                        <div style="display:flex; justify-content:space-between;">
-                            <span>Amount You Receive:</span>
-                            <span class="net-amount" id="summaryNet">0.00 ETB</span>
-                        </div>
-                        <div style="display:flex; justify-content:space-between; font-weight: bold; margin-top: 12px; color: #166534;">
-                            <span>Total to Pay Back:</span>
-                            <span id="summaryTotal">0.00 ETB</span>
-                        </div>
-                    </div>
-                </div>
+               <div id="repaymentSummary" style="display: none; margin-top: 25px;">
+    <div style="padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: #fff;">
+        <h4 style="margin-top: 0; color: var(--primary);">Fee Breakdown</h4>
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 15px;">
+            <thead>
+                <tr style="border-bottom: 2px solid #edf2f7; text-align: left; color: var(--text-muted);">
+                    <th style="padding: 8px 0;">Fee Type</th>
+                    <th>Rate</th>
+                    <th style="text-align: right;">Amount (ETB)</th>
+                </tr>
+            </thead>
+            <tbody id="feeTableBody">
+                </tbody>
+        </table>
+
+        <div style="border-top: 1px solid #edf2f7; padding-top: 15px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom: 8px;">
+                <span style="font-weight: 600;">Amount You Receive:</span>
+                <span class="net-amount" id="summaryNet" style="color: var(--primary);">0.00 ETB</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-weight: 800; color: #166534; font-size: 1.1rem;">
+                <span>Total to Pay Back:</span>
+                <span id="summaryTotal">0.00 ETB</span>
+            </div>
+        </div>
+    </div>
+</div>
             </div>
 
             <!-- Step 6: Documents -->
@@ -319,28 +334,62 @@
     }
 
     function calculateRepayment() {
-        const amount = parseFloat(document.getElementById('loanAmount').value);
-        const duration = parseInt(document.getElementById('loanDuration').value);
-        const summaryBox = document.getElementById('repaymentSummary');
+    const amount = parseFloat(document.getElementById('loanAmount').value);
+    const duration = parseInt(document.getElementById('loanDuration').value);
+    const summaryBox = document.getElementById('repaymentSummary');
+    const feeTableBody = document.getElementById('feeTableBody');
 
-        if (isNaN(amount) || amount < 500) {
-            summaryBox.style.display = "none";
-            return;
-        }
-
-        const serviceRate = 0.06;
-        const disasterRate = 0.01;
-        let insuranceRate = (duration > 30) ? 0.03 : 0;
-
-        const valFees = amount * (serviceRate + insuranceRate + disasterRate);
-        const netDisbursed = amount - valFees;
-        let interestRate = (duration === 60) ? 0.12 : (duration === 90) ? 0.18 : 0;
-        const totalRepayable = amount + (amount * interestRate);
-
-        summaryBox.style.display = "block";
-        document.getElementById('summaryNet').innerText = netDisbursed.toLocaleString() + " ETB";
-        document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString() + " ETB";
+    if (isNaN(amount) || amount < 500) {
+        summaryBox.style.display = "none";
+        return;
     }
+
+    // Define Rates
+    const serviceRate = 0.06;
+    const disasterRate = 0.01;
+    let insuranceRate = (duration > 30) ? 0.03 : 0;
+    
+    // Calculate Individual Amounts
+    const serviceFee = amount * serviceRate;
+    const disasterFee = amount * disasterRate;
+    const insuranceFee = amount * insuranceRate;
+    
+    const totalFees = serviceFee + disasterFee + insuranceFee;
+    const netDisbursed = amount - totalFees;
+    
+    let interestRate = (duration === 60) ? 0.12 : (duration === 90) ? 0.18 : 0;
+    const totalRepayable = amount + (amount * interestRate);
+
+    // Build Table Rows
+    let rows = `
+        <tr style="border-bottom: 1px solid #f7fafc;">
+            <td style="padding: 8px 0;">Service Fee</td>
+            <td>6%</td>
+            <td style="text-align: right;">${serviceFee.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f7fafc;">
+            <td style="padding: 8px 0;">Disaster Fund</td>
+            <td>1%</td>
+            <td style="text-align: right;">${disasterFee.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+        </tr>
+    `;
+
+    if (insuranceRate > 0) {
+        rows += `
+            <tr style="border-bottom: 1px solid #f7fafc;">
+                <td style="padding: 8px 0;">Insurance Fee</td>
+                <td>3%</td>
+                <td style="text-align: right;">${insuranceFee.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+            </tr>
+        `;
+    }
+
+    // Update UI
+    feeTableBody.innerHTML = rows;
+    summaryBox.style.display = "block";
+    document.getElementById('summaryNet').innerText = netDisbursed.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
+    document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
+}
 
     form.onsubmit = async (e) => {
         e.preventDefault();
