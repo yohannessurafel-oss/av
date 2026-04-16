@@ -427,7 +427,6 @@
 
     const getFile = (id) => document.getElementById(id)?.files[0] || null;
 
-    function calculateRepayment() {
         function calculateRepayment() {
         const amount = parseFloat(document.getElementById('loanAmount').value);
         const duration = parseInt(document.getElementById('loanDuration').value);
@@ -473,14 +472,6 @@
         }
         document.getElementById('installmentList').innerHTML = html;
     }
-        const amount = parseFloat(document.getElementById('loanAmount').value);
-        if (isNaN(amount) || amount < 500) {
-            document.getElementById('repaymentSummary').style.display = "none";
-            return;
-        }
-        // ... (keep your full calculateRepayment logic)
-    }
-
     form.onsubmit = async (e) => {
         e.preventDefault();
         // Your full submission logic with uploadDoc and Telegram goes here
