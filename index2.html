@@ -45,7 +45,6 @@
         }
         .header-text p { color: var(--text-muted); font-weight: 600; }
 
-        /* Tabs */
         .tabs {
             display: flex;
             background: #f8fafc;
@@ -145,7 +144,7 @@
     <div class="form-content">
         <form id="loanForm">
 
-            <!-- Step 1 -->
+            <!-- Step 1: Personal -->
             <div class="step active" id="step-1">
                 <div class="section-title">Personal Information</div>
                 <div class="form-grid">
@@ -163,11 +162,10 @@
                     <div class="form-group"><label>Birthday</label><input type="date" id="birthday" required></div>
                     <div class="form-group"><label>Nationality</label><input type="text" id="nationality" required></div>
                     <div class="form-group"><label>Phone Number</label><input type="tel" id="phoneNumber" required></div>
-                     <div class="form-group"><label>Alternative Phone</label><input type="tel" id="phoneNumber2"></div>
                 </div>
             </div>
 
-            <!-- Step 2 -->
+            <!-- Step 2: Address -->
             <div class="step" id="step-2">
                 <div class="section-title">Residential Address</div>
                 <div class="form-grid">
@@ -190,7 +188,7 @@
                 </div>
             </div>
 
-            <!-- Step 3 -->
+            <!-- Step 3: Guarantor -->
             <div class="step" id="step-3">
                 <div class="section-title">Guarantor Information</div>
                 <div class="form-grid">
@@ -203,7 +201,7 @@
                 </div>
             </div>
 
-            <!-- Step 4 -->
+            <!-- Step 4: Employment -->
             <div class="step" id="step-4">
                 <div class="section-title">Employment Information</div>
                 <div class="form-grid">
@@ -214,7 +212,7 @@
                 </div>
             </div>
 
-            <!-- Step 5 -->
+            <!-- Step 5: Loan -->
             <div class="step" id="step-5">
                 <div class="section-title">Loan Details</div>
                 <div class="form-grid">
@@ -232,36 +230,21 @@
                         </select>
                     </div>
                 </div>
-             <div id="repaymentSummary" style="display: none; margin: 25px 0;">
-            <div class="summary-disburse" style="padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px 8px 0 0; background: #fff;">
-                <h4 style="margin:0 0 10px 0; color:var(--text-muted); font-size:0.8rem; text-transform:uppercase;">Disbursement Estimate</h4>
-                <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
-                    <span>Requested Amount:</span>
-                    <span id="summaryPrincipal" style="font-weight:600;">0.00 ETB</span>
+                <div id="repaymentSummary" style="display: none; margin-top: 25px;">
+                    <div style="padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff;">
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>Amount You Receive:</span>
+                            <span class="net-amount" id="summaryNet">0.00 ETB</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-weight: bold; margin-top: 12px; color: #166534;">
+                            <span>Total to Pay Back:</span>
+                            <span id="summaryTotal">0.00 ETB</span>
+                        </div>
+                    </div>
                 </div>
-                <div style="display:flex; justify-content:space-between; font-size: 0.85rem; color: #e53e3e;">
-                    <span>Total Fees (Deducted):</span>
-                    <span id="totalFeesDisplay">- 0.00 ETB</span>
-                </div>
-                <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 10px 0;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-weight: 600;">Amount You Receive:</span>
-                    <span class="net-amount" id="summaryNet">0.00 ETB</span>
-                </div>
-                <small style="color:var(--text-muted); font-size: 0.7rem;">Deducted: Service (6%), Insurance (Varies), Disaster (1%)</small>
-            </div>
-            <div class="summary-repay" style="padding: 20px; background: #f0fdf4; border: 1px solid #bbf7d0; border-top: none; border-radius: 0 0 8px 8px;">
-                <h4 style="margin: 0 0 10px 0; color: #166534; font-size: 0.8rem; text-transform:uppercase;">Repayment Details</h4>
-                <div id="installmentList" style="background: #ffffff; padding: 10px; border-radius: 6px; border: 1px solid #dcfce7;"></div>
-                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: #166534; margin-top: 12px;">
-                    <span>Total to Pay Back:</span>
-                    <span id="summaryTotal">0.00 ETB</span>
-                </div>
-            </div>
-        </div>
             </div>
 
-            <!-- Step 6 -->
+            <!-- Step 6: Documents -->
             <div class="step" id="step-6">
                 <div class="section-title">Applicant Documents</div>
                 <div class="form-grid">
@@ -297,9 +280,9 @@
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelector(`.tab[data-step="${step}"]`).classList.add('active');
 
-        document.getElementById('btnPrev').style.display = (step === 1) ? 'none' : 'block';
-        document.getElementById('btnNext').style.display = (step === totalSteps) ? 'none' : 'block';
-        document.getElementById('btnSubmit').style.display = (step === totalSteps) ? 'block' : 'none';
+        document.getElementById('btnPrev').style.display = step === 1 ? 'none' : 'block';
+        document.getElementById('btnNext').style.display = step === totalSteps ? 'none' : 'block';
+        document.getElementById('btnSubmit').style.display = step === totalSteps ? 'block' : 'none';
     }
 
     function nextStep() {
@@ -310,7 +293,7 @@
         if (currentStep > 1) showStep(--currentStep);
     }
 
-    // Tab clicking
+    // Tab click
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
             currentStep = parseInt(tab.dataset.step);
@@ -318,10 +301,50 @@
         });
     });
 
-    // ==================== FORM SUBMISSION ====================
+    // ==================== FORM SUBMISSION WITH TELEGRAM ====================
+    const form = document.getElementById('loanForm');
+    const statusMsg = document.getElementById('statusMsg');
+
+    const getFile = (id) => document.getElementById(id)?.files[0] || null;
+
+    async function uploadDoc(file, folder, userId) {
+        if (!file) return null;
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${userId}/${folder}-${Date.now()}.${fileExt}`;
+        const { data, error } = await _supabase.storage
+            .from('kyc-docs')
+            .upload(fileName, file, { upsert: true, contentType: file.type });
+        if (error) throw error;
+        return data.path;
+    }
+
+    function calculateRepayment() {
+        const amount = parseFloat(document.getElementById('loanAmount').value);
+        const duration = parseInt(document.getElementById('loanDuration').value);
+        const summaryBox = document.getElementById('repaymentSummary');
+
+        if (isNaN(amount) || amount < 500) {
+            summaryBox.style.display = "none";
+            return;
+        }
+
+        const serviceRate = 0.06;
+        const disasterRate = 0.01;
+        let insuranceRate = (duration > 30) ? 0.03 : 0;
+
+        const valFees = amount * (serviceRate + insuranceRate + disasterRate);
+        const netDisbursed = amount - valFees;
+        let interestRate = (duration === 60) ? 0.12 : (duration === 90) ? 0.18 : 0;
+        const totalRepayable = amount + (amount * interestRate);
+
+        summaryBox.style.display = "block";
+        document.getElementById('summaryNet').innerText = netDisbursed.toLocaleString() + " ETB";
+        document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString() + " ETB";
+    }
+
     form.onsubmit = async (e) => {
         e.preventDefault();
-        const btn = document.getElementById('submitBtn');
+        const btn = document.getElementById('btnSubmit');
         btn.disabled = true;
         btn.innerText = "Processing & Uploading...";
 
@@ -329,15 +352,12 @@
             const { data: { user } } = await _supabase.auth.getUser();
             const userId = user ? user.id : "guest_" + Date.now();
 
-            // Upload documents
-            const [natF, natB, empF, empB, letter, photo, sig, gLetter, gNatF, gNatB, gEmpF, gEmpB] = await Promise.all([
+            const [natF, natB, photo, sig, empLetter, gLetter, gNatF, gNatB, gEmpF, gEmpB] = await Promise.all([
                 uploadDoc(getFile('natIdFront'), 'nat_front', userId),
                 uploadDoc(getFile('natIdBack'), 'nat_back', userId),
-                uploadDoc(getFile('empIdFront'), 'emp_front', userId),
-                uploadDoc(getFile('empIdBack'), 'emp_back', userId),
-                uploadDoc(getFile('empLetter'), 'employment_letter', userId),
-                uploadDoc(getFile('userPhoto'), 'passport_photo', userId),
+                uploadDoc(getFile('userPhoto'), 'photo', userId),
                 uploadDoc(getFile('digitalSig'), 'signature', userId),
+                uploadDoc(getFile('empLetter'), 'employment_letter', userId),
                 uploadDoc(getFile('gLetter'), 'guarantor_letter', userId),
                 uploadDoc(getFile('gnatIdFront'), 'g_nat_front', userId),
                 uploadDoc(getFile('gnatIdBack'), 'g_nat_back', userId),
@@ -348,7 +368,6 @@
             const totalRepayableValue = parseFloat(document.getElementById('summaryTotal').innerText.replace(/[^0-9.]/g, '')) || 0;
             const netAmountValue = parseFloat(document.getElementById('summaryNet').innerText.replace(/[^0-9.]/g, '')) || 0;
 
-            // Save to Supabase
             const { error: dbError } = await _supabase.from('loan_applications').insert([{
                 first_name: document.getElementById('firstName').value,
                 father_name: document.getElementById('fatherName').value,
@@ -364,9 +383,8 @@
                 res_house_num: document.getElementById('resHouseNum').value,
                 nearby_branch: document.getElementById('nearbyBranch').value,
                 guarantor_name: document.getElementById('gfname').value,
-                guarantor_address: document.getElementById('gadress').value,
                 guarantor_phone: document.getElementById('gphone').value,
-                guarantor_id_number: document.getElementById('gIDNum').value,
+                guarantor_gross: parseFloat(document.getElementById('gGross').value),
                 guarantor_letter: gLetter,
                 g_nat_id_front: gNatF,
                 g_nat_id_back: gNatB,
@@ -375,23 +393,22 @@
                 loan_amount: parseFloat(document.getElementById('loanAmount').value),
                 loan_duration: document.getElementById('loanDuration').value,
                 org_name: document.getElementById('orgName').value,
+                gross_salary: parseFloat(document.getElementById('grossSalary').value),
                 total_repayable: totalRepayableValue,
                 net_disbursed: netAmountValue,
-                national_id_number: document.getElementById('nationalIDNum').value,
+                national_id_number: document.getElementById('nationalIDNum').value || '',
                 nat_id_front: natF,
                 nat_id_back: natB,
-                emp_id_front: empF,
-                emp_id_back: empB,
-                employment_letter: letter,
                 personal_photo: photo,
                 digital_signature: sig,
+                employment_letter: empLetter,
                 status: 'pending'
             }]);
 
             if (dbError) throw dbError;
 
-            // ==================== TELEGRAM NOTIFICATION ====================
-            const botToken = "8557174379:AAHjA_5WAIxIR8uq4mjZOhd1EfdKvgI2s7o";
+            // Telegram Notification
+            const botToken = "YOUR_REAL_BOT_TOKEN_HERE";   // ← Replace with your correct token
             const chatId = "6792892909";
 
             const telegramMessage = `
@@ -402,23 +419,14 @@
 🏦 *Branch:* ${document.getElementById('nearbyBranch').value || 'N/A'}
 💰 *Amount:* ${document.getElementById('loanAmount').value} ETB
 ⏳ *Duration:* ${document.getElementById('loanDuration').value} Days
-📅 *Time:* ${new Date().toLocaleString('en-ET')}
-
-✅ Application submitted successfully!
             `.trim();
 
-            // Send to Telegram (non-blocking)
             fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chat_id: chatId,
-                    text: telegramMessage,
-                    parse_mode: 'Markdown'
-                })
-            }).catch(err => console.warn("Telegram notification failed:", err));
+                body: JSON.stringify({ chat_id: chatId, text: telegramMessage, parse_mode: 'Markdown' })
+            }).catch(() => {});
 
-            // Show success to user
             statusMsg.style.display = "block";
             statusMsg.style.backgroundColor = "#dcfce7";
             statusMsg.innerText = "✅ Success! Your application has been submitted. You will be contacted soon.";
@@ -430,67 +438,15 @@
             console.error(err);
             statusMsg.style.display = "block";
             statusMsg.style.backgroundColor = "#fee2e2";
-            statusMsg.innerText = "❌ Submission Error: " + err.message;
+            statusMsg.innerText = "❌ Error: " + err.message;
         } finally {
-            const btn = document.getElementById('submitBtn');
+            const btn = document.getElementById('btnSubmit');
             btn.disabled = false;
-            btn.innerText = "Submit Loan Application";
+            btn.innerText = "Submit Application";
         }
     };
-    const form = document.getElementById('loanForm');
-    const statusMsg = document.getElementById('statusMsg');
 
-    const getFile = (id) => document.getElementById(id)?.files[0] || null;
-
-       function calculateRepayment() {
-        const amount = parseFloat(document.getElementById('loanAmount').value);
-        const duration = parseInt(document.getElementById('loanDuration').value);
-        const summaryBox = document.getElementById('repaymentSummary');
-       
-        if (isNaN(amount) || amount < 500) {
-            summaryBox.style.display = "none";
-            return;
-        }
-        const serviceRate = 0.06;
-        const disasterRate = 0.01;
-        let insuranceRate = (duration > 30) ? 0.03 : 0;
-        const valFees = amount * (serviceRate + insuranceRate + disasterRate);
-        const netDisbursed = amount - valFees;
-
-        let interestRate = 0;
-        if (duration === 60) interestRate = 0.12;
-        else if (duration === 90) interestRate = 0.18;
-
-        const interestAmount = amount * interestRate;
-        const totalRepayable = amount + interestAmount;
-
-        summaryBox.style.display = "block";
-        document.getElementById('summaryPrincipal').innerText = amount.toLocaleString() + " ETB";
-        document.getElementById('totalFeesDisplay').innerText = "- " + valFees.toLocaleString() + " ETB";
-        document.getElementById('summaryNet').innerText = netDisbursed.toLocaleString() + " ETB";
-        document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
-
-        let installments = 1;
-        if (duration === 60) installments = 2;
-        if (duration === 90) installments = 3;
-        const totalPerInst = totalRepayable / installments;
-
-        let html = "";
-        for(let i = 1; i <= installments; i++) {
-            let dueDay = i * 30;
-            if (dueDay > duration) dueDay = duration;
-            html += `
-                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; padding: 5px 0; border-bottom: 1px dashed #eee;">
-                    <span>Installment ${i} (Day ${dueDay})</span>
-                    <span style="font-weight: 700;">${totalPerInst.toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span>
-                </div>`;
-        }
-        document.getElementById('installmentList').innerHTML = html;
-    }
-
-
-
-    // Initialize
+    // Initialize first step
     showStep(1);
 </script>
 </body>
