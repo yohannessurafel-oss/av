@@ -189,17 +189,20 @@
             </div>
 
             <!-- Step 3: Guarantor -->
-            <div class="step" id="step-3">
-                <div class="section-title">Guarantor Information</div>
-                <div class="form-grid">
-                    <div class="form-group"><label>Full Name</label><input type="text" id="gfname" required></div>
-                    <div class="form-group"><label>Phone</label><input type="tel" id="gphone" required></div>
-                    <div class="form-group"><label>Gross Salary (ETB)</label><input type="number" id="gGross" required></div>
-                    <div class="form-group"><label>National ID Front</label><input type="file" id="gnatIdFront" accept="image/*" required></div>
-                    <div class="form-group"><label>National ID Back</label><input type="file" id="gnatIdBack" accept="image/*" required></div>
-                    <div class="form-group"><label>Guarantor Letter</label><input type="file" id="gLetter" accept="image/*,application/pdf" required></div>
-                </div>
-            </div>
+            
+               <div class="step" id="step-3">
+    <div class="section-title">Guarantor Information</div>
+    <div class="form-grid">
+        <div class="form-group"><label>Full Name</label><input type="text" id="gfname" required></div>
+        <div class="form-group"><label>Phone</label><input type="tel" id="gphone" required></div>
+        <div class="form-group"><label>Gross Salary (ETB)</label><input type="number" id="gGross" required></div>
+        <div class="form-group"><label>National ID Front</label><input type="file" id="gnatIdFront" accept="image/*" required></div>
+        <div class="form-group"><label>National ID Back</label><input type="file" id="gnatIdBack" accept="image/*" required></div>
+        <div class="form-group"><label>Guarantor Letter</label><input type="file" id="gLetter" accept="image/*,application/pdf" required></div>
+        <div class="form-group"><label>Guarantor Emp. ID Front</label><input type="file" id="gempIdFront" accept="image/*"></div>
+        <div class="form-group"><label>Guarantor Emp. ID Back</label><input type="file" id="gempIdBack" accept="image/*"></div>
+    </div>
+</div>
 
             <!-- Step 4: Employment -->
             <div class="step" id="step-4">
@@ -211,6 +214,18 @@
                     <div class="form-group"><label>Employment Letter</label><input type="file" id="empLetter" accept="image/*,application/pdf" required></div>
                 </div>
             </div>
+
+
+
+            <div class="step" id="step-6">
+            <div class="section-title">Applicant Documents</div>
+    <div class="form-grid">
+        <div class="form-group"><label>National ID Number</label><input type="text" id="nationalIDNum" required></div>
+        <div class="form-group"><label>National ID Front</label><input type="file" id="natIdFront" accept="image/*" required></div>
+        <div class="form-group"><label>National ID Back</label><input type="file" id="natIdBack" accept="image/*" required></div>
+        <div class="form-group"><label>Personal Photo</label><input type="file" id="userPhoto" accept="image/*" required></div>
+        <div class="form-group"><label>Digital Signature</label><input type="file" id="digitalSig" accept="image/*" required></div>
+    </div>
 
             <!-- Step 5: Loan -->
             <div class="step" id="step-5">
@@ -420,6 +435,13 @@
 
     form.onsubmit = async (e) => {
         e.preventDefault();
+        
+        // Check if _supabase exists (defined in your config.js)
+        if (typeof _supabase === 'undefined') {
+            alert("Database connection error. Please refresh.");
+            return;
+        }
+
         const btn = document.getElementById('btnSubmit');
         btn.disabled = true;
         btn.innerText = "Processing & Uploading...";
@@ -428,6 +450,9 @@
             const { data: { user } } = await _supabase.auth.getUser();
             const userId = user ? user.id : "guest_" + Date.now();
 
+            // Perform uploads
+            // Note: Ensure your Supabase Storage bucket 'kyc-docs' has 'public' access 
+            // or appropriate policies for authenticated uploads.
             const [natF, natB, photo, sig, empLetter, gLetter, gNatF, gNatB, gEmpF, gEmpB] = await Promise.all([
                 uploadDoc(getFile('natIdFront'), 'nat_front', userId),
                 uploadDoc(getFile('natIdBack'), 'nat_back', userId),
@@ -441,8 +466,8 @@
                 uploadDoc(getFile('gempIdBack'), 'g_emp_back', userId)
             ]);
 
-            const totalRepayableValue = parseFloat(document.getElementById('summaryTotal').innerText.replace(/[^0-9.]/g, '')) || 0;
-            const netAmountValue = parseFloat(document.getElementById('summaryNet').innerText.replace(/[^0-9.]/g, '')) || 0;
+            // Helper to clean currency strings back to numbers
+            const parseCurrency = (id) => parseFloat(document.getElementById(id).innerText.replace(/[^0-9.]/g, '')) || 0;
 
             const { error: dbError } = await _supabase.from('loan_applications').insert([{
                 first_name: document.getElementById('firstName').value,
@@ -470,9 +495,9 @@
                 loan_duration: document.getElementById('loanDuration').value,
                 org_name: document.getElementById('orgName').value,
                 gross_salary: parseFloat(document.getElementById('grossSalary').value),
-                total_repayable: totalRepayableValue,
-                net_disbursed: netAmountValue,
-                national_id_number: document.getElementById('nationalIDNum').value || '',
+                total_repayable: parseCurrency('summaryTotal'),
+                net_disbursed: parseCurrency('summaryNet'),
+                national_id_number: document.getElementById('nationalIDNum').value,
                 nat_id_front: natF,
                 nat_id_back: natB,
                 personal_photo: photo,
@@ -484,31 +509,21 @@
             if (dbError) throw dbError;
 
             // Telegram Notification
-            const botToken = "YOUR_REAL_BOT_TOKEN_HERE";   // ← Replace with your correct token
+            const botToken = "YOUR_BOT_TOKEN"; 
             const chatId = "6792892909";
+            const telegramMessage = `🔔 *New Loan Application!*\n\n👤 *Applicant:* ${document.getElementById('firstName').value}\n💰 *Amount:* ${document.getElementById('loanAmount').value} ETB\n⏳ *Duration:* ${document.getElementById('loanDuration').value} Days`;
 
-            const telegramMessage = `
-🔔 *New Loan Application Received!*
-
-👤 *Applicant:* ${document.getElementById('firstName').value} ${document.getElementById('fatherName').value}
-📞 *Phone:* ${document.getElementById('phoneNumber').value}
-🏦 *Branch:* ${document.getElementById('nearbyBranch').value || 'N/A'}
-💰 *Amount:* ${document.getElementById('loanAmount').value} ETB
-⏳ *Duration:* ${document.getElementById('loanDuration').value} Days
-            `.trim();
-
-            fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chat_id: chatId, text: telegramMessage, parse_mode: 'Markdown' })
-            }).catch(() => {});
+            });
 
             statusMsg.style.display = "block";
-            statusMsg.style.backgroundColor = "#dcfce7";
-            statusMsg.innerText = "✅ Success! Your application has been submitted. You will be contacted soon.";
-
+            statusMsg.className = "success-style"; // Define this in CSS
+            statusMsg.innerText = "✅ Application submitted successfully!";
             form.reset();
-            document.getElementById('repaymentSummary').style.display = "none";
+            showStep(1);
 
         } catch (err) {
             console.error(err);
@@ -516,14 +531,10 @@
             statusMsg.style.backgroundColor = "#fee2e2";
             statusMsg.innerText = "❌ Error: " + err.message;
         } finally {
-            const btn = document.getElementById('btnSubmit');
             btn.disabled = false;
             btn.innerText = "Submit Application";
         }
     };
-
-    // Initialize first step
-    showStep(1);
 </script>
 </body>
 </html>
