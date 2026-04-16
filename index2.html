@@ -232,8 +232,9 @@
                 </div>
                <div id="repaymentSummary" style="display: none; margin-top: 25px;">
     <div style="padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: #fff;">
-        <h4 style="margin-top: 0; color: var(--primary);">Fee Breakdown</h4>
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 15px;">
+        
+        <h4 style="margin-top: 0; color: var(--primary); font-size: 0.95rem;">Fee Breakdown (Deducted Upfront)</h4>
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 15px;">
             <thead>
                 <tr style="border-bottom: 2px solid #edf2f7; text-align: left; color: var(--text-muted);">
                     <th style="padding: 8px 0;">Fee Type</th>
@@ -241,13 +242,26 @@
                     <th style="text-align: right;">Amount (ETB)</th>
                 </tr>
             </thead>
-            <tbody id="feeTableBody">
-                </tbody>
+            <tbody id="feeTableBody"></tbody>
         </table>
 
-        <div style="border-top: 1px solid #edf2f7; padding-top: 15px;">
+        <h4 style="margin-top: 15px; color: #166534; font-size: 0.95rem;">Repayment Details</h4>
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 15px;">
+            <tbody id="repayTableBody">
+                <tr style="border-bottom: 1px solid #f7fafc;">
+                    <td style="padding: 8px 0;">Principal Amount</td>
+                    <td id="detailPrincipal" style="text-align: right;">0.00</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f7fafc;">
+                    <td style="padding: 8px 0;">Interest Amount</td>
+                    <td id="detailInterest" style="text-align: right;">0.00</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div style="border-top: 2px solid var(--primary); padding-top: 15px; margin-top: 10px;">
             <div style="display:flex; justify-content:space-between; margin-bottom: 8px;">
-                <span style="font-weight: 600;">Amount You Receive:</span>
+                <span style="font-weight: 600;">Net Amount You Receive:</span>
                 <span class="net-amount" id="summaryNet" style="color: var(--primary);">0.00 ETB</span>
             </div>
             <div style="display:flex; justify-content:space-between; font-weight: 800; color: #166534; font-size: 1.1rem;">
@@ -256,6 +270,7 @@
             </div>
         </div>
     </div>
+</div>
 </div>
             </div>
 
@@ -333,7 +348,7 @@
         return data.path;
     }
 
-    function calculateRepayment() {
+  function calculateRepayment() {
     const amount = parseFloat(document.getElementById('loanAmount').value);
     const duration = parseInt(document.getElementById('loanDuration').value);
     const summaryBox = document.getElementById('repaymentSummary');
@@ -344,32 +359,31 @@
         return;
     }
 
-    // Define Rates
+    // 1. Calculate Upfront Fees
     const serviceRate = 0.06;
     const disasterRate = 0.01;
     let insuranceRate = (duration > 30) ? 0.03 : 0;
     
-    // Calculate Individual Amounts
     const serviceFee = amount * serviceRate;
     const disasterFee = amount * disasterRate;
     const insuranceFee = amount * insuranceRate;
-    
     const totalFees = serviceFee + disasterFee + insuranceFee;
-    const netDisbursed = amount - totalFees;
     
-    let interestRate = (duration === 60) ? 0.12 : (duration === 90) ? 0.18 : 0;
-    const totalRepayable = amount + (amount * interestRate);
+    const netDisbursed = amount - totalFees;
 
-    // Build Table Rows
+    // 2. Calculate Interest and Repayment
+    let interestRate = (duration === 60) ? 0.12 : (duration === 90) ? 0.18 : 0;
+    const interestAmount = amount * interestRate;
+    const totalRepayable = amount + interestAmount;
+
+    // 3. Build Fee Table Rows
     let rows = `
         <tr style="border-bottom: 1px solid #f7fafc;">
-            <td style="padding: 8px 0;">Service Fee</td>
-            <td>6%</td>
+            <td style="padding: 8px 0;">Service Fee (6%)</td>
             <td style="text-align: right;">${serviceFee.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
         </tr>
         <tr style="border-bottom: 1px solid #f7fafc;">
-            <td style="padding: 8px 0;">Disaster Fund</td>
-            <td>1%</td>
+            <td style="padding: 8px 0;">Disaster Fund (1%)</td>
             <td style="text-align: right;">${disasterFee.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
         </tr>
     `;
@@ -377,12 +391,25 @@
     if (insuranceRate > 0) {
         rows += `
             <tr style="border-bottom: 1px solid #f7fafc;">
-                <td style="padding: 8px 0;">Insurance Fee</td>
-                <td>3%</td>
+                <td style="padding: 8px 0;">Insurance Fee (3%)</td>
                 <td style="text-align: right;">${insuranceFee.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
             </tr>
         `;
     }
+
+    // 4. Update UI Elements
+    feeTableBody.innerHTML = rows;
+    
+    // Update Repayment Details
+    document.getElementById('detailPrincipal').innerText = amount.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
+    document.getElementById('detailInterest').innerText = interestAmount.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
+    
+    // Update Final Totals
+    document.getElementById('summaryNet').innerText = netDisbursed.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
+    document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
+    
+    summaryBox.style.display = "block";
+}
 
     // Update UI
     feeTableBody.innerHTML = rows;
