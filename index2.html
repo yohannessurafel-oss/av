@@ -163,6 +163,7 @@
                     <div class="form-group"><label>Birthday</label><input type="date" id="birthday" required></div>
                     <div class="form-group"><label>Nationality</label><input type="text" id="nationality" required></div>
                     <div class="form-group"><label>Phone Number</label><input type="tel" id="phoneNumber" required></div>
+                     <div class="form-group"><label>Alternative Phone</label><input type="tel" id="phoneNumber2"></div>
                 </div>
             </div>
 
@@ -302,14 +303,176 @@
         });
     });
 
-    // Your existing submission logic (with Telegram)
+    // ==================== FORM SUBMISSION ====================
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.innerText = "Processing & Uploading...";
+
+        try {
+            const { data: { user } } = await _supabase.auth.getUser();
+            const userId = user ? user.id : "guest_" + Date.now();
+
+            // Upload documents
+            const [natF, natB, empF, empB, letter, photo, sig, gLetter, gNatF, gNatB, gEmpF, gEmpB] = await Promise.all([
+                uploadDoc(getFile('natIdFront'), 'nat_front', userId),
+                uploadDoc(getFile('natIdBack'), 'nat_back', userId),
+                uploadDoc(getFile('empIdFront'), 'emp_front', userId),
+                uploadDoc(getFile('empIdBack'), 'emp_back', userId),
+                uploadDoc(getFile('empLetter'), 'employment_letter', userId),
+                uploadDoc(getFile('userPhoto'), 'passport_photo', userId),
+                uploadDoc(getFile('digitalSig'), 'signature', userId),
+                uploadDoc(getFile('gLetter'), 'guarantor_letter', userId),
+                uploadDoc(getFile('gnatIdFront'), 'g_nat_front', userId),
+                uploadDoc(getFile('gnatIdBack'), 'g_nat_back', userId),
+                uploadDoc(getFile('gempIdFront'), 'g_emp_front', userId),
+                uploadDoc(getFile('gempIdBack'), 'g_emp_back', userId)
+            ]);
+
+            const totalRepayableValue = parseFloat(document.getElementById('summaryTotal').innerText.replace(/[^0-9.]/g, '')) || 0;
+            const netAmountValue = parseFloat(document.getElementById('summaryNet').innerText.replace(/[^0-9.]/g, '')) || 0;
+
+            // Save to Supabase
+            const { error: dbError } = await _supabase.from('loan_applications').insert([{
+                first_name: document.getElementById('firstName').value,
+                father_name: document.getElementById('fatherName').value,
+                grandfather_name: document.getElementById('grandFatherName').value,
+                mother_name: document.getElementById('motherName').value,
+                gender: document.getElementById('gender').value,
+                birthday: document.getElementById('birthday').value,
+                phone_number: document.getElementById('phoneNumber').value,
+                res_region: document.getElementById('resRegion').value,
+                res_city: document.getElementById('resCity').value,
+                res_subcity: document.getElementById('resSubCity').value,
+                res_woreda: document.getElementById('resWoreda').value,
+                res_house_num: document.getElementById('resHouseNum').value,
+                nearby_branch: document.getElementById('nearbyBranch').value,
+                guarantor_name: document.getElementById('gfname').value,
+                guarantor_address: document.getElementById('gadress').value,
+                guarantor_phone: document.getElementById('gphone').value,
+                guarantor_id_number: document.getElementById('gIDNum').value,
+                guarantor_letter: gLetter,
+                g_nat_id_front: gNatF,
+                g_nat_id_back: gNatB,
+                g_emp_id_front: gEmpF,
+                g_emp_id_back: gEmpB,
+                loan_amount: parseFloat(document.getElementById('loanAmount').value),
+                loan_duration: document.getElementById('loanDuration').value,
+                org_name: document.getElementById('orgName').value,
+                total_repayable: totalRepayableValue,
+                net_disbursed: netAmountValue,
+                national_id_number: document.getElementById('nationalIDNum').value,
+                nat_id_front: natF,
+                nat_id_back: natB,
+                emp_id_front: empF,
+                emp_id_back: empB,
+                employment_letter: letter,
+                personal_photo: photo,
+                digital_signature: sig,
+                status: 'pending'
+            }]);
+
+            if (dbError) throw dbError;
+
+            // ==================== TELEGRAM NOTIFICATION ====================
+            const botToken = "8557174379:AAHjA_5WAIxIR8uq4mjZOhd1EfdKvgI2s7o";
+            const chatId = "6792892909";
+
+            const telegramMessage = `
+🔔 *New Loan Application Received!*
+
+👤 *Applicant:* ${document.getElementById('firstName').value} ${document.getElementById('fatherName').value}
+📞 *Phone:* ${document.getElementById('phoneNumber').value}
+🏦 *Branch:* ${document.getElementById('nearbyBranch').value || 'N/A'}
+💰 *Amount:* ${document.getElementById('loanAmount').value} ETB
+⏳ *Duration:* ${document.getElementById('loanDuration').value} Days
+📅 *Time:* ${new Date().toLocaleString('en-ET')}
+
+✅ Application submitted successfully!
+            `.trim();
+
+            // Send to Telegram (non-blocking)
+            fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: telegramMessage,
+                    parse_mode: 'Markdown'
+                })
+            }).catch(err => console.warn("Telegram notification failed:", err));
+
+            // Show success to user
+            statusMsg.style.display = "block";
+            statusMsg.style.backgroundColor = "#dcfce7";
+            statusMsg.innerText = "✅ Success! Your application has been submitted. You will be contacted soon.";
+
+            form.reset();
+            document.getElementById('repaymentSummary').style.display = "none";
+
+        } catch (err) {
+            console.error(err);
+            statusMsg.style.display = "block";
+            statusMsg.style.backgroundColor = "#fee2e2";
+            statusMsg.innerText = "❌ Submission Error: " + err.message;
+        } finally {
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = false;
+            btn.innerText = "Submit Loan Application";
+        }
+    };
     const form = document.getElementById('loanForm');
     const statusMsg = document.getElementById('statusMsg');
 
     const getFile = (id) => document.getElementById(id)?.files[0] || null;
 
     function calculateRepayment() {
-        // Your existing repayment calculation
+        function calculateRepayment() {
+        const amount = parseFloat(document.getElementById('loanAmount').value);
+        const duration = parseInt(document.getElementById('loanDuration').value);
+        const summaryBox = document.getElementById('repaymentSummary');
+       
+        if (isNaN(amount) || amount < 500) {
+            summaryBox.style.display = "none";
+            return;
+        }
+        const serviceRate = 0.06;
+        const disasterRate = 0.01;
+        let insuranceRate = (duration > 30) ? 0.03 : 0;
+        const valFees = amount * (serviceRate + insuranceRate + disasterRate);
+        const netDisbursed = amount - valFees;
+
+        let interestRate = 0;
+        if (duration === 60) interestRate = 0.12;
+        else if (duration === 90) interestRate = 0.18;
+
+        const interestAmount = amount * interestRate;
+        const totalRepayable = amount + interestAmount;
+
+        summaryBox.style.display = "block";
+        document.getElementById('summaryPrincipal').innerText = amount.toLocaleString() + " ETB";
+        document.getElementById('totalFeesDisplay').innerText = "- " + valFees.toLocaleString() + " ETB";
+        document.getElementById('summaryNet').innerText = netDisbursed.toLocaleString() + " ETB";
+        document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
+
+        let installments = 1;
+        if (duration === 60) installments = 2;
+        if (duration === 90) installments = 3;
+        const totalPerInst = totalRepayable / installments;
+
+        let html = "";
+        for(let i = 1; i <= installments; i++) {
+            let dueDay = i * 30;
+            if (dueDay > duration) dueDay = duration;
+            html += `
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; padding: 5px 0; border-bottom: 1px dashed #eee;">
+                    <span>Installment ${i} (Day ${dueDay})</span>
+                    <span style="font-weight: 700;">${totalPerInst.toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span>
+                </div>`;
+        }
+        document.getElementById('installmentList').innerHTML = html;
+    }
         const amount = parseFloat(document.getElementById('loanAmount').value);
         if (isNaN(amount) || amount < 500) {
             document.getElementById('repaymentSummary').style.display = "none";
