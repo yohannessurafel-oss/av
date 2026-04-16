@@ -433,7 +433,23 @@
     document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
 }
 
-   // ==================== FORM SUBMISSION ====================
+
+const getFile = (id) => document.getElementById(id)?.files[0] || null;
+
+async function uploadDoc(file, folder, userId) {
+    if (!file) return null;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}/${folder}-${Date.now()}.${fileExt}`;
+    const { data, error } = await _supabase.storage
+        .from('kyc-docs')
+        .upload(fileName, file, { upsert: true, contentType: file.type });
+    if (error) throw error;
+    return data.path;
+}
+
+
+    
+// ==================== FORM SUBMISSION ====================
 form.onsubmit = async (e) => {
     e.preventDefault();
 
