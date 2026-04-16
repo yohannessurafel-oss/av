@@ -8,6 +8,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <style>
+        th, td { 
+    white-space: nowrap; /* Prevents dates/amounts from wrapping weirdly */
+}
         :root {
             --primary: #2563eb;
             --bg: #f8fafc;
@@ -168,15 +171,16 @@
         renderTable();
     }
 
+
+    
    function renderTable() {
     const tbody = document.getElementById('appTableBody');
     if (currentApplications.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">No applications found.</td></tr>'; // Updated colspan to 7
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">No applications found.</td></tr>';
         return;
     }
 
     tbody.innerHTML = currentApplications.map((app, i) => {
-        // Format the date (e.g., "Oct 24, 2023")
         const dateObj = new Date(app.created_at);
         const formattedDate = dateObj.toLocaleDateString('en-US', {
             month: 'short',
@@ -191,12 +195,14 @@
                 <td>${app.loan_duration || 0} Days</td>
                 <td>${Number(app.total_repayable || 0).toLocaleString()}</td>
                 <td><span class="status-badge ${app.status || 'pending'}">${app.status || 'pending'}</span></td>
-                <td>${formattedDate}</td> <td><button onclick="viewDetails(${i})" class="btn btn-view">Review</button></td>
+                <td>${formattedDate}</td>
+                <td><button onclick="viewDetails(${i})" class="btn btn-view">Review</button></td>
             </tr>
         `;
     }).join('');
 }
 
+    
     async function viewDetails(index) {
         const app = currentApplications[index];
         if (!app) return;
