@@ -107,25 +107,26 @@
        
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h2 style="margin:0">Application Review</h2>
-            <button onclick="downloadReview()" class="btn" style="background: #ef4444; color: white;">Print / Save PDF</button>
+            <button onclick="window.print()" class="btn" style="background: var(--danger); color: white;">Print / Save PDF</button>
         </div>
         <div id="modalDetails" class="info-grid"></div>
        
         <h3 style="margin-top:32px">Submitted Documents</h3>
         <div class="doc-grid" id="modalDocs"></div>
         
-        <div id="approvalSection" style="margin-top: 30px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border);">
-            <h3 style="margin-top:0">Administrative Review</h3>
-            <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 20px;">
-                <button id="btnAdmin1" class="btn" style="background: #2563eb; color: white;">Admin 1 Approve</button>
-                <div style="font-size: 1.5rem; color: var(--border);">→</div>
-                <button id="btnAdmin2" class="btn" style="background: #2563eb; color: white;">Admin 2 Approve</button>
+        <div id="approvalSection" style="margin-top: 30px; padding: 24px; background: #f8fafc; border-radius: 12px; border: 1px solid var(--border);">
+            <h3 style="margin-top:0; font-size: 1.1rem;">Administrative Approval Workflow</h3>
+           
+            <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 24px; flex-wrap: wrap;">
+                <button id="btnAdmin1" class="btn" style="flex: 1; min-width: 200px;">Super-Agent Approve (Step 1)</button>
+                <div style="font-size: 1.5rem; color: var(--text-muted); font-weight: bold;">→</div>
+                <button id="btnAdmin2" class="btn" style="flex: 1; min-width: 200px;">Manager Approve (Step 2)</button>
             </div>
            
-            <div style="border-top: 1px solid var(--border); padding-top: 20px;">
-                <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted);">Rejection Reason:</label>
-                <textarea id="rejectionReason" style="width: 100%; margin: 8px 0; padding: 10px; border-radius: 6px; border: 1px solid var(--border);" rows="2" placeholder="Enter reason if rejecting..."></textarea>
-                <button id="btnReject" class="btn" style="background: #dc2626; color: white; width: 100%;">Reject Application</button>
+            <div style="border-top: 2px dashed var(--border); padding-top: 20px;">
+                <label style="font-size: 0.8rem; font-weight: bold; color: var(--danger);">Rejection Controls:</label>
+                <textarea id="rejectionReason" style="width: 100%; margin: 10px 0; padding: 12px; border-radius: 8px; border: 1px solid var(--border); font-family: inherit;" rows="3" placeholder="State clearly why this application is being rejected..."></textarea>
+                <button id="btnReject" class="btn" style="background: var(--danger); color: white; width: 100%;">Reject Application</button>
             </div>
         </div>
     </div>
@@ -198,13 +199,126 @@
 
     async function viewDetails(index) {
         const app = currentApplications[index];
-        // ... your existing viewDetails code ...
-        // You can also add submitted_at in the modal if you want
+        const detailsContainer = document.getElementById('modalDetails');
+        const docsContainer = document.getElementById('modalDocs');
+
+        detailsContainer.innerHTML = `
+            <div class="info-group">
+                <h4>Applicant Details</h4>
+                <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name}</div>
+                <div class="info-item"><span>Branch:</span> ${app.nearby_branch}</div>
+                <div class="info-item"><span>ID Number:</span> ${app.national_id_number}</div>
+            </div>
+            <div class="info-group">
+                <h4>Financials</h4>
+                <div class="info-item"><span>Loan Amount:</span> ${Number(app.loan_amount).toLocaleString()} ETB</div>
+                <div class="info-item"><span>Net Disbursed:</span> ${Number(app.net_disbursed).toLocaleString()} ETB</div>
+                <div class="info-item"><span>Repayable:</span> ${Number(app.total_repayable).toLocaleString()} ETB</div>
+            </div>
+        `;
+
+        // Render documents
+        const docs = [
+            { label: 'ID Front', path: app.nat_id_front },
+            { label: 'ID Back', path: app.nat_id_back },
+            { label: 'User Photo', path: app.personal_photo },
+            { label: 'Employment Letter', path: app.employment_letter },
+            { label: 'Signature', path: app.digital_signature }
+        ];
+
+        docsContainer.innerHTML = '';
+        docs.forEach(doc => {
+            if (!doc.path) return;
+            const { data } = _supabase.storage.from('kyc-docs').getPublicUrl(doc.path);
+            docsContainer.innerHTML += `
+                <div class="doc-item">
+                    <div class="img-container">
+                        <img src="${data.publicUrl}" onclick="window.open('${data.publicUrl}')">
+                    </div>
+                    <div style="font-size:0.7rem; font-weight:bold; text-align:center">${doc.label}</div>
+                    <a href="${data.publicUrl}" target="_blank" class="btn" style="font-size:0.6rem; text-align:center; background:#eee; color:#333; text-decoration:none;">DOWNLOAD</a>
+                </div>
+            `;
+        });
+
+        document.getElementById('detailsModal').style.display = "block";
+        updateApprovalUI(app);
+    }
+    async function approveStep(id, step) {
+        if (isProcessing) return;
+        isProcessing = true;
+
+        const btn = document.getElementById(step === 1 ? 'btnAdmin1' : 'btnAdmin2');
+        btn.innerText = "Processing...";
+
+        try {
+            const updateData = {};
+            if (step === 1) {
+                updateData.admin_one_status = 'approved';
+                updateData.admin_one_approved_by = loggedInAdmin.id;
+            } else {
+                updateData.admin_two_status = 'approved';
+                updateData.admin_two_approved_by = loggedInAdmin.id;
+                updateData.status = 'approved'; // Finalize
+            }
+
+            const { error } = await _supabase.from('loan_applications').update(updateData).eq('id', id);
+            if (error) throw error;
+
+            await _supabase.from('loan_approval_logs').insert({
+                application_id: id,
+                admin_id: loggedInAdmin.id,
+                action_type: step === 1 ? 'admin_one_approve' : 'admin_two_approve'
+            });
+
+            alert(`Step ${step} completed successfully.`);
+            fetchApplications();
+            closeModal();
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            isProcessing = false;
+        }
     }
 
-    // ==================== Your existing functions (approveStep, rejectStep, etc.) ====================
-    // Paste your latest approveStep, rejectStep, updateApprovalUI, handleLogout, etc. here
+    async function rejectStep(id) {
+        const reason = document.getElementById('rejectionReason').value;
+        if (!reason) return alert("Please provide a reason.");
 
+        const { error } = await _supabase.from('loan_applications').update({
+            status: 'rejected',
+            rejection_reason: reason
+        }).eq('id', id);
+
+        if (!error) {
+            alert("Application rejected.");
+            fetchApplications();
+            closeModal();
+        }
+    }
+
+    function updateApprovalUI(app) {
+        const b1 = document.getElementById('btnAdmin1');
+        const b2 = document.getElementById('btnAdmin2');
+        const isSuper = loggedInAdmin.role === 'super-agent';
+        const isManager = loggedInAdmin.role === 'manager';
+
+        // Admin 1 Logic
+        b1.disabled = !isSuper || app.admin_one_status === 'approved' || app.status === 'rejected';
+        b1.innerText = app.admin_one_status === 'approved' ? "✅ Step 1 Done" : "Approve Step 1 (Super-Agent)";
+        b1.style.background = app.admin_one_status === 'approved' ? "var(--success)" : "var(--primary)";
+        b1.style.color = "white";
+        b1.onclick = () => approveStep(app.id, 1);
+
+        // Admin 2 Logic (Depends on Admin 1)
+        b2.disabled = !isManager || app.admin_one_status !== 'approved' || app.admin_two_status === 'approved' || app.status === 'rejected';
+        b2.innerText = app.admin_two_status === 'approved' ? "✅ Final Approval Done" : "Approve Step 2 (Manager)";
+        b2.style.background = app.admin_two_status === 'approved' ? "var(--success)" : "var(--primary)";
+        b2.style.color = "white";
+        b2.onclick = () => approveStep(app.id, 2);
+
+        document.getElementById('btnReject').onclick = () => rejectStep(app.id);
+    }
     function handleLogout() {
         _supabase.auth.signOut();
         window.location.href = "login.html";
