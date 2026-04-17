@@ -163,6 +163,7 @@
                     <div class="form-group"><label>Nationality</label><input type="text" id="nationality" required></div>
                     <div class="form-group"><label>Active Phone Number</label><input type="tel" id="phoneNumber" required></div>
             <div class="form-group"><label>Alternative Phone</label><input type="tel" id="phoneNumber2"></div>
+                    <div class="form-group full-width"><label>National ID Number</label><input type="text" id="nationalIDNum" required></div>
                 </div>
             </div>
 
@@ -395,7 +396,7 @@
                 birthday: document.getElementById('birthday').value,
                 phone_number: document.getElementById('phoneNumber').value,
   alt_phone: document.getElementById('phoneNumber2').value,
-                
+                 nationality: document.getElementById('nationality').value,
                 res_region: document.getElementById('resRegion').value,
                 res_city: document.getElementById('resCity').value,
                 res_subcity: document.getElementById('resSubCity').value,
@@ -410,7 +411,8 @@
     org_phone: document.getElementById('orgPhone').value,      // This was missing
     pension_number: document.getElementById('pensionNumber').value, // This was missing
     org_address: document.getElementById('orgAddress').value,  //
-                guarantor_id_number: document.getElementById('gidnum').value,
+                
+                 guarantor_id_number: document.getElementById('gidnum').value,
                 guarantor_gross: parseFloat(document.getElementById('gGross').value) || 0,
                 guarantor_letter: gLetter,
                 g_nat_id_front: gNatF,
@@ -423,7 +425,8 @@
                 gross_salary: parseFloat(document.getElementById('grossSalary').value) || 0,
                 total_repayable: parseFloat(totalRepayable),
                net_disbursed: parseFloat(netDisbursed),
-                national_id_number: document.getElementById('nationalIDNum')?.value || '',
+               
+                national_id_number: document.getElementById('nationalIDNum').value,
                 nat_id_front: natF,
                 nat_id_back: natB,
                 personal_photo: photo,
