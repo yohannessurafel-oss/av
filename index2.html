@@ -228,33 +228,48 @@
             <!-- Step 5: Loan -->
             <div class="step" id="step-5">
                 <div class="section-title">Loan Details</div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Requested Amount (ETB)</label>
-                        <input type="number" id="loanAmount" placeholder="Min 500" required min="500" oninput="calculateRepayment()">
-                    </div>
-                    <div class="form-group">
-                        <label>Duration</label>
-                        <select id="loanDuration" required onchange="calculateRepayment()">
-                            <option value="7">7 Days</option>
-                            <option value="30">30 Days</option>
-                            <option value="60">60 Days</option>
-                            <option value="90">90 Days</option>
-                        </select>
-                    </div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Requested Amount (ETB)</label>
+                <input type="number" id="loanAmount" placeholder="Min 500" required min="500" oninput="calculateRepayment()">
+            </div>
+            <div class="form-group">
+                <label>Duration</label>
+                <select id="loanDuration" required onchange="calculateRepayment()">
+                    <option value="7">7 Days</option>
+                    <option value="30">30 Days</option>
+                    <option value="60">60 Days</option>
+                    <option value="90">90 Days</option>
+                </select>
+            </div>
+        </div>
+              
+            <div class="summary-disburse" style="padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px 8px 0 0; background: #fff;">
+                <h4 style="margin:0 0 10px 0; color:var(--text-muted); font-size:0.8rem; text-transform:uppercase;">Disbursement Estimate</h4>
+                <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
+                    <span>Requested Amount:</span>
+                    <span id="summaryPrincipal" style="font-weight:600;">0.00 ETB</span>
                 </div>
-                <div id="repaymentSummary" style="display: none; margin-top: 25px;">
-                    <div style="padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: #fff;">
-                        <div style="display:flex; justify-content:space-between;">
-                            <span>Amount You Receive:</span>
-                            <span class="net-amount" id="summaryNet">0.00 ETB</span>
-                        </div>
-                        <div style="display:flex; justify-content:space-between; font-weight: bold; margin-top: 12px; color: #166534;">
-                            <span>Total to Pay Back:</span>
-                            <span id="summaryTotal">0.00 ETB</span>
-                        </div>
-                    </div>
+                <div style="display:flex; justify-content:space-between; font-size: 0.85rem; color: #e53e3e;">
+                    <span>Total Fees (Deducted):</span>
+                    <span id="totalFeesDisplay">- 0.00 ETB</span>
                 </div>
+                <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 10px 0;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight: 600;">Amount You Receive:</span>
+                    <span class="net-amount" id="summaryNet">0.00 ETB</span>
+                </div>
+                <small id="deductionDetails" style="color:var(--text-muted); font-size: 0.7rem;">Deducted: Service (6%), Insurance (Varies), Disaster (1%)</small>
+            </div>
+            <div class="summary-repay" style="padding: 20px; background: #f0fdf4; border: 1px solid #bbf7d0; border-top: none; border-radius: 0 0 8px 8px;">
+                <h4 style="margin: 0 0 10px 0; color: #166534; font-size: 0.8rem; text-transform:uppercase;">Repayment Details</h4>
+                <div id="installmentList" style="background: #ffffff; padding: 10px; border-radius: 6px; border: 1px solid #dcfce7;"></div>
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: #166534; margin-top: 12px;">
+                    <span>Total to Pay Back:</span>
+                    <span id="summaryTotal">0.00 ETB</span>
+                </div>
+            </div>
+        </div>
             </div>
 
             <!-- Step 6: Documents -->
