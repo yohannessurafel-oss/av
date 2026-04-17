@@ -406,14 +406,13 @@ document.getElementById('deductionDetails').innerText = `Deducted: Service (6%),
                 birthday: document.getElementById('birthday').value,
                 phone_number: document.getElementById('phoneNumber').value,
                 
-alt_phone: document.getElementById('phoneNumber2').value,
-               org_phone: document.getElementById('orgphone').value,
-                pension_number: document.getElementById('pensionNumber').value,
-                guarantor_gross: document.getElementById('gGross').value,
-                org_address: document.getElementById('orgaddress').value,
-
-              
-nationality: document.getElementById('nationality').value,
+// Corrected IDs below (matched to your HTML)
+    alt_phone: document.getElementById('phoneNumber2').value,
+    org_phone: document.getElementById('orgPhone').value, // Fixed case
+    pension_number: document.getElementById('pensionNumber').value,
+    guarantor_gross: parseFloat(document.getElementById('gGross').value) || 0,
+    org_address: document.getElementById('orgAddress').value, // Fixed case
+    nationality: document.getElementById('nationality').value,
 
 
                 
