@@ -279,6 +279,8 @@
                     <div class="form-group"><label>Employment Letter</label><input type="file" id="empLetter" accept="image/*,application/pdf" required></div>
                     <div class="form-group"><label>National ID Front</label><input type="file" id="natIdFront" accept="image/*" required></div>
                     <div class="form-group"><label>National ID Back</label><input type="file" id="natIdBack" accept="image/*" required></div>
+                    <div class="form-group"><label>Guarantor Employment ID Front</label><input type="file" id="gempIdFront" accept="image/*"></div>
+<div class="form-group"><label>Guarantor Employment ID Back</label><input type="file" id="gempIdBack" accept="image/*"></div>
                     <div class="form-group"><label>Personal Photo</label><input type="file" id="userPhoto" accept="image/*" required></div>
                     <div class="form-group"><label>Digital Signature</label><input type="file" id="digitalSig" accept="image/*" required></div>
                 </div>
@@ -376,7 +378,9 @@ document.getElementById('deductionDetails').innerText = `Deducted: Service (6%),
         let installments = 1;
         if (duration === 60) installments = 2;
         if (duration === 90) installments = 3;
-        const totalPerInst = totalRepayable / installments;
+        const totalRepayable = parseFloat(document.getElementById('summaryTotal')?.innerText.replace(/[^0-9.]/g, '')) || loanAmount;
+// To be safe:
+const netDisbursed = parseFloat(parseFloat(document.getElementById('summaryNet')?.innerText.replace(/[^0-9.]/g, '')).toFixed(2)) || loanAmount;
 
         let html = "";
         for(let i = 1; i <= installments; i++) {
@@ -418,8 +422,8 @@ document.getElementById('deductionDetails').innerText = `Deducted: Service (6%),
             ]);
 
             const loanAmount = parseFloat(document.getElementById('loanAmount').value) || 0;
-            const totalRepayable = parseFloat(document.getElementById('summaryTotal')?.innerText.replace(/[^0-9.]/g, '')) || loanAmount;
-            const netDisbursed = parseFloat(document.getElementById('summaryNet')?.innerText.replace(/[^0-9.]/g, '')) || loanAmount;
+           
+          
 
             const { error: dbError } = await _supabase.from('loan_applications').insert([{
                 first_name: document.getElementById('firstName').value,
