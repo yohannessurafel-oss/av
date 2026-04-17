@@ -267,7 +267,7 @@
                     <span style="font-weight: 600;">Amount You Receive:</span>
                     <span class="net-amount" id="summaryNet">0.00 ETB</span>
                 </div>
-                <small style="color:var(--text-muted); font-size: 0.7rem;">Deducted: Service (6%), Insurance (Varies), Disaster (1%)</small>
+                <small id="deductionDetails" style="color:var(--text-muted); font-size: 0.7rem;">Deducted: Service (6%), Insurance (Varies), Disaster (1%)</small>
             </div>
             <div class="summary-repay" style="padding: 20px; background: #f0fdf4; border: 1px solid #bbf7d0; border-top: none; border-radius: 0 0 8px 8px;">
                 <h4 style="margin: 0 0 10px 0; color: #166534; font-size: 0.8rem; text-transform:uppercase;">Repayment Details</h4>
@@ -330,6 +330,7 @@
         const serviceRate = 0.06;
         const disasterRate = 0.01;
         let insuranceRate = (duration > 30) ? 0.03 : 0;
+        const insuranceDisplay = (insuranceRate * 100) + "%";
         const valFees = amount * (serviceRate + insuranceRate + disasterRate);
         const netDisbursed = amount - valFees;
 
@@ -345,7 +346,7 @@
         document.getElementById('totalFeesDisplay').innerText = "- " + valFees.toLocaleString() + " ETB";
         document.getElementById('summaryNet').innerText = netDisbursed.toLocaleString() + " ETB";
         document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
-
+document.getElementById('deductionDetails').innerText = `Deducted: Service (6%), Insurance (${insuranceDisplay}), Disaster (1%)`;
         let installments = 1;
         if (duration === 60) installments = 2;
         if (duration === 90) installments = 3;
