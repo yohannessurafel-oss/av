@@ -348,26 +348,48 @@
         const amount = parseFloat(document.getElementById('loanAmount').value);
         const duration = parseInt(document.getElementById('loanDuration').value);
         const summaryBox = document.getElementById('repaymentSummary');
-
+       
         if (isNaN(amount) || amount < 500) {
             summaryBox.style.display = "none";
             return;
         }
-
         const serviceRate = 0.06;
         const disasterRate = 0.01;
         let insuranceRate = (duration > 30) ? 0.03 : 0;
-
+        const insuranceDisplay = (insuranceRate * 100) + "%";
         const valFees = amount * (serviceRate + insuranceRate + disasterRate);
         const netDisbursed = amount - valFees;
-        let interestRate = (duration === 60) ? 0.12 : (duration === 90) ? 0.18 : 0;
-        const totalRepayable = amount + (amount * interestRate);
+
+        let interestRate = 0;
+        if (duration === 60) interestRate = 0.12;
+        else if (duration === 90) interestRate = 0.18;
+
+        const interestAmount = amount * interestRate;
+        const totalRepayable = amount + interestAmount;
 
         summaryBox.style.display = "block";
+        document.getElementById('summaryPrincipal').innerText = amount.toLocaleString() + " ETB";
+        document.getElementById('totalFeesDisplay').innerText = "- " + valFees.toLocaleString() + " ETB";
         document.getElementById('summaryNet').innerText = netDisbursed.toLocaleString() + " ETB";
-        document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString() + " ETB";
-    }
+        document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
+document.getElementById('deductionDetails').innerText = `Deducted: Service (6%), Insurance (${insuranceDisplay}), Disaster (1%)`;
+        let installments = 1;
+        if (duration === 60) installments = 2;
+        if (duration === 90) installments = 3;
+        const totalPerInst = totalRepayable / installments;
 
+        let html = "";
+        for(let i = 1; i <= installments; i++) {
+            let dueDay = i * 30;
+            if (dueDay > duration) dueDay = duration;
+            html += `
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; padding: 5px 0; border-bottom: 1px dashed #eee;">
+                    <span>Installment ${i} (Day ${dueDay})</span>
+                    <span style="font-weight: 700;">${totalPerInst.toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span>
+                </div>`;
+        }
+        document.getElementById('installmentList').innerHTML = html;
+    }
     // ==================== FORM SUBMISSION ====================
     const form = document.getElementById('loanForm');
     const statusMsg = document.getElementById('statusMsg');
