@@ -227,49 +227,34 @@
 
             <!-- Step 5: Loan -->
             <div class="step" id="step-5">
-                < <div class="section-title">Loan Details</div>
-        <div class="form-grid">
-            <div class="form-group">
-                <label>Requested Amount (ETB)</label>
-                <input type="number" id="loanAmount" placeholder="Min 500" required min="500" oninput="calculateRepayment()">
-            </div>
-            <div class="form-group">
-                <label>Duration</label>
-                <select id="loanDuration" required onchange="calculateRepayment()">
-                    <option value="7">7 Days</option>
-                    <option value="30">30 Days</option>
-                    <option value="60">60 Days</option>
-                    <option value="90">90 Days</option>
-                </select>
-            </div>
-        </div>
-              
-            <div class="summary-disburse" style="padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px 8px 0 0; background: #fff;">
-                <h4 style="margin:0 0 10px 0; color:var(--text-muted); font-size:0.8rem; text-transform:uppercase;">Disbursement Estimate</h4>
-                <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
-                    <span>Requested Amount:</span>
-                    <span id="summaryPrincipal" style="font-weight:600;">0.00 ETB</span>
+                <div class="section-title">Loan Details</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Requested Amount (ETB)</label>
+                        <input type="number" id="loanAmount" placeholder="Min 500" required min="500" oninput="calculateRepayment()">
+                    </div>
+                    <div class="form-group">
+                        <label>Duration</label>
+                        <select id="loanDuration" required onchange="calculateRepayment()">
+                            <option value="7">7 Days</option>
+                            <option value="30">30 Days</option>
+                            <option value="60">60 Days</option>
+                            <option value="90">90 Days</option>
+                        </select>
+                    </div>
                 </div>
-                <div style="display:flex; justify-content:space-between; font-size: 0.85rem; color: #e53e3e;">
-                    <span>Total Fees (Deducted):</span>
-                    <span id="totalFeesDisplay">- 0.00 ETB</span>
+                <div id="repaymentSummary" style="display: none; margin-top: 25px;">
+                    <div style="padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: #fff;">
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>Amount You Receive:</span>
+                            <span class="net-amount" id="summaryNet">0.00 ETB</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-weight: bold; margin-top: 12px; color: #166534;">
+                            <span>Total to Pay Back:</span>
+                            <span id="summaryTotal">0.00 ETB</span>
+                        </div>
+                    </div>
                 </div>
-                <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 10px 0;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-weight: 600;">Amount You Receive:</span>
-                    <span class="net-amount" id="summaryNet">0.00 ETB</span>
-                </div>
-                <small id="deductionDetails" style="color:var(--text-muted); font-size: 0.7rem;">Deducted: Service (6%), Insurance (Varies), Disaster (1%)</small>
-            </div>
-            <div class="summary-repay" style="padding: 20px; background: #f0fdf4; border: 1px solid #bbf7d0; border-top: none; border-radius: 0 0 8px 8px;">
-                <h4 style="margin: 0 0 10px 0; color: #166534; font-size: 0.8rem; text-transform:uppercase;">Repayment Details</h4>
-                <div id="installmentList" style="background: #ffffff; padding: 10px; border-radius: 6px; border: 1px solid #dcfce7;"></div>
-                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: #166534; margin-top: 12px;">
-                    <span>Total to Pay Back:</span>
-                    <span id="summaryTotal">0.00 ETB</span>
-                </div>
-            </div>
-        </div>
             </div>
 
             <!-- Step 6: Documents -->
@@ -279,8 +264,6 @@
                     <div class="form-group"><label>Employment Letter</label><input type="file" id="empLetter" accept="image/*,application/pdf" required></div>
                     <div class="form-group"><label>National ID Front</label><input type="file" id="natIdFront" accept="image/*" required></div>
                     <div class="form-group"><label>National ID Back</label><input type="file" id="natIdBack" accept="image/*" required></div>
-                    <div class="form-group"><label>Guarantor Employment ID Front</label><input type="file" id="gempIdFront" accept="image/*"></div>
-<div class="form-group"><label>Guarantor Employment ID Back</label><input type="file" id="gempIdBack" accept="image/*"></div>
                     <div class="form-group"><label>Personal Photo</label><input type="file" id="userPhoto" accept="image/*" required></div>
                     <div class="form-group"><label>Digital Signature</label><input type="file" id="digitalSig" accept="image/*" required></div>
                 </div>
@@ -350,50 +333,26 @@
         const amount = parseFloat(document.getElementById('loanAmount').value);
         const duration = parseInt(document.getElementById('loanDuration').value);
         const summaryBox = document.getElementById('repaymentSummary');
-       
+
         if (isNaN(amount) || amount < 500) {
             summaryBox.style.display = "none";
             return;
         }
+
         const serviceRate = 0.06;
         const disasterRate = 0.01;
         let insuranceRate = (duration > 30) ? 0.03 : 0;
-        const insuranceDisplay = (insuranceRate * 100) + "%";
+
         const valFees = amount * (serviceRate + insuranceRate + disasterRate);
         const netDisbursed = amount - valFees;
-
-        let interestRate = 0;
-        if (duration === 60) interestRate = 0.12;
-        else if (duration === 90) interestRate = 0.18;
-
-        const interestAmount = amount * interestRate;
-        const totalRepayable = amount + interestAmount;
+        let interestRate = (duration === 60) ? 0.12 : (duration === 90) ? 0.18 : 0;
+        const totalRepayable = amount + (amount * interestRate);
 
         summaryBox.style.display = "block";
-        document.getElementById('summaryPrincipal').innerText = amount.toLocaleString() + " ETB";
-        document.getElementById('totalFeesDisplay').innerText = "- " + valFees.toLocaleString() + " ETB";
         document.getElementById('summaryNet').innerText = netDisbursed.toLocaleString() + " ETB";
-        document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString(undefined, {minimumFractionDigits: 2}) + " ETB";
-document.getElementById('deductionDetails').innerText = `Deducted: Service (6%), Insurance (${insuranceDisplay}), Disaster (1%)`;
-        let installments = 1;
-        if (duration === 60) installments = 2;
-        if (duration === 90) installments = 3;
-        const totalRepayable = parseFloat(document.getElementById('summaryTotal')?.innerText.replace(/[^0-9.]/g, '')) || loanAmount;
-// To be safe:
-const netDisbursed = parseFloat(parseFloat(document.getElementById('summaryNet')?.innerText.replace(/[^0-9.]/g, '')).toFixed(2)) || loanAmount;
-
-        let html = "";
-        for(let i = 1; i <= installments; i++) {
-            let dueDay = i * 30;
-            if (dueDay > duration) dueDay = duration;
-            html += `
-                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; padding: 5px 0; border-bottom: 1px dashed #eee;">
-                    <span>Installment ${i} (Day ${dueDay})</span>
-                    <span style="font-weight: 700;">${totalPerInst.toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span>
-                </div>`;
-        }
-        document.getElementById('installmentList').innerHTML = html;
+        document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString() + " ETB";
     }
+
     // ==================== FORM SUBMISSION ====================
     const form = document.getElementById('loanForm');
     const statusMsg = document.getElementById('statusMsg');
@@ -422,8 +381,8 @@ const netDisbursed = parseFloat(parseFloat(document.getElementById('summaryNet')
             ]);
 
             const loanAmount = parseFloat(document.getElementById('loanAmount').value) || 0;
-           
-          
+            const totalRepayable = parseFloat(document.getElementById('summaryTotal')?.innerText.replace(/[^0-9.]/g, '')) || loanAmount;
+            const netDisbursed = parseFloat(document.getElementById('summaryNet')?.innerText.replace(/[^0-9.]/g, '')) || loanAmount;
 
             const { error: dbError } = await _supabase.from('loan_applications').insert([{
                 first_name: document.getElementById('firstName').value,
