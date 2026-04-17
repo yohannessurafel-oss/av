@@ -210,7 +210,7 @@
             <div class="form-group"><label>Full Name</label><input type="text" id="gfname" required></div>
             <div class="form-group"><label>Guarantor's Address</label><input type="text" id="gadress" required></div>
             <div class="form-group"><label>Phone Number</label><input type="tel" id="gphone" required></div>
-            <div class="form-group"><label>Guarantor National ID Number</label><input type="text" id="gIDNum" required></div>
+            <div class="form-group"><label>Guarantor National ID Number</label><input type="text" id="gidnum" required></div>
             <div class="form-group"><label>Guarantor Gross Salary (ETB)</label><input type="number" id="gGross" required></div>
             <div class="form-group"><label>Guarantor Letter</label><input type="file" id="gLetter" accept="image/*,application/pdf" required></div>
         </div>
@@ -404,6 +404,18 @@ document.getElementById('deductionDetails').innerText = `Deducted: Service (6%),
                 gender: document.getElementById('gender').value,
                 birthday: document.getElementById('birthday').value,
                 phone_number: document.getElementById('phoneNumber').value,
+                
+alt_phone: document.getElementById('phoneNumber2').value,
+               org_phone: document.getElementById('orgphone').value,
+                pension_number: document.getElementById('pensionNumber').value,
+                guarantor_gross: document.getElementById('gGross').value,
+                org_address: document.getElementById('orgaddress').value,
+
+              
+nationality: document.getElementById('nationality').value,
+
+
+                
                 res_region: document.getElementById('resRegion').value,
                 res_city: document.getElementById('resCity').value,
                 res_subcity: document.getElementById('resSubCity').value,
@@ -413,7 +425,7 @@ document.getElementById('deductionDetails').innerText = `Deducted: Service (6%),
                 guarantor_name: document.getElementById('gfname').value,
                 guarantor_address: document.getElementById('gadress').value,
                 guarantor_phone: document.getElementById('gphone').value,
-                guarantor_id_number: document.getElementById('gIDNum').value,
+                guarantor_id_number: document.getElementById('gidnum').value,
                 guarantor_letter: gLetter,
                 g_nat_id_front: gNatF,
                 g_nat_id_back: gNatB,
