@@ -216,11 +216,13 @@
                 <div class="info-item"><span>Full Name:</span> ${app.first_name} ${app.father_name} ${app.grandfather_name || ''}</div>
                 <div class="info-item"><span>Mother's Name:</span> ${app.mother_name || 'N/A'}</div>
                 <div class="info-item"><span>Phone:</span> ${app.phone_number}</div>
-                <div class="info-item"><span>Nationality:</span> ${app.nationality}</div>
+                <div class="info-item"><span>Alternarive Phone:</span> ${app.alt_phone}</div>
+                
                 <div class="info-item"><span>ID Number:</span> ${app.national_id_number}</div>
             </div>
             <div class="info-group">
                 <h4>Residential Details</h4>
+                <div class="info-item"><span>Nationality:</span> ${app.nationality}</div>
                 <div class="info-item"><span>Region:</span> ${app.res_region || 'N/A'}</div>
                 <div class="info-item"><span>City:</span> ${app.res_city}</div>
                 <div class="info-item"><span>Sub-City:</span> ${app.res_subcity || 'N/A'}</div>
@@ -237,7 +239,9 @@
             <div class="info-group">
                 <h4>Employment & Loan</h4>
                 <div class="info-item"><span>Organization:</span> ${app.org_name}</div>
-                <div class="info-item"><span>Net Salary:</span> ${Number(app.net_salary || 0).toLocaleString()} ETB</div>
+                <div class="info-item"><span>Organization Adress:</span> ${app.org_address}</div>
+                <div class="info-item"><span>Organization Phone:</span> ${app.org_phone}</div>
+                <div class="info-item"><span>Pension number:</span> ${app.pension_numbe}</div>
                 <div class="info-item"><span>Requested Amount:</span> ${Number(app.loan_amount || 0).toLocaleString()} ETB</div>
                 <div class="info-item"><span>Total Repayable:</span> ${Number(app.total_repayable || 0).toLocaleString()} ETB</div>
             </div>
