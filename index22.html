@@ -31,7 +31,7 @@
             box-shadow: var(--shadow);
             overflow: hidden;
             border-top: 6px solid var(--primary);
-            position: relative; /* Added for the Admin button positioning */
+            position: relative;
         }
         .form-header {
             padding: 30px 20px;
@@ -40,7 +40,6 @@
             position: relative;
         }
         
-        /* --- NEW ADMIN LOGIN BUTTON --- */
         .admin-link {
             position: absolute;
             top: 20px;
@@ -146,9 +145,7 @@
 <body>
 <div class="form-container">
     <div class="form-header">
-        <!-- Admin Login Button -->
         <a href="login22.html" class="admin-link">Admin Login</a>
-        
         <div class="logo-container">
             <img src="logo.png" alt="Africa Village Logo">
         </div>
@@ -267,18 +264,32 @@
                         </select>
                     </div>
                 </div>
+                
+                <!-- REPAYMENT SUMMARY UI UPDATED HERE -->
                 <div id="repaymentSummary" style="display: none; margin-top: 25px;">
                     <div style="padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: #fff;">
-                        <div style="display:flex; justify-content:space-between;">
-                            <span>Amount You Receive:</span>
+                        
+                        <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                            <span style="font-weight: 600; color: #4a5568;">Amount You Receive:</span>
                             <span class="net-amount" id="summaryNet">0.00 ETB</span>
                         </div>
-                        <div style="display:flex; justify-content:space-between; font-weight: bold; margin-top: 12px; color: #166534;">
-                            <span>Total to Pay Back:</span>
-                            <span id="summaryTotal">0.00 ETB</span>
+                        <div style="text-align: right; font-size: 0.8rem; color: #718096; margin-top: 5px;" id="summaryDeductions">
+                            Deducted: Service (6%), Insurance (0%), Disaster (1%)
                         </div>
+
+                        <div style="margin: 15px 0; border-top: 1px dashed #cbd5e0;"></div>
+
+                        <div style="display:flex; justify-content:space-between; align-items:flex-end; font-weight: bold; color: #166534;">
+                            <span>Total to Pay Back:</span>
+                            <span style="font-size: 1.25rem;" id="summaryTotal">0.00 ETB</span>
+                        </div>
+                        <div style="text-align: right; font-size: 0.8rem; color: #718096; margin-top: 5px;" id="summaryBreakdown">
+                            (Principal: 0 ETB + Interest: 0 ETB)
+                        </div>
+
                     </div>
                 </div>
+
             </div>
 
             <!-- Step 6: Documents -->
@@ -407,18 +418,33 @@
             return;
         }
 
-        const serviceRate = 0.06;
-        const disasterRate = 0.01;
-        let insuranceRate = (duration > 30) ? 0.03 : 0;
+        // ======================= REPAYMENT LOGIC =======================
+        const serviceRate = 0.06; // 6%
+        const disasterRate = 0.01; // 1%
+        let insuranceRate = (duration > 30) ? 0.03 : 0; // 3% for 60/90 days
 
-        const valFees = amount * (serviceRate + insuranceRate + disasterRate);
+        // 1. Calculate Deductions (Receive Amount)
+        const totalFeeRate = serviceRate + insuranceRate + disasterRate;
+        const valFees = amount * totalFeeRate;
         const netDisbursed = amount - valFees;
-        let interestRate = (duration === 60) ? 0.12 : (duration === 90) ? 0.18 : 0;
-        const totalRepayable = amount + (amount * interestRate);
 
+        // 2. Calculate Total Repayable (Pay Back Amount)
+        let interestRate = (duration === 60) ? 0.12 : (duration === 90) ? 0.18 : 0;
+        const interestAmount = amount * interestRate;
+        const totalRepayable = amount + interestAmount;
+
+        // 3. Update the UI
         summaryBox.style.display = "block";
+        
+        // Update NET Amount UI
         document.getElementById('summaryNet').innerText = netDisbursed.toLocaleString() + " ETB";
+        document.getElementById('summaryDeductions').innerText = 
+            `Deducted: Service (6%), Insurance (${insuranceRate * 100}%), Disaster (1%) = -${valFees.toLocaleString()} ETB`;
+
+        // Update REPAYMENT Amount UI
         document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString() + " ETB";
+        document.getElementById('summaryBreakdown').innerText = 
+            `(Principal: ${amount.toLocaleString()} ETB + Interest: ${interestAmount.toLocaleString()} ETB)`;
     }
 
     const form = document.getElementById('loanForm');
