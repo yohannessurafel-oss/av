@@ -476,6 +476,30 @@
         }
     };
 
+
+
+
+                                                    function validateStep(step) {
+    const currentStepDiv = document.getElementById(`step-${step}`);
+    // Find all required inputs/selects in the current step
+    const inputs = currentStepDiv.querySelectorAll('input[required], select[required]');
+    
+    for (let input of inputs) {
+        if (!input.checkValidity()) {
+            input.reportValidity(); // This shows the browser's native "Please fill out this field" tooltip
+            return false;
+        }
+    }
+    return true;
+}
+
+function nextStep() {
+    // Only proceed if the current step is valid
+    if (validateStep(currentStep)) {
+        if (currentStep < totalSteps) showStep(++currentStep);
+    }
+}
+
     // Initialize
     showStep(1);
 </script>
