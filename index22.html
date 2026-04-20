@@ -31,12 +31,34 @@
             box-shadow: var(--shadow);
             overflow: hidden;
             border-top: 6px solid var(--primary);
+            position: relative; /* Added for the Admin button positioning */
         }
         .form-header {
             padding: 30px 20px;
             text-align: center;
             background: white;
+            position: relative;
         }
+        
+        /* --- NEW ADMIN LOGIN BUTTON --- */
+        .admin-link {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 0.85rem;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            background: #eef2f6;
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: 0.2s;
+        }
+        .admin-link:hover {
+            background: var(--primary);
+            color: white;
+        }
+
         .logo-container img { height: 80px; width: auto; }
         .header-text h2 {
             margin: 10px 0 5px;
@@ -117,12 +139,16 @@
 
         @media (max-width: 600px) {
             .form-grid { grid-template-columns: 1fr; }
+            .admin-link { top: 10px; right: 10px; font-size: 0.75rem; }
         }
     </style>
 </head>
 <body>
 <div class="form-container">
     <div class="form-header">
+        <!-- Admin Login Button -->
+        <a href="login.html" class="admin-link">Admin Login</a>
+        
         <div class="logo-container">
             <img src="logo.png" alt="Africa Village Logo">
         </div>
@@ -215,7 +241,6 @@
                     <div class="form-group"><label>Organization Name</label><input type="text" id="orgName" required></div>
                     <div class="form-group"><label>Job Title</label><input type="text" id="jobTitle" required></div>
                     <div class="form-group"><label>Employment Type</label><input type="text" id="empType" required></div>
-                    <!-- Triggers calculation if they modify salary after filling loan info -->
                     <div class="form-group"><label>Gross Salary (ETB)</label><input type="number" id="grossSalary" required oninput="calculateRepayment()"></div>
                     <div class="form-group"><label>Organization Phone</label><input type="tel" id="orgPhone" required></div>
                     <div class="form-group"><label>Pension Number</label><input type="text" id="pensionNumber" required></div>
@@ -230,7 +255,6 @@
                     <div class="form-group">
                         <label>Requested Amount (ETB)</label>
                         <input type="number" id="loanAmount" placeholder="Min 500" required min="500" oninput="calculateRepayment()">
-                        <!-- Error Message for Loan Amount Logic -->
                         <div id="loanErrorMsg" class="error-text"></div>
                     </div>
                     <div class="form-group">
@@ -301,12 +325,11 @@
 
     function validateStep(step) {
         const currentStepDiv = document.getElementById(`step-${step}`);
-        // Find all required inputs/selects in the current step
         const inputs = currentStepDiv.querySelectorAll('input[required], select[required]');
         
         for (let input of inputs) {
             if (!input.checkValidity()) {
-                input.reportValidity(); // This shows the browser's native "Please fill out this field" tooltip
+                input.reportValidity(); 
                 return false;
             }
         }
@@ -314,7 +337,6 @@
     }
 
     function nextStep() {
-        // Only proceed if the current step is valid
         if (validateStep(currentStep)) {
             if (currentStep < totalSteps) showStep(++currentStep);
         }
@@ -324,11 +346,9 @@
         if (currentStep > 1) showStep(--currentStep);
     }
 
-    // Tab click support
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
             const targetStep = parseInt(tab.dataset.step);
-            // Allow navigating backwards, or forward if current is valid
             if (targetStep < currentStep || validateStep(currentStep)) {
                 currentStep = targetStep;
                 showStep(currentStep);
@@ -336,7 +356,6 @@
         });
     });
 
-    // ==================== CORE FUNCTIONS ====================
     const getFile = (id) => document.getElementById(id)?.files[0] || null;
 
     async function uploadDoc(file, folder, userId) {
@@ -361,16 +380,12 @@
         const duration = parseInt(durationInput.value);
         const grossSalary = parseFloat(grossSalaryInput.value) || 0;
 
-        // Reset Custom Validity & Error display
         amountInput.setCustomValidity('');
         errorMsgSpan.style.display = 'none';
 
-        // --- NEW VALIDATION LOGIC ---
         if (!isNaN(amount) && !isNaN(duration) && grossSalary > 0) {
             let maxAllowed = 0;
 
-            // 7 and 30 days = One third of gross salary
-            // 60 and 90 days = Full gross salary
             if (duration === 7 || duration === 30) {
                 maxAllowed = grossSalary / 3;
             } else if (duration === 60 || duration === 90) {
@@ -379,14 +394,13 @@
 
             if (amount > maxAllowed) {
                 const errorText = `Limit Exceeded: Maximum allowed for ${duration} days is ${maxAllowed.toFixed(2)} ETB (Based on your salary).`;
-                amountInput.setCustomValidity(errorText); // This blocks HTML form progression
+                amountInput.setCustomValidity(errorText); 
                 errorMsgSpan.innerText = errorText;
                 errorMsgSpan.style.display = 'block';
                 summaryBox.style.display = "none";
-                return; // Stop processing the repayment logic if invalid
+                return; 
             }
         }
-        // --- END VALIDATION LOGIC ---
 
         if (isNaN(amount) || amount < 500) {
             summaryBox.style.display = "none";
@@ -407,14 +421,12 @@
         document.getElementById('summaryTotal').innerText = totalRepayable.toLocaleString() + " ETB";
     }
 
-    // ==================== FORM SUBMISSION ====================
     const form = document.getElementById('loanForm');
     const statusMsg = document.getElementById('statusMsg');
 
     form.onsubmit = async (e) => {
         e.preventDefault();
         
-        // Final sanity check before submission
         if (!validateStep(currentStep)) return;
 
         const btn = document.getElementById('btnSubmit');
@@ -490,7 +502,6 @@
 
             if (dbError) throw dbError;
 
-            // Note: In production, consider moving this Telegram API call to Supabase Edge Functions for security.
             const botToken = "8714955742:AAEw2fY0wi7Q2-FH412FWrUhI6ZwPWb-xto";   
             const chatId = "462478206";
 
@@ -529,7 +540,6 @@
         }
     };
 
-    // Initialize
     showStep(1);
 </script>
 </body>
