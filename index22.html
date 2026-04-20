@@ -113,6 +113,7 @@
             font-size: 1.1rem;
         }
         .net-amount { color: var(--primary); font-size: 1.4rem; font-weight: 800; }
+        .error-text { color: #e53e3e; font-size: 0.85rem; margin-top: 5px; display: none; font-weight: bold; }
 
         @media (max-width: 600px) {
             .form-grid { grid-template-columns: 1fr; }
@@ -162,7 +163,7 @@
                     <div class="form-group"><label>Birthday</label><input type="date" id="birthday" required></div>
                     <div class="form-group"><label>Nationality</label><input type="text" id="nationality" required></div>
                     <div class="form-group"><label>Active Phone Number</label><input type="tel" id="phoneNumber" required></div>
-            <div class="form-group"><label>Alternative Phone</label><input type="tel" id="phoneNumber2"></div>
+                    <div class="form-group"><label>Alternative Phone</label><input type="tel" id="phoneNumber2"></div>
                     <div class="form-group full-width"><label>National ID Number</label><input type="text" id="nationalIDNum" required></div>
                 </div>
             </div>
@@ -196,19 +197,13 @@
                 <div class="form-grid">
                     <div class="form-group"><label>Full Name</label><input type="text" id="gfname" required></div>
                     <div class="form-group"><label>Phone</label><input type="tel" id="gphone" required></div>
-
-
-
- <div class="form-group"><label>Guarantor's Address</label><input type="text" id="gadress" required></div>
-            
-            <div class="form-group"><label>Guarantor National ID Number</label><input type="text" id="gidnum" required></div>
-
-                    
+                    <div class="form-group"><label>Guarantor's Address</label><input type="text" id="gadress" required></div>
+                    <div class="form-group"><label>Guarantor National ID Number</label><input type="text" id="gidnum" required></div>
                     <div class="form-group"><label>Gross Salary (ETB)</label><input type="number" id="gGross" required></div>
                     <div class="form-group"><label>National ID Front</label><input type="file" id="gnatIdFront" accept="image/*" required></div>
                     <div class="form-group"><label>National ID Back</label><input type="file" id="gnatIdBack" accept="image/*" required></div>
                     <div class="form-group"><label>Guarantor Employee ID Front</label><input type="file" id="gempIdFront" accept="image/*" required></div>
-            <div class="form-group"><label>Guarantor Employee ID Back</label><input type="file" id="gempIdBack" accept="image/*" required></div>
+                    <div class="form-group"><label>Guarantor Employee ID Back</label><input type="file" id="gempIdBack" accept="image/*" required></div>
                     <div class="form-group"><label>Guarantor Letter</label><input type="file" id="gLetter" accept="image/*,application/pdf" required></div>
                 </div>
             </div>
@@ -217,14 +212,14 @@
             <div class="step" id="step-4">
                 <div class="section-title">Employment Information</div>
                 <div class="form-grid">
-                     <div class="form-group"><label>Organization Name</label><input type="text" id="orgName" required></div>
-            <div class="form-group"><label>Job Title</label><input type="text" id="jobTitle" required></div>
-            <div class="form-group"><label>Employment Type</label><input type="text" id="empType" required></div>
-            <div class="form-group"><label>Gross Salary (ETB)</label><input type="number" id="grossSalary" required></div>
-            <div class="form-group"><label>Organization Phone</label><input type="tel" id="orgPhone" required></div>
-            <div class="form-group"><label>Pension Number</label><input type="text" id="pensionNumber" required></div>
-            <div class="form-group full-width"><label>Organization Address</label><input type="text" id="orgAddress" required></div>
-                    
+                    <div class="form-group"><label>Organization Name</label><input type="text" id="orgName" required></div>
+                    <div class="form-group"><label>Job Title</label><input type="text" id="jobTitle" required></div>
+                    <div class="form-group"><label>Employment Type</label><input type="text" id="empType" required></div>
+                    <!-- Triggers calculation if they modify salary after filling loan info -->
+                    <div class="form-group"><label>Gross Salary (ETB)</label><input type="number" id="grossSalary" required oninput="calculateRepayment()"></div>
+                    <div class="form-group"><label>Organization Phone</label><input type="tel" id="orgPhone" required></div>
+                    <div class="form-group"><label>Pension Number</label><input type="text" id="pensionNumber" required></div>
+                    <div class="form-group full-width"><label>Organization Address</label><input type="text" id="orgAddress" required></div>
                 </div>
             </div>
 
@@ -235,6 +230,8 @@
                     <div class="form-group">
                         <label>Requested Amount (ETB)</label>
                         <input type="number" id="loanAmount" placeholder="Min 500" required min="500" oninput="calculateRepayment()">
+                        <!-- Error Message for Loan Amount Logic -->
+                        <div id="loanErrorMsg" class="error-text"></div>
                     </div>
                     <div class="form-group">
                         <label>Duration</label>
@@ -302,8 +299,25 @@
         document.getElementById('btnSubmit').style.display = step === totalSteps ? 'block' : 'none';
     }
 
+    function validateStep(step) {
+        const currentStepDiv = document.getElementById(`step-${step}`);
+        // Find all required inputs/selects in the current step
+        const inputs = currentStepDiv.querySelectorAll('input[required], select[required]');
+        
+        for (let input of inputs) {
+            if (!input.checkValidity()) {
+                input.reportValidity(); // This shows the browser's native "Please fill out this field" tooltip
+                return false;
+            }
+        }
+        return true;
+    }
+
     function nextStep() {
-        if (currentStep < totalSteps) showStep(++currentStep);
+        // Only proceed if the current step is valid
+        if (validateStep(currentStep)) {
+            if (currentStep < totalSteps) showStep(++currentStep);
+        }
     }
 
     function prevStep() {
@@ -313,8 +327,12 @@
     // Tab click support
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
-            currentStep = parseInt(tab.dataset.step);
-            showStep(currentStep);
+            const targetStep = parseInt(tab.dataset.step);
+            // Allow navigating backwards, or forward if current is valid
+            if (targetStep < currentStep || validateStep(currentStep)) {
+                currentStep = targetStep;
+                showStep(currentStep);
+            }
         });
     });
 
@@ -333,9 +351,42 @@
     }
 
     function calculateRepayment() {
-        const amount = parseFloat(document.getElementById('loanAmount').value);
-        const duration = parseInt(document.getElementById('loanDuration').value);
+        const amountInput = document.getElementById('loanAmount');
+        const durationInput = document.getElementById('loanDuration');
+        const grossSalaryInput = document.getElementById('grossSalary');
         const summaryBox = document.getElementById('repaymentSummary');
+        const errorMsgSpan = document.getElementById('loanErrorMsg');
+
+        const amount = parseFloat(amountInput.value);
+        const duration = parseInt(durationInput.value);
+        const grossSalary = parseFloat(grossSalaryInput.value) || 0;
+
+        // Reset Custom Validity & Error display
+        amountInput.setCustomValidity('');
+        errorMsgSpan.style.display = 'none';
+
+        // --- NEW VALIDATION LOGIC ---
+        if (!isNaN(amount) && !isNaN(duration) && grossSalary > 0) {
+            let maxAllowed = 0;
+
+            // 7 and 30 days = One third of gross salary
+            // 60 and 90 days = Full gross salary
+            if (duration === 7 || duration === 30) {
+                maxAllowed = grossSalary / 3;
+            } else if (duration === 60 || duration === 90) {
+                maxAllowed = grossSalary;
+            }
+
+            if (amount > maxAllowed) {
+                const errorText = `Limit Exceeded: Maximum allowed for ${duration} days is ${maxAllowed.toFixed(2)} ETB (Based on your salary).`;
+                amountInput.setCustomValidity(errorText); // This blocks HTML form progression
+                errorMsgSpan.innerText = errorText;
+                errorMsgSpan.style.display = 'block';
+                summaryBox.style.display = "none";
+                return; // Stop processing the repayment logic if invalid
+            }
+        }
+        // --- END VALIDATION LOGIC ---
 
         if (isNaN(amount) || amount < 500) {
             summaryBox.style.display = "none";
@@ -362,6 +413,10 @@
 
     form.onsubmit = async (e) => {
         e.preventDefault();
+        
+        // Final sanity check before submission
+        if (!validateStep(currentStep)) return;
+
         const btn = document.getElementById('btnSubmit');
         btn.disabled = true;
         btn.innerText = "Processing & Uploading...";
@@ -370,7 +425,7 @@
             const { data: { user } } = await _supabase.auth.getUser();
             const userId = user ? user.id : "guest_" + Date.now();
 
-            const [natF, natB, photo, sig, empLetter, gLetter, gNatF, gNatB, gEmpF, gEmpB] = await Promise.all([
+            const[natF, natB, photo, sig, empLetter, gLetter, gNatF, gNatB, gEmpF, gEmpB] = await Promise.all([
                 uploadDoc(getFile('natIdFront'), 'nat_front', userId),
                 uploadDoc(getFile('natIdBack'), 'nat_back', userId),
                 uploadDoc(getFile('userPhoto'), 'photo', userId),
@@ -395,8 +450,8 @@
                 gender: document.getElementById('gender').value,
                 birthday: document.getElementById('birthday').value,
                 phone_number: document.getElementById('phoneNumber').value,
-  alt_phone: document.getElementById('phoneNumber2').value,
-                 nationality: document.getElementById('nationality').value,
+                alt_phone: document.getElementById('phoneNumber2').value,
+                nationality: document.getElementById('nationality').value,
                 res_region: document.getElementById('resRegion').value,
                 res_city: document.getElementById('resCity').value,
                 res_subcity: document.getElementById('resSubCity').value,
@@ -406,13 +461,12 @@
                 guarantor_name: document.getElementById('gfname').value,
                 guarantor_phone: document.getElementById('gphone').value,
                 guarantor_address: document.getElementById('gadress').value,
-                job_title: document.getElementById('jobTitle').value,      // Missing in your original
-    emp_type: document.getElementById('empType').value,        // Missing in your original
-    org_phone: document.getElementById('orgPhone').value,      // This was missing
-    pension_number: document.getElementById('pensionNumber').value, // This was missing
-    org_address: document.getElementById('orgAddress').value,  //
-                
-                  guarantor_id_number: document.getElementById('gidnum').value,
+                job_title: document.getElementById('jobTitle').value,      
+                emp_type: document.getElementById('empType').value,        
+                org_phone: document.getElementById('orgPhone').value,      
+                pension_number: document.getElementById('pensionNumber').value, 
+                org_address: document.getElementById('orgAddress').value,  
+                guarantor_id_number: document.getElementById('gidnum').value,
                 guarantor_gross: parseFloat(document.getElementById('gGross').value) || 0,
                 guarantor_letter: gLetter,
                 g_nat_id_front: gNatF,
@@ -424,8 +478,7 @@
                 org_name: document.getElementById('orgName').value,
                 gross_salary: parseFloat(document.getElementById('grossSalary').value) || 0,
                 total_repayable: parseFloat(totalRepayable),
-               net_disbursed: parseFloat(netDisbursed),
-               
+                net_disbursed: parseFloat(netDisbursed),
                 national_id_number: document.getElementById('nationalIDNum').value,
                 nat_id_front: natF,
                 nat_id_back: natB,
@@ -437,8 +490,8 @@
 
             if (dbError) throw dbError;
 
-            // Telegram Notification
-            const botToken = "8714955742:AAEw2fY0wi7Q2-FH412FWrUhI6ZwPWb-xto";   // ← Replace with your correct token
+            // Note: In production, consider moving this Telegram API call to Supabase Edge Functions for security.
+            const botToken = "8714955742:AAEw2fY0wi7Q2-FH412FWrUhI6ZwPWb-xto";   
             const chatId = "462478206";
 
             const telegramMessage = `
@@ -475,30 +528,6 @@
             btn.innerText = "Submit Application";
         }
     };
-
-
-
-
-                                                    function validateStep(step) {
-    const currentStepDiv = document.getElementById(`step-${step}`);
-    // Find all required inputs/selects in the current step
-    const inputs = currentStepDiv.querySelectorAll('input[required], select[required]');
-    
-    for (let input of inputs) {
-        if (!input.checkValidity()) {
-            input.reportValidity(); // This shows the browser's native "Please fill out this field" tooltip
-            return false;
-        }
-    }
-    return true;
-}
-
-function nextStep() {
-    // Only proceed if the current step is valid
-    if (validateStep(currentStep)) {
-        if (currentStep < totalSteps) showStep(++currentStep);
-    }
-}
 
     // Initialize
     showStep(1);
