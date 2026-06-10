@@ -3,37 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comprehensive Amortization Ledger</title>
+    <title>Agri-business Loan Management</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
     <div class="container">
-        <h2>Loan Calculator & Advanced Ledger</h2>
+        <div class="account-header">
+            <h2>Loan Account Statement</h2>
+            <div class="meta-grid">
+                <div><strong>Account No:</strong> 011-004-9823-01</div>
+                <div><strong>Product:</strong> Agri-business Term Loan</div>
+                <div><strong>Status:</strong> <span class="badge status-active">Active-Performing</span></div>
+            </div>
+        </div>
         
         <form id="loan-form" class="transaction-form">
-            <h3>1. Loan Terms Setup</h3>
+            <h3>Generate Schedule & Initialize Account</h3>
             <div class="form-group-row">
-                <input type="text" id="borrower_name" value="ABC Trading / Project X" placeholder="Borrower Name" required>
-                <input type="number" id="loan_amount" value="100000" placeholder="Loan Amount (ETB)" required>
-                <input type="date" id="disbursement_date" required>
+                <input type="number" id="loan_amount" value="50000" placeholder="Loan Amount (ETB)" required>
+                <input type="date" id="start_date" required>
+                <input type="number" step="0.1" id="interest_rate" value="12" placeholder="Interest Rate %" required>
             </div>
-            <div class="form-group-row">
-                <input type="number" step="0.1" id="interest_rate" value="12" placeholder="Interest Rate % p.a." required>
-                <input type="number" id="loan_term" value="12" placeholder="Term (Months)" required>
-                <input type="number" step="0.01" id="total_accrued_estimate" value="25000" placeholder="Initial Accrued Interest (a)" required>
-            </div>
-            <button type="submit" id="generate-btn">Generate & Sync Complete Schedule</button>
+            <button type="submit">Generate Statement & Ledger Data</button>
         </form>
 
-        <h3>2. Amortization Ledger</h3>
+        <h3>View A: Customer Account Statement</h3>
         <div class="table-responsive">
-            <table id="ledger-table">
+            <table>
                 <thead>
                     <tr>
-                        <th>Month</th>
-                        <th>Date</th>
+                        <th>Post Date</th>
+                        <th>Value Date</th>
+                        <th>Ref / Batch</th>
+                        <th>Transaction Description</th>
+                        <th>Principal</th>
+                        <th>Interest</th>
+                        <th>Charges / Penalties</th>
+                        <th>Running Balance</th>
+                    </tr>
+                </thead>
+                <tbody id="statement-body">
+                    </tbody>
+            </table>
+        </div>
+
+        <h3 style="margin-top: 40px;">View B: Internal Accounting Ledger</h3>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Value Date</th>
                         <th>Description</th>
                         <th>Ref #</th>
                         <th>Principal (Debit)</th>
@@ -45,7 +66,7 @@
                         <th>Principal Balance</th>
                     </tr>
                 </thead>
-                <tbody id="table-body">
+                <tbody id="ledger-body">
                     </tbody>
             </table>
         </div>
