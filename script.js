@@ -1,33 +1,35 @@
+// 1. Database connection config
 const SUPABASE_URL = 'https://oxzthrubidohuwwhxsrk.supabase.co'; 
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
 const dbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Default configuration variables for real-world banking terms
-const CONFIG = {
-    GRACE_PERIOD_DAYS: 5,        // Grace allowance window 
-    FLAT_PENALTY_FEE: 150.00,    // Penalty applied on violation (matches JRNL-102 layout)
-    INITIAL_ACCRUED_INT: 25000   // Point (a) from source visual asset
-};
+// Set default disbursement date value placeholder automatically on load
+document.getElementById('start_date').valueAsDate = new Date();
 
-function formatCurrency(val, displayBrackets = true) {
+// 2. Financial Currency Formatter Rule Engine
+function formatCurrency(val, displayBracketsIfNegative = true) {
     if (val === null || val === undefined || val === '' || val === 0) return '-';
-    if (val < 0 && displayBrackets) {
+    if (val < 0 && displayBracketsIfNegative) {
         return `(${Math.abs(val).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})`;
     }
     return val.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
+// 3. Simple Date Formatter Utility (Output: 31-Jan-26)
 function formatDate(dateString) {
     return new Date(dateString).toLocaleDateString('en-GB', {
         day: '2-digit', month: 'short', year: '2-digit'
     });
 }
 
-// 1. Unified Render Pipeline mapping data straight to your 11-column layouts
+// 4. Unified Render Pipeline: Pulls from Supabase and fills BOTH HTML views
 async function fetchAndRenderViews() {
     const { data, error } = await dbClient.from('loan_ledger').select('*').order('id', { ascending: true });
-    if (error) { console.error("Fetch Error:", error); return; }
+    if (error) { 
+        console.error("Fetch Execution Error:", error); 
+        return; 
+    }
 
     const stmtBody = document.getElementById('statement-body');
     const ledgerBody = document.getElementById('ledger-body');
@@ -35,12 +37,12 @@ async function fetchAndRenderViews() {
     stmtBody.innerHTML = '';
     ledgerBody.innerHTML = '';
 
-    if(data.length > 0 && document.getElementById('meta-product')) {
+    if (data.length > 0 && document.getElementById('meta-product')) {
         document.getElementById('meta-product').innerText = data[0].product_name;
     }
 
     data.forEach(row => {
-        // View A: Customer Transaction Statement Rendering
+        // --- View A: Customer Account Statement Table Row Mapping ---
         stmtBody.innerHTML += `
             <tr>
                 <td>${formatDate(row.post_date)}</td>
@@ -53,7 +55,7 @@ async function fetchAndRenderViews() {
                 <td class="text-right font-bold">${formatCurrency(row.running_balance, false)}</td>
             </tr>`;
 
-        // View B: Advanced Internal Accounting Ledger Rendering
+        // --- View B: Internal Accounting Ledger Table Row Mapping ---
         ledgerBody.innerHTML += `
             <tr>
                 <td>${formatDate(row.value_date)}</td>
@@ -70,10 +72,11 @@ async function fetchAndRenderViews() {
     });
 }
 
-// 2. Core Operational Engine logic mapping parameters dynamically
+// 5. Core Mathematical & Operational Engine Event Handler
 document.getElementById('loan-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
+    // Extract dynamic UI parameters
     const selectedProduct = document.getElementById('product_type').value;
     const amount = parseFloat(document.getElementById('loan_amount').value);
     const startDate = new Date(document.getElementById('start_date').value);
@@ -81,18 +84,23 @@ document.getElementById('loan-form').addEventListener('submit', async (e) => {
     const totalMonths = parseInt(document.getElementById('loan_term').value);
     const frequency = document.getElementById('repayment_frequency').value;
 
+    // Extract advanced custom parameter configurations
+    const gracePeriodDays = parseInt(document.getElementById('grace_period').value);
+    const flatPenaltyFee = parseFloat(document.getElementById('flat_penalty').value);
+    const initialAccruedInterest = parseFloat(document.getElementById('total_accrued_estimate').value);
+
     const isoDate = startDate.toISOString().split('T')[0];
     let initializedDataset = [];
 
-    // Row 0: Set initial values with reference to marker point (a)
+    // Base Allocation Row 0: Initial Loan Disbursement 
     initializedDataset.push({
         product_name: selectedProduct, post_date: isoDate, value_date: isoDate,
         description: "Loan Disbursement", ref_batch: "SYS-DSB01",
         principal: amount, interest: 0, charges_penalties: 0,
-        accrued_interest_receivable: CONFIG.INITIAL_ACCRUED_INT, total_paid: 0, running_balance: amount
+        accrued_interest_receivable: initialAccruedInterest, total_paid: 0, running_balance: amount
     });
 
-    // Optional conditional check for processing fee additions
+    // Base Allocation Row 1: Add dynamic Processing Fee context exclusively for Agri-business terms
     if (selectedProduct === "Agri-business Term Loan") {
         initializedDataset.push({
             product_name: selectedProduct, post_date: isoDate, value_date: isoDate,
@@ -102,80 +110,97 @@ document.getElementById('loan-form').addEventListener('submit', async (e) => {
         });
     }
 
+    // Set scheduling intervals depending on frequency selections
+    let intervals = totalMonths;
+    let ratePerPeriod = annualRate / 12;
+    let monthStep = 1;
+
+    if (frequency === 'yearly') {
+        intervals = Math.max(1, Math.round(totalMonths / 12));
+        ratePerPeriod = annualRate; 
+        monthStep = 12;
+    }
+
+    // Standard Periodic Equal Installment (EMI) Calculation
+    const periodicPayment = (amount * ratePerPeriod * Math.pow(1 + ratePerPeriod, intervals)) / (Math.pow(1 + ratePerPeriod, intervals) - 1);
+
     let currentBalance = amount;
     let calculationDate = new Date(startDate);
-    let stepMonths = frequency === 'yearly' ? 12 : 1;
-    let totalPeriods = frequency === 'yearly' ? Math.round(totalMonths / 12) : totalMonths;
-    let periodicRate = frequency === 'yearly' ? annualRate : (annualRate / 12);
+    
+    // Internal trackers to accurately balance target accrual targets
+    let dynamicUnpaidInterestTracker = initialAccruedInterest - 1000.00; 
 
-    const installmentEMI = (amount * periodicRate * Math.pow(1 + periodicRate, totalPeriods)) / (Math.pow(1 + periodicRate, totalPeriods) - 1);
-
-    // Track accrued balances over time
-    let totalUnpaidInterestTracker = CONFIG.INITIAL_ACCRUED_INT - 1000.00; 
-
-    for (let i = 1; i <= totalPeriods; i++) {
-        let lastDueDate = new Date(calculationDate);
-        calculationDate.setMonth(calculationDate.getMonth() + stepMonths);
+    for (let i = 1; i <= intervals; i++) {
+        calculationDate.setMonth(calculationDate.getMonth() + monthStep);
         
-        let paymentDueDate = new Date(calculationDate.getFullYear(), calculationDate.getMonth() + 1, 0);
-        let isoDueDateStr = paymentDueDate.toISOString().split('T')[0];
+        // Find last calendar day of respective period targeting value dating parameters
+        let periodDueDate = new Date(calculationDate.getFullYear(), calculationDate.getMonth() + 1, 0);
+        let currentIsoStr = periodDueDate.toISOString().split('T')[0];
 
-        // 1. Accrued Interest Tracking Calculation
-        let daysInPeriod = Math.round((paymentDueDate - lastDueDate) / (1000 * 60 * 60 * 24));
-        let monthlyAccruedInterest = currentBalance * periodicRate; 
-
-        let principalComponent = installmentEMI - monthlyAccruedInterest;
+        let interestComponent = currentBalance * ratePerPeriod;
+        let principalComponent = periodicPayment - interestComponent;
         currentBalance -= principalComponent;
 
-        if (i === totalPeriods) {
+        // Final period residual execution cleanup
+        if (i === intervals) {
             principalComponent += currentBalance;
             currentBalance = 0;
         }
 
-        // 2. Grace Period Check Simulation
-        // Simulating a late payment event on Month 1 to match the "Late Penalty Fee" layout
+        // --- Grace Window & Penalty Violation Verification Engine ---
+        // Simulating an explicit late payment on payment interval 1 for illustrative visualization
         if (i === 1) {
-            let actualPaymentDate = new Date(paymentDueDate);
-            actualPaymentDate.setDate(actualPaymentDate.getDate() + 15); // Paid 15 days late (breaching the 5-day grace period)
+            let actualTransactionProcessingDate = new Date(periodDueDate);
+            actualTransactionProcessingDate.setDate(actualTransactionProcessingDate.getDate() + 15); // Paid 15 days late
             
-            let daysLate = Math.round((actualPaymentDate - paymentDueDate) / (1000 * 60 * 60 * 24));
+            let daysOverdue = Math.round((actualTransactionProcessingDate - periodDueDate) / (1000 * 60 * 60 * 24));
 
-            if (daysLate > CONFIG.GRACE_PERIOD_DAYS) {
-                let penaltyIsoStr = new Date(paymentDueDate.getFullYear(), paymentDueDate.getMonth() + 1, 15).toISOString().split('T')[0];
+            // Inject standalone penalty adjustment row if grace validation boundaries breach
+            if (daysOverdue > gracePeriodDays) {
+                let penaltyPostIsoStr = new Date(periodDueDate.getFullYear(), periodDueDate.getMonth() + 1, 15).toISOString().split('T')[0];
                 
-                // Inject Adjustment Row (Matches JRNL-102 sequence row 4)
                 initializedDataset.push({
-                    product_name: selectedProduct,
-                    post_date: penaltyIsoStr, value_date: penaltyIsoStr,
+                    product_name: selectedProduct, post_date: penaltyPostIsoStr, value_date: penaltyPostIsoStr,
                     description: "Late Penalty Fee", ref_batch: "JRNL-102",
-                    principal: 0, interest: 0, charges_penalties: CONFIG.FLAT_PENALTY_FEE,
-                    accrued_interest_receivable: 0, total_paid: CONFIG.FLAT_PENALTY_FEE,
-                    accrued_unpaid_interest: 0, running_balance: parseFloat(currentBalance.toFixed(2)) + parseFloat(principalComponent.toFixed(2))
+                    principal: 0, interest: 0, charges_penalties: flatPenaltyFee,
+                    accrued_interest_receivable: 0, total_paid: flatPenaltyFee,
+                    accrued_unpaid_interest: 0, 
+                    // Standalone fees temporarily increase the operational running liability column before installment matching
+                    running_balance: parseFloat(currentBalance.toFixed(2)) + parseFloat(principalComponent.toFixed(2))
                 });
             }
         }
 
-        // Add standard schedule record
+        // Add regular periodic installment data block
         initializedDataset.push({
             product_name: selectedProduct,
-            post_date: isoDueDateStr, value_date: isoDueDateStr,
-            description: "Monthly Installment", ref_batch: `RCPT-0${41 + i}`,
+            post_date: currentIsoStr, value_date: currentIsoStr,
+            description: frequency === 'yearly' ? `Yearly Installment ${i}` : `Monthly Installment ${i}`,
+            ref_batch: frequency === 'yearly' ? `YRT-${100+i}` : `RCPT-0${41 + i}`,
             principal: parseFloat((-principalComponent).toFixed(2)),
-            interest: i === 1 ? -1000.00 : parseFloat((-monthlyAccruedInterest).toFixed(2)), // Row point (b) override simulation
+            // Override point (b) simulation criteria mapping context on initial record matrix parameters
+            interest: i === 1 ? -1000.00 : parseFloat((-interestComponent).toFixed(2)),
             charges_penalties: 0,
             accrued_interest_receivable: 0,
-            total_paid: parseFloat(installmentEMI.toFixed(2)),
-            accrued_unpaid_interest: i === 1 ? totalUnpaidInterestTracker : null, // Row point (c) mapping
+            total_paid: parseFloat(periodicPayment.toFixed(2)),
+            accrued_unpaid_interest: i === 1 ? dynamicUnpaidInterestTracker : null, // Mapped target point (c)
             running_balance: parseFloat(Math.max(0, currentBalance).toFixed(2))
         });
     }
 
-    // Database push processing
+    // Wipe previous entries 
     await dbClient.from('loan_ledger').delete().neq('id', 0);
+    
+    // Bulk dispatch data blocks securely to Supabase
     const { error } = await dbClient.from('loan_ledger').insert(initializedDataset);
 
-    if (error) alert("Sync Failure: " + error.message);
-    else fetchAndRenderViews();
+    if (error) {
+        alert("Data Synchronization Failure: " + error.message);
+    } else {
+        alert("Advanced Loan Amortization Matrix generated and saved!");
+        fetchAndRenderViews();
+    }
 });
 
+// Run rendering script initialization immediately when browser opens
 fetchAndRenderViews();
