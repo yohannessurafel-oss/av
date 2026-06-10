@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agri-business Loan Management</title>
+    <title>Advanced Agri-business Loan Management</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -14,19 +14,51 @@
             <h2>Loan Account Statement</h2>
             <div class="meta-grid">
                 <div><strong>Account No:</strong> 011-004-9823-01</div>
-                <div><strong>Product:</strong> Agri-business Term Loan</div>
+                <div><strong>Product:</strong> <span id="meta-product">Agri-business Term Loan</span></div>
                 <div><strong>Status:</strong> <span class="badge status-active">Active-Performing</span></div>
             </div>
         </div>
         
         <form id="loan-form" class="transaction-form">
-            <h3>Generate Schedule & Initialize Account</h3>
-            <div class="form-group-row">
-                <input type="number" id="loan_amount" value="50000" placeholder="Loan Amount (ETB)" required>
-                <input type="date" id="start_date" required>
-                <input type="number" step="0.1" id="interest_rate" value="12" placeholder="Interest Rate %" required>
+            <div class="form-section">
+                <h3>1. Loan Terms Setup</h3>
+                <div class="form-group-row">
+                    <select id="product_type" required>
+                        <option value="Agri-business Term Loan">Agri-business Term Loan</option>
+                        <option value="Standard Loan">Standard Loan</option>
+                    </select>
+                    <input type="number" id="loan_amount" value="50000" placeholder="Loan Amount (ETB)" required>
+                    <input type="date" id="start_date" required>
+                </div>
+                <div class="form-group-row">
+                    <input type="number" step="0.1" id="interest_rate" value="12" placeholder="Interest Rate % p.a." required>
+                    <input type="number" id="loan_term" value="12" placeholder="Term (in Months)" required>
+                    <select id="repayment_frequency" required>
+                        <option value="monthly">Monthly Repayment</option>
+                        <option value="yearly">Yearly Repayment</option>
+                    </select>
+                </div>
             </div>
-            <button type="submit">Generate Statement & Ledger Data</button>
+
+            <div class="form-section" style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                <h3>2. Advanced Rules Configuration</h3>
+                <div class="form-group-row">
+                    <div class="input-wrapper">
+                        <label for="grace_period">Grace Period (Days)</label>
+                        <input type="number" id="grace_period" value="5" min="0" placeholder="e.g. 5 days" required>
+                    </div>
+                    <div class="input-wrapper">
+                        <label for="flat_penalty">Flat Penalty Fee (ETB)</label>
+                        <input type="number" step="0.01" id="flat_penalty" value="150.00" placeholder="e.g. 150.00" required>
+                    </div>
+                    <div class="input-wrapper">
+                        <label for="total_accrued_estimate">Initial Accrued Interest (a)</label>
+                        <input type="number" step="0.01" id="total_accrued_estimate" value="25000" placeholder="e.g. 25000" required>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" style="margin-top: 20px;">Generate Statement & Ledger Data</button>
         </form>
 
         <h3>View A: Customer Account Statement</h3>
