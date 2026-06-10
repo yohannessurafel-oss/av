@@ -124,3 +124,106 @@ tr:hover {
 .font-bold {
     font-weight: bold;
 }
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background-color: #f1f5f9;
+    color: #1e293b;
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #ffffff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Account Info Card Design */
+.account-header {
+    background: #0f172a;
+    color: #ffffff;
+    padding: 20px;
+    border-radius: 6px;
+    margin-bottom: 25px;
+}
+
+.account-header h2 {
+    margin: 0 0 15px 0;
+    color: #ffffff;
+    border-bottom: 1px solid #334155;
+    padding-bottom: 5px;
+}
+
+.meta-grid {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+    font-size: 14px;
+}
+
+.badge {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.status-active {
+    background-color: #16a34a;
+    color: white;
+}
+
+/* Forms & Tables styling */
+.transaction-form {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 25px;
+}
+
+.form-group-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+.form-group-row input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+}
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    white-space: nowrap;
+}
+
+th, td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    font-size: 13px;
+}
+
+th {
+    background-color: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+}
+
+.text-right { text-align: right; }
+.font-bold { font-weight: bold; }
