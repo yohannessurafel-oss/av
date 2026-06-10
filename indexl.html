@@ -3,37 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Loan Ledger Project X</title>
+    <title>Dynamic Loan Ledger</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
     <div class="container">
-        <h2>Loan Ledger: ABC Trading / Project X</h2>
+        <h2>Loan Calculator & Ledger</h2>
         
-        <form id="ledger-form" class="transaction-form">
-            <h3>Add New Transaction</h3>
+        <form id="loan-form" class="transaction-form">
+            <h3>1. Enter Loan Details</h3>
             <div class="form-group-row">
-                <input type="date" id="date" required>
-                <input type="text" id="description" placeholder="Description (e.g., Monthly Installment)" required>
-                <input type="text" id="ref_number" placeholder="Ref # (e.g., RCPT-042)" required>
+                <input type="text" id="borrower_name" value="ABC Trading / Project X" placeholder="Borrower Name" required>
+                <input type="number" id="loan_amount" value="100000" placeholder="Loan Amount (ETB)" required>
+                <input type="date" id="disbursement_date" required>
             </div>
             <div class="form-group-row">
-                <input type="number" step="0.01" id="principal_debit" placeholder="Principal Debit (Optional)">
-                <input type="number" step="0.01" id="total_paid" placeholder="Total Paid Credit (Optional)">
-                <input type="number" step="0.01" id="principal_balance" placeholder="Current Principal Balance" required>
+                <input type="number" step="0.1" id="interest_rate" value="12" placeholder="Interest Rate % per annum" required>
+                <input type="number" id="loan_term" value="12" placeholder="Term (Months)" required>
+                <select id="repayment_frequency">
+                    <option value="monthly">Monthly</option>
+                </select>
             </div>
-            <button type="submit">Save Transaction</button>
+            <button type="submit" id="generate-btn">Generate & Save Schedule</button>
         </form>
 
+        <h3>2. Amortization Ledger</h3>
         <table id="ledger-table">
             <thead>
                 <tr>
+                    <th>Month</th>
                     <th>Date</th>
                     <th>Description</th>
                     <th>Ref #</th>
                     <th>Principal (Debit)</th>
+                    <th>Interest (Debit)</th>
                     <th>Total Paid (Credit)</th>
                     <th>Principal Balance</th>
                 </tr>
