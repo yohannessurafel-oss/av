@@ -1,32 +1,40 @@
 body {
-    font-family: Arial, sans-serif;
-    background-color: #f4f6f9;
-    color: #333;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background-color: #f1f5f9;
+    color: #1e293b;
     margin: 0;
     padding: 20px;
 }
 
 .container {
-    max-width: 1000px;
+    max-width: 1200px;
     margin: 0 auto;
-    background: #fff;
-    padding: 30px;
+    background: #ffffff;
+    padding: 25px;
     border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
 }
 
-h2, h3 {
-    color: #1e293b;
+h2 {
+    color: #0f172a;
     margin-top: 0;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 10px;
 }
 
-/* Form Styles */
+h3 {
+    color: #334155;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+/* Input Form Layout */
 .transaction-form {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     padding: 20px;
     border-radius: 6px;
-    margin-bottom: 30px;
+    margin-bottom: 25px;
 }
 
 .form-group-row {
@@ -36,55 +44,79 @@ h2, h3 {
     flex-wrap: wrap;
 }
 
-.form-group-row input {
+.form-group-row input, .form-group-row select {
     flex: 1;
-    min-width: 200px;
+    min-width: 220px;
     padding: 10px;
     border: 1px solid #cbd5e1;
     border-radius: 4px;
     font-size: 14px;
+    background-color: #fff;
 }
 
 button {
     background-color: #2563eb;
     color: white;
     border: none;
-    padding: 12px 20px;
+    padding: 12px 24px;
     font-size: 14px;
     border-radius: 4px;
     cursor: pointer;
-    font-weight: bold;
-    transition: background 0.2s;
+    font-weight: 600;
+    transition: background 0.15s ease;
 }
 
 button:hover {
     background-color: #1d4ed8;
 }
 
-/* Table Styles matching your ledger format */
+/* 11-Column Responsive Table Rule Layout */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto; /* Adds a scrollbar on small screens to support 11 columns safely */
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+}
+
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 10px;
+    white-space: nowrap; /* Keeps numerical figures aligned cleanly without text-wrapping lines */
 }
 
 th, td {
-    border: 1px solid #cbd5e1;
-    padding: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    font-size: 13px;
     text-align: left;
-    font-size: 14px;
+}
+
+th:last-child, td:last-child {
+    border-right: none;
 }
 
 th {
-    background-color: #f1f5f9;
-    color: #334155;
-    font-weight: bold;
+    background-color: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+}
+
+tr:last-child td {
+    border-bottom: none;
 }
 
 tr:nth-child(even) {
-    background-color: #f8fafc;
+    background-color: #fdfdfd;
 }
 
+tr:hover {
+    background-color: #f1f5f9;
+}
+
+/* Financial Matrix Column Alignments */
 .text-right {
     text-align: right;
 }
