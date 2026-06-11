@@ -3,16 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Loan Application</title>
-    <link rel="stylesheet" href="style2.css">
+    <title>Unified Core Lending Maintenance System</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="window-container">
     <div class="title-bar">
-        <div class="title-text">
-            <span class="icon">📁</span> Loan Application
-        </div>
+        <div class="title-text">📁 BR.Net Core Banking - Corporate Lending System (Consolidated)</div>
         <div class="window-controls">
             <span>➖</span> <span>🗖</span> <span>❌</span>
         </div>
@@ -21,221 +19,142 @@
     <div class="workspace">
         
         <div class="sidebar">
-            <div class="dropdown-container">
-                <select id="navigation-select">
-                    <option>DataEntry</option>
-                </select>
-            </div>
+            <div class="sidebar-header">Core Operations</div>
+            <ul class="nav-menu" id="globalModuleRouter">
+                <li class="active" data-module="loan-application">Loan Application</li>
+                <li data-module="collateral-maintenance">Collateral Maintenance</li>
+                <li data-module="maintain-guarantors">Maintain Guarantors</li>
+                <li data-module="loan-payoff">Loan Pay-off</li>
+                <li data-module="loan-history">Loan History</li>
+            </ul>
+            <div class="sidebar-spacer"></div>
+            <div class="sidebar-footer">V2026.1</div>
         </div>
 
-        <div class="main-content">
-            <form id="loanForm">
-                
-                <div class="form-section top-section">
-                    <div class="form-row">
-                        <label>Branch ID</label>
-                        <div class="input-group width-small">
-                            <input type="text" value="001">
-                            <span class="search-btn">🔍</span>
-                        </div>
-                        <input type="text" class="width-large" value="Koinange Street Branch" readonly>
-                    </div>
-                    
-                    <div class="form-row">
-                        <label>Group ID</label>
-                        <div class="input-group width-medium">
-                            <input type="text">
-                            <span class="search-btn">🔍</span>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <label>Sub Group ID</label>
-                        <div class="input-group width-small">
-                            <input type="text">
-                            <span class="search-btn">🔍</span>
-                        </div>
-                    </div>
-
-                    <div class="form-row split-row">
-                        <div class="flex-item">
-                            <label>Application ID</label>
-                            <div class="input-group width-small">
-                                <input type="text">
-                                <span class="search-btn">🔍</span>
+        <div class="main-content" id="dynamicCanvasContainer">
+            
+            <div class="module-view active" id="view-loan-application">
+                <div class="context-badge-bar">📝 Credit Operations: New Loan Intake Intake Application</div>
+                <form class="module-form">
+                    <div class="form-section-card">
+                        <div class="card-body grid-two-column">
+                            <div class="sub-column">
+                                <div class="form-row">
+                                    <label>Branch ID</label>
+                                    <div class="input-group width-small"><input type="text" value="001"><span class="search-btn">🔍</span></div>
+                                    <input type="text" class="width-remaining" value="Addis Ababa Central" readonly>
+                                </div>
+                                <div class="form-row"><label>Group ID</label><div class="input-group width-full"><input type="text"><span class="search-btn">🔍</span></div></div>
+                                <div class="form-row"><label>Client ID</label><div class="input-group width-full"><input type="text" id="appClientId"><span class="search-btn">🔍</span></div></div>
+                                <div class="form-row"><label>Product ID</label><div class="input-group width-full"><input type="text" id="appProductId"><span class="search-btn">🔍</span></div></div>
+                                <div class="form-row"><label>Loan Amount</label><input type="number" id="appAmount" class="text-right width-full"></div>
                             </div>
-                        </div>
-                        <div class="flex-item date-container">
-                            <label>Date</label>
-                            <input type="text" value="14/Sep/2014" class="width-small">
-                            <select class="dropdown-arrow-btn"><option></option></select>
-                        </div>
-                    </div>
-                </div>
-
-                <hr class="section-divider">
-
-                <div class="form-section middle-section">
-                    <div class="form-row">
-                        <label class="blue-text">Client Branch ID</label>
-                        <div class="input-group width-small">
-                            <input type="text" value="001">
-                            <span class="search-btn">🔍</span>
-                        </div>
-                        <input type="text" class="width-large" value="Koinange Street Branch" readonly>
-                    </div>
-
-                    <div class="form-row">
-                        <label class="blue-text">Client ID</label>
-                        <div class="input-group width-full">
-                            <input type="text" id="clientIdInput">
-                            <span class="search-btn">🔍</span>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <label class="blue-text">Product ID</label>
-                        <div class="input-group width-full">
-                            <input type="text">
-                            <span class="search-btn">🔍</span>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <label class="blue-text multi-line">Main Repayment AccountID</label>
-                        <div class="input-group width-full">
-                            <input type="text">
-                            <span class="search-btn">🔍</span>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <label class="blue-text">Donor ID</label>
-                        <div class="input-group width-full">
-                            <input type="text">
-                            <span class="search-btn">🔍</span>
-                        </div>
-                    </div>
-
-                    <div class="two-column-grid">
-                        <div class="form-row">
-                            <label class="blue-text">Loan Purpose</label>
-                            <select class="width-full">
-                                <option>OTHER</option>
-                            </select>
-                        </div>
-                        <div class="form-row">
-                            <label class="blue-text">Line Of Business</label>
-                            <select class="width-full">
-                                <option>Proprietary</option>
-                            </select>
-                        </div>
-
-                        <div class="form-row span-two">
-                            <label class="blue-text">Officer ID</label>
-                            <div class="input-group width-full">
-                                <input type="text">
-                                <span class="search-btn">🔍</span>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <label class="blue-text">Loan Amount</label>
-                            <input type="text" class="width-full">
-                        </div>
-                        <div class="form-row">
-                            <label>Currency ID</label>
-                            <input type="text" value="KES" class="width-full">
-                        </div>
-
-                        <div class="form-row">
-                            <label class="blue-text">Term</label>
-                            <input type="text" value="12" class="width-full text-right font-bold">
-                        </div>
-                        <div class="form-row">
-                            <label>Interest Rate</label>
-                            <input type="text" class="width-full">
-                        </div>
-
-                        <div class="form-row">
-                            <label class="blue-text">Commission Rate</label>
-                            <input type="text" class="width-full">
-                        </div>
-                        <div class="form-row">
-                            <label class="blue-text">Tax Rate</label>
-                            <input type="text" class="width-full">
-                        </div>
-
-                        <div class="form-row">
-                            <label class="blue-text">Effective Rate</label>
-                            <input type="text" class="width-full">
-                        </div>
-                        <div class="form-row">
-                            <label class="blue-text">Disbursement Date</label>
-                            <select class="width-full muted-text">
-                                <option>--Select--</option>
-                            </select>
-                        </div>
-
-                        <div class="form-row">
-                            <label>Spread</label>
-                            <div class="flex-layout">
-                                <input type="text" class="width-full">
-                                <span class="parentheses">()</span>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <label>Application Status</label>
-                            <div class="status-line"></div>
-                        </div>
-
-                        <div class="form-row span-two">
-                            <label>File Number</label>
-                            <input type="text" class="width-full">
-                        </div>
-
-                        <div class="form-row span-two">
-                            <label class="blue-text">Sales Officer</label>
-                            <div class="input-group width-full">
-                                <input type="text">
-                                <span class="search-btn">🔍</span>
+                            <div class="sub-column">
+                                <div class="form-row"><label class="shifted-label">Application ID</label><input type="text" placeholder="Auto-Generated" readonly></div>
+                                <div class="form-row"><label class="shifted-label">Loan Purpose</label><select class="width-full"><option>BUSINESS EXPANSION</option><option>AGRI</option></select></div>
+                                <div class="form-row"><label class="shifted-label">Term (Months)</label><input type="number" value="12" class="text-right width-full"></div>
+                                <div class="form-row"><label class="shifted-label">Interest Rate %</label><input type="number" value="14.50" class="text-right width-full"></div>
+                                <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" value="ETB" class="font-bold width-full" readonly></div>
                             </div>
                         </div>
                     </div>
-                </div>
+                </form>
+            </div>
 
-                <div class="grid-section">
-                    <table class="data-grid">
+            <div class="module-view" id="view-collateral-maintenance">
+                <div class="context-badge-bar">🛡️ Risk Mitigation: Collateral Asset Maintenance Management</div>
+                <form class="module-form">
+                    <div class="form-section-card">
+                        <div class="card-header-banner">Collateral Particulars</div>
+                        <div class="card-body grid-two-column">
+                            <div class="sub-column">
+                                <div class="form-row"><label>Collateral ID</label><div class="input-group width-full"><input type="text"><span class="search-btn">🔍</span></div></div>
+                                <div class="form-row"><label>Description</label><input type="text" class="width-full"></div>
+                                <div class="form-row"><label>Collateral Type</label><select class="width-full"><option>Real Estate Property</option><option>Motor Vehicle</option></select></div>
+                                <div class="form-row"><label>Nature Of Charge</label><select class="width-full"><option>First Legal Charge</option></select></div>
+                            </div>
+                            <div class="sub-column">
+                                <div class="form-row"><label class="shifted-label">Collateral Value</label><input type="text" class="text-right width-full" value="0.00"></div>
+                                <div class="form-row"><label class="shifted-label">Owner Client ID</label><div class="input-group width-full"><input type="text"><span class="search-btn">🔍</span></div></div>
+                                <div class="form-row"><label class="shifted-label">Remarks</label><textarea class="width-full" rows="2"></textarea></div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="module-view" id="view-maintain-guarantors">
+                <div class="context-badge-bar">👥 Risk Mitigation: Legal & Personal Co-Signer Guarantors</div>
+                <form class="module-form">
+                    <div class="form-section-card">
+                        <div class="card-body grid-two-column">
+                            <div class="sub-column">
+                                <div class="form-row"><label>Guarantor Type ID</label><select class="width-full"><option>Individual Guarantor</option></select></div>
+                                <div class="form-row"><label>Guarantor ID</label><div class="input-group width-full"><input type="text"><span class="search-btn">🔍</span></div></div>
+                                <div class="form-row"><label>Max Guarantee Amt</label><input type="text" class="text-right width-full" value="0.00"></div>
+                            </div>
+                            <div class="sub-column">
+                                <div class="form-row"><label class="shifted-label">Net Worth</label><input type="text" class="text-right width-full" value="0.00"></div>
+                                <div class="form-row"><label class="shifted-label">Current Liability</label><input type="text" class="text-right width-full" value="0.00"></div>
+                                <div class="form-row"><label class="shifted-label">Signed By</label><input type="text" class="width-full"></div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="module-view" id="view-loan-payoff">
+                <div class="context-badge-bar">💰 Teller Operations: Account Settlement & Early Payoff Console</div>
+                <form class="module-form">
+                    <div class="form-section-card">
+                        <div class="card-body">
+                            <div class="form-row">
+                                <label>Target Account ID</label>
+                                <div class="input-group width-medium"><input type="text" id="payoffAccountId"><span class="search-btn" id="btnCalculatePayoff">🔍 Compute Payoff</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid-container margin-top-sm" style="height:140px;">
+                        <table class="ledger-grid" id="payoffBreakdownTable">
+                            <thead>
+                                <tr><th>Payoff Component Structure</th><th class="text-right">Balance Due (ETB)</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr class="placeholder"><td colspan="2" class="text-center gray-text italic">Provide account ref key code to populate balance arrays.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </form>
+            </div>
+
+            <div class="module-view" id="view-loan-history">
+                <div class="context-badge-bar">📁 Audit Matrix: Comprehensive Historical Loan Lifecycle Records</div>
+                <div class="grid-container" style="height: 240px;">
+                    <table class="ledger-grid">
                         <thead>
                             <tr>
-                                <th style="width: 15%;">Apply</th>
-                                <th style="width: 25%;">Client ID</th>
-                                <th style="width: 60%;">Client Name</th>
+                                <th>Interest Rate</th><th>Loan Series</th><th>Application ID</th><th>Sanctioned Amount</th><th>Disbursed Amount</th><th>First Disb Date</th><th>Term</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr class="empty-row">
-                                <td colspan="3">No records to display.</td>
-                            </tr>
+                            <tr><td>24.00%</td><td>1</td><td>LA-10160002</td><td>70,000.00</td><td>70,000.00</td><td>10/Jul/2019</td><td>12 Mths</td></tr>
+                            <tr><td>18.50%</td><td>2</td><td>LA-10168491</td><td>120,000.00</td><td>120,000.00</td><td>14/Nov/2022</td><td>24 Mths</td></tr>
                         </tbody>
                     </table>
                 </div>
-            </form>
+            </div>
+
+            <div class="sub-footer-token">BR.Net Consolidated Web Banking Suite</div>
         </div>
 
         <div class="action-sidebar">
-            <button type="button" class="action-btn">More Info</button>
-            <button type="button" class="action-btn underline-letter"><u>V</u>iew</button>
-            <button type="button" class="action-btn underline-letter" id="addBtn"><u>A</u>dd</button>
-            <button type="button" class="action-btn underline-letter disabled" disabled><u>E</u>dit</button>
-            <button type="button" class="action-btn underline-letter disabled" disabled><u>D</u>elete</button>
-            <button type="button" class="action-btn underline-letter"><u>S</u>ave</button>
-            <button type="button" class="action-btn underline-letter"><u>C</u>ancel</button>
+            <button type="button" class="action-btn font-bold" id="globalAddBtn">Add Entry</button>
+            <button type="button" class="action-btn" id="globalSaveBtn">Commit/Save</button>
+            <div class="sidebar-spacer"></div>
+            <button type="button" class="action-btn" id="globalPrintBtn">Print View</button>
+            <button type="button" class="action-btn" id="globalCancelBtn">Clear Form</button>
         </div>
-    </div>
 
-    <div class="footer-bar">
-        <span>BR.Net Web Banking</span>
     </div>
 </div>
 
