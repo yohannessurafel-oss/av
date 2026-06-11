@@ -9,43 +9,52 @@ document.addEventListener("DOMContentLoaded", function() {
     const menuLinks = document.querySelectorAll("#globalModuleRouter li");
     const moduleViews = document.querySelectorAll(".module-view");
 
-    menuLinks.forEach(link => {
-        link.addEventListener("click", function() {
-            menuLinks.forEach(item => item.classList.remove("active"));
-            moduleViews.forEach(view => view.classList.remove("active"));
+    if (menuLinks.length > 0 && moduleViews.length > 0) {
+        menuLinks.forEach(link => {
+            link.addEventListener("click", function() {
+                menuLinks.forEach(item => item.classList.remove("active"));
+                moduleViews.forEach(view => view.classList.remove("active"));
 
-            this.classList.add("active");
-            const targetModule = this.getAttribute("data-module");
-            const targetView = document.getElementById(`view-${targetModule}`);
-            
-            if (targetView) {
-                targetView.classList.add("active");
-                console.log(`Core Router Switch Dispatched -> Channel Linked To View ID [view-${targetModule}]`);
-            }
+                this.classList.add("active");
+                const targetModule = this.getAttribute("data-module");
+                const targetView = document.getElementById(`view-${targetModule}`);
+                
+                if (targetView) {
+                    targetView.classList.add("active");
+                    console.log(`Core Router Switch Dispatched -> Channel Linked To View ID [view-${targetModule}]`);
+                }
+            });
         });
-    });
+    }
 
     // 2. Sub-Tab Panel Selection Mechanics Router (Inside Pay-off Console)
     const secondaryTabs = document.querySelectorAll(".sub-tab");
     const secondaryViews = document.querySelectorAll(".sub-tab-view");
 
-    secondaryTabs.forEach(tab => {
-        tab.addEventListener("click", function() {
-            secondaryTabs.forEach(t => t.classList.remove("active"));
-            secondaryViews.forEach(v => v.classList.remove("active"));
+    if (secondaryTabs.length > 0) {
+        secondaryTabs.forEach(tab => {
+            tab.addEventListener("click", function() {
+                secondaryTabs.forEach(t => t.classList.remove("active"));
+                secondaryViews.forEach(v => v.classList.remove("active"));
 
-            this.classList.add("active");
-            const viewTargetId = this.getAttribute("data-target");
-            document.getElementById(`subview-${viewTargetId}`).classList.add("active");
+                this.classList.add("active");
+                const viewTargetId = this.getAttribute("data-target");
+                const targetSubview = document.getElementById(`subview-${viewTargetId}`);
+                if (targetSubview) {
+                    targetSubview.classList.add("active");
+                } else {
+                    console.warn(`Sub-tab Target view not found: subview-${viewTargetId}`);
+                }
+            });
         });
-    });
+    }
 
     // 3. Dynamic Payoff Real-Time Matrix Calculations Mock Trigger
     const accountInputTarget = document.getElementById("payoffAccNoTarget");
     if (accountInputTarget) {
         accountInputTarget.addEventListener("change", function() {
             const gridBody = document.querySelector("#dynamicPayoffGrid tbody");
-            if (!this.value.trim()) return;
+            if (!this.value.trim() || !gridBody) return;
 
             gridBody.innerHTML = "";
             const components = [
@@ -59,38 +68,79 @@ document.addEventListener("DOMContentLoaded", function() {
                 tr.innerHTML = `<td><strong>${row.name}</strong></td><td class="text-right font-bold" style='color:#004b93;'>${row.cost}</td>`;
                 gridBody.appendChild(tr);
             });
-            console.log("Calculations Engine Dispatched -> Early payout variables written to ledger view context structural array.");
+            console.log("Calculations Sync: Payoff metrics written to ledger view context structural array.");
         });
     }
 
     // 4. Global Action Command Toolbar Dispatches
-    document.getElementById("btnGlobalAdd").addEventListener("click", function() {
-        const activeForm = document.querySelector(".module-view.active form");
-        if (activeForm) {
-            activeForm.reset();
-            console.log("Global State Action Matrix Triggered -> Instantiated entry variables collection parameters initialization framework.");
-        }
-    });
+    const btnGlobalView = document.getElementById("btnGlobalView");
+    if (btnGlobalView) {
+        btnGlobalView.addEventListener("click", function() {
+            const activeView = document.querySelector(".module-view.active");
+            const contextName = activeView ? activeView.querySelector(".context-badge-bar").textContent : "Current Form";
+            alert(`Mode Context: Pulling records data simulation directory registry overview parameters for:\n"${contextName}"`);
+        });
+    }
 
-    document.getElementById("btnGlobalSave").addEventListener("click", function() {
-        alert("Transaction Dispatch Written: Buffered configuration parameters successfully written back to system database schemas.");
-    });
+    const btnGlobalAdd = document.getElementById("btnGlobalAdd");
+    if (btnGlobalAdd) {
+        btnGlobalAdd.addEventListener("click", function() {
+            const activeForm = document.querySelector(".module-view.active form");
+            if (activeForm) {
+                activeForm.reset();
+                console.log("Global State Action Matrix Triggered -> Instantiated entry variables collection parameters initialization framework.");
+                alert("Mode Context: Input text elements initialized to blank templates. Ready to catch new asset registry data entry records flow variables.");
+            }
+        });
+    }
 
-    document.getElementById("btnGlobalCancel").addEventListener("click", function() {
-        const activeForm = document.querySelector(".module-view.active form");
-        if (activeForm && confirm("Discard active ledger entry input field modifications?")) {
-            activeForm.reset();
-        }
-    });
+    const btnGlobalEdit = document.getElementById("btnGlobalEdit");
+    if (btnGlobalEdit) {
+        btnGlobalEdit.addEventListener("click", function() {
+            alert("Mode Context: Modifiable state unlocked. Active module entry matrix parameters inside form layers have been set editable.");
+        });
+    }
 
-    document.getElementById("btnGlobalPrint").addEventListener("click", function() {
-        window.print();
-    });
+    const btnGlobalDelete = document.getElementById("btnGlobalDelete");
+    if (btnGlobalDelete) {
+        btnGlobalDelete.addEventListener("click", function() {
+            if (confirm("Critical Notification: Wipe structural configuration log records matching the active interface workspace from tracking records?")) {
+                const activeForm = document.querySelector(".module-view.active form");
+                if (activeForm) activeForm.reset();
+                alert("Active structural records dropped successfully from short-term runtime framework panels cache.");
+            }
+        });
+    }
+
+    const btnGlobalSave = document.getElementById("btnGlobalSave");
+    if (btnGlobalSave) {
+        btnGlobalSave.addEventListener("click", function() {
+            alert("Transaction Dispatch Written: Buffered configuration parameters successfully written back to system database schemas.");
+        });
+    }
+
+    const btnGlobalCancel = document.getElementById("btnGlobalCancel");
+    if (btnGlobalCancel) {
+        btnGlobalCancel.addEventListener("click", function() {
+            const activeForm = document.querySelector(".module-view.active form");
+            if (activeForm && confirm("Discard active ledger entry input field modifications?")) {
+                activeForm.reset();
+            }
+        });
+    }
+
+    const btnGlobalPrint = document.getElementById("btnGlobalPrint");
+    if (btnGlobalPrint) {
+        btnGlobalPrint.addEventListener("click", function() {
+            window.print();
+        });
+    }
 
     // 5. Context-Wide Directory Lookup Warnings Matcher Loop
     document.querySelectorAll(".search-btn").forEach(button => {
         button.addEventListener("click", function() {
             console.log("Global Event Listener Triggered: Opening lookup directory modal index matching parent constraint conditions.");
+            alert("System Status Action: Initializing structural master ledger enterprise lookup database catalog constraints context frame.");
         });
     });
 });
