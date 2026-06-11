@@ -1,32 +1,36 @@
 /* ═══════════════════════════════════════════════════
-   CBS Loan Ledger System — Stylesheet
-   Design: Professional core banking aesthetic
-   Palette: Navy slate + amber gold + clean whites
+   Africa Village Microfinance (AVMF) — Stylesheet
+   Design: Corporate Microfinance Identity 
+   Palette: Logo Deep Blue & Savannah Orange/Amber
 ═══════════════════════════════════════════════════ */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-    --navy:       #0f2340;
-    --navy-mid:   #1a3a5c;
-    --navy-light: #1e4976;
-    --slate:      #334155;
-    --slate-mid:  #475569;
-    --slate-light:#64748b;
-    --border:     #e2e8f0;
-    --bg:         #f1f5f9;
-    --surface:    #ffffff;
-    --amber:      #d97706;
-    --amber-bg:   #fffbeb;
-    --green:      #16a34a;
-    --green-bg:   #f0fdf4;
-    --red:        #dc2626;
-    --red-bg:     #fef2f2;
-    --blue:       #2563eb;
-    --blue-bg:    #eff6ff;
-    --font-ui:    'Inter', system-ui, sans-serif;
-    --font-data:  'JetBrains Mono', 'Courier New', monospace;
-    --sidebar-w:  320px;
+    --navy:        #0f2340;   /* Exact Blue from AVMF Upper Map Logo */
+    --navy-mid:    #1a3a5c;   
+    --navy-light:  #1e4976;   
+    --slate:       #334155;   
+    --slate-mid:   #475569;   
+    --slate-light: #64748b;   
+    --border:      #e2e8f0;   
+    --bg:          #f8fafc;   
+    --surface:     #ffffff;   
+    
+    /* Brand Color Theme updates based on uploaded Logo */
+    --avmf-orange:    #f1a128; /* Exact Orange from AVMF Lower Map Logo */
+    --avmf-orange-bg: #fffbf0; 
+    --avmf-dark-gold: #e28704;
+
+    --green:       #16a34a;   
+    --green-bg:    #f0fdf4;   
+    --red:         #dc2626;   
+    --red-bg:      #fef2f2;   
+    --blue:        #1e4976;   
+    --blue-bg:     #f0f7ff;   
+    --font-ui:     'Inter', system-ui, sans-serif;
+    --font-data:   'JetBrains Mono', 'Courier New', monospace;
+    --sidebar-w:   320px;
 }
 
 html, body { height: 100%; font-family: var(--font-ui); background: var(--bg); color: var(--slate); }
@@ -54,24 +58,34 @@ html, body { height: 100%; font-family: var(--font-ui); background: var(--bg); c
 .sidebar-header {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     padding: 22px 20px 18px;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     flex-shrink: 0;
 }
 
-.brand-mark {
-    width: 40px; height: 40px;
-    background: var(--amber);
-    color: var(--navy);
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 14px; letter-spacing: 1px;
+/* Brand Logo Layout Graphics mapping */
+.brand-logo-container {
+    width: 44px;
+    height: 44px;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
 }
 
-.brand-title { font-weight: 700; font-size: 15px; color: #fff; }
-.brand-sub   { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 1px; }
+.brand-logo-svg {
+    width: 100%;
+    height: 100%;
+}
+
+.svg-blue { fill: #205295; }
+.svg-continent-blue { fill: #0f2340; }
+.svg-orange { fill: var(--avmf-orange); }
+
+.brand-title { font-weight: 700; font-size: 16px; color: #fff; letter-spacing: 0.3px; }
+.brand-sub   { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
 
 /* ─── Form Sections ─── */
 .form-section {
@@ -93,7 +107,7 @@ html, body { height: 100%; font-family: var(--font-ui); background: var(--bg); c
 
 .section-num {
     background: rgba(255,255,255,0.08);
-    color: var(--amber);
+    color: var(--avmf-orange);
     border-radius: 4px;
     padding: 1px 6px;
     font-size: 10px;
@@ -144,7 +158,7 @@ html, body { height: 100%; font-family: var(--font-ui); background: var(--bg); c
 .field-group input:focus,
 .field-group select:focus {
     outline: none;
-    border-color: var(--amber);
+    border-color: var(--avmf-orange);
     background: rgba(255,255,255,0.1);
 }
 
@@ -166,7 +180,7 @@ html, body { height: 100%; font-family: var(--font-ui); background: var(--bg); c
     width: 14px; height: 14px;
     min-width: 14px;
     margin-top: 1px;
-    accent-color: var(--amber);
+    accent-color: var(--avmf-orange);
     cursor: pointer;
 }
 
@@ -175,7 +189,7 @@ html, body { height: 100%; font-family: var(--font-ui); background: var(--bg); c
     margin: 18px 20px 20px;
     width: calc(100% - 40px);
     padding: 12px 20px;
-    background: var(--amber);
+    background: var(--avmf-orange);
     color: var(--navy);
     border: none;
     border-radius: 6px;
@@ -189,7 +203,7 @@ html, body { height: 100%; font-family: var(--font-ui); background: var(--bg); c
     transition: background 0.15s, transform 0.1s;
     letter-spacing: 0.3px;
 }
-.btn-generate:hover   { background: #b45309; color: #fff; }
+.btn-generate:hover   { background: var(--avmf-dark-gold); color: #fff; }
 .btn-generate:active  { transform: scale(0.98); }
 .btn-generate.loading { opacity: 0.7; pointer-events: none; }
 .btn-icon { font-size: 16px; }
@@ -215,13 +229,14 @@ html, body { height: 100%; font-family: var(--font-ui); background: var(--bg); c
     align-items: flex-start;
     gap: 20px;
     flex-wrap: wrap;
+    border-top: 4px solid var(--avmf-orange);
 }
 
 .account-badge {
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 2px;
-    color: var(--amber);
+    color: var(--avmf-orange);
     text-transform: uppercase;
     margin-bottom: 6px;
 }
@@ -258,7 +273,7 @@ html, body { height: 100%; font-family: var(--font-ui); background: var(--bg); c
     font-weight: 600;
 }
 .status-badge.active { background: rgba(22,163,74,0.25); color: #4ade80; }
-.status-badge.watchlist { background: rgba(217,119,6,0.25); color: #fbbf24; }
+.status-badge.watchlist { background: rgba(241,161,40,0.25); color: #fcd34d; }
 .status-badge.defaulted { background: rgba(220,38,38,0.25); color: #f87171; }
 .status-badge.closed { background: rgba(100,116,139,0.25); color: #94a3b8; }
 
@@ -290,10 +305,10 @@ html, body { height: 100%; font-family: var(--font-ui); background: var(--bg); c
     font-weight: 500;
     color: var(--slate);
 }
-.kpi-amber { color: var(--amber); }
-.kpi-red   { color: var(--red); }
-.kpi-green { color: var(--green); }
-.kpi-blue  { color: var(--blue); }
+.kpi-orange { color: var(--avmf-dark-gold); }
+.kpi-red    { color: var(--red); }
+.kpi-green  { color: var(--green); }
+.kpi-blue   { color: var(--navy-light); }
 
 /* ─── View Tabs ─── */
 .view-tabs {
@@ -350,7 +365,7 @@ html, body { height: 100%; font-family: var(--font-ui); background: var(--bg); c
     color: var(--slate-light);
     text-align: center;
 }
-.empty-icon { font-size: 40px; }
+.empty-icon { font-size: 40px; color: var(--avmf-orange); }
 .empty-title { font-size: 16px; font-weight: 600; color: var(--slate); }
 .empty-sub { font-size: 13px; max-width: 360px; line-height: 1.6; }
 
@@ -382,12 +397,12 @@ html, body { height: 100%; font-family: var(--font-ui); background: var(--bg); c
 .dot { width: 8px; height: 8px; border-radius: 50%; }
 .dot-green  { background: var(--green); }
 .dot-red    { background: var(--red); }
-.dot-amber  { background: var(--amber); }
+.dot-orange { background: var(--avmf-orange); }
 
 .audit-notice {
-    background: var(--amber-bg);
+    background: var(--avmf-orange-bg);
     border: 1px solid #fde68a;
-    border-left: 4px solid var(--amber);
+    border-left: 4px solid var(--avmf-orange);
     border-radius: 6px;
     padding: 10px 14px;
     font-size: 12px;
@@ -432,8 +447,8 @@ html, body { height: 100%; font-family: var(--font-ui); background: var(--bg); c
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tr:hover td { background: #f8fafc; }
 
-.data-table tbody tr.row-penalty td { background: #fef9f0; }
-.data-table tbody tr.row-disburse td { background: #f0f9ff; font-weight: 500; }
+.data-table tbody tr.row-penalty td { background: var(--avmf-orange-bg); }
+.data-table tbody tr.row-disburse td { background: var(--blue-bg); font-weight: 500; }
 .data-table tbody tr.row-fee td { background: #fff7ed; }
 
 /* Column alignments */
