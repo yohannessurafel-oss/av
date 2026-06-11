@@ -1,4 +1,4 @@
-/* Core Win32 Structural System Canvas Skin Layout Rules */
+/* Core Structural Layout Configurations Rulesets */
 * {
     box-sizing: border-box;
     font-family: Arial, sans-serif;
@@ -6,26 +6,43 @@
 }
 
 body {
-    background-color: #212121;
-    margin: 15px;
+    background-color: #1e1e24;
+    margin: 10px;
     display: flex;
     justify-content: center;
 }
 
 .window-container {
-    width: 1060px;
+    width: 1220px;
     background-color: #d6e4f3;
     border: 2px solid #1a4d80;
-    box-shadow: 2px 2px 15px rgba(0,0,0,0.6);
+    box-shadow: 0px 4px 20px rgba(0,0,0,0.7);
 }
 
+/* Header Context Strip & Inline SVG Mapping Integration rules */
 .title-bar {
     background: linear-gradient(to bottom, #1e5799 0%, #2989d8 50%, #207cca 100%);
     color: #ffffff;
-    padding: 5px 8px;
+    padding: 3px 6px;
     display: flex;
     justify-content: space-between;
+    align-items: center;
     font-weight: bold;
+}
+
+.title-branding-block {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-logo-svg {
+    width: 24px;
+    height: 24px;
+    background-color: #ffffff;
+    border-radius: 3px;
+    padding: 1px;
+    box-shadow: inset 0 0 2px #000;
 }
 
 .window-controls span {
@@ -39,12 +56,12 @@ body {
     padding: 2px;
 }
 
-/* Consolidated Left Side Routing Navigation Panel Engine */
+/* Left Sidebar Router Mechanics Styles */
 .sidebar {
-    width: 175px;
+    width: 200px;
     background-color: #edf5fa;
     border: 1px solid #9bbcdb;
-    padding: 4px;
+    padding: 3px;
     display: flex;
     flex-direction: column;
 }
@@ -52,10 +69,10 @@ body {
 .sidebar-header {
     background-color: #1a4d80;
     color: white;
-    padding: 3px 6px;
+    padding: 4px;
     font-weight: bold;
-    margin-bottom: 4px;
     text-align: center;
+    margin-bottom: 4px;
 }
 
 .nav-menu {
@@ -67,24 +84,21 @@ body {
 }
 
 .nav-menu li {
-    padding: 6px 10px;
+    padding: 5px 8px;
     color: #333333;
     cursor: pointer;
     border-bottom: 1px solid #edf4fa;
 }
 
-.nav-menu li:hover {
-    background-color: #eaf3fc;
-}
-
+.nav-menu li:hover { background-color: #eaf3fc; }
 .nav-menu li.active {
     background-color: #b0c4de;
     color: #000000;
     font-weight: bold;
-    border: 1px dotted #444444;
+    border: 1px dotted #222222;
 }
 
-/* Dynamic Active Modules Rendering Window Engine Rules */
+/* Active Work View Canvas Controls rules */
 .main-content {
     flex: 1;
     background-color: #ffffff;
@@ -92,33 +106,20 @@ body {
     padding: 6px;
     margin-left: 2px;
     position: relative;
-    min-height: 420px;
+    min-height: 560px;
     padding-bottom: 24px;
 }
 
-.module-view {
-    display: none;
-}
+.module-view { display: none; }
+.module-view.active { display: block; }
 
-.module-view.active {
-    display: block;
-}
-
-/* Header Component Ribbon Strips */
 .context-badge-bar {
     background: linear-gradient(to bottom, #7abcff 0%, #60abf8 44%, #4096ee 100%);
     border: 1px solid #1a4d80;
-    padding: 4px 8px;
+    padding: 3px 6px;
     color: #ffffff;
     font-weight: bold;
     text-shadow: 1px 1px 1px #000;
-    border-radius: 2px;
-    margin-bottom: 8px;
-}
-
-.form-section-card {
-    border: 1px solid #9bbcdb;
-    background-color: #f7fbfd;
     margin-bottom: 6px;
 }
 
@@ -126,54 +127,44 @@ body {
     background-color: #0078d7;
     color: white;
     font-weight: bold;
-    padding: 3px 6px;
+    padding: 2px 5px;
+    margin: 6px 0 4px 0;
 }
 
-.card-body {
-    padding: 8px;
-}
-
-/* Master Grid Row Alignments Definitions */
+/* Entry Form Structure Layout Alignment Engines rules */
 .form-row {
     display: flex;
     align-items: center;
-    margin-bottom: 5px;
+    margin-bottom: 3px;
 }
 
 .form-row label {
-    width: 130px;
+    width: 135px;
     text-align: right;
-    padding-right: 12px;
+    padding-right: 8px;
     color: #002d62;
     font-weight: bold;
     white-space: nowrap;
 }
 
-.shifted-label {
-    width: 115px !important;
-}
-
+.shifted-label { width: 145px !important; }
 .grid-two-column {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 20px;
+    grid-template-columns: 1.1fr 0.9fr;
+    column-gap: 15px;
 }
 
-.sub-column {
-    display: flex;
-    flex-direction: column;
-}
+.sub-column { display: flex; flex-direction: column; }
 
-/* Native Entry Element Layout Skins */
-input[type="text"], input[type="number"], select, textarea {
+input[type="text"], input[type="number"], input[type="date"], select, textarea {
     border: 1px solid #7f9db9;
-    height: 19px;
-    padding: 1px 4px;
+    height: 18px;
+    padding: 1px 3px;
     background-color: #ffffff;
 }
-
 textarea { height: auto; resize: none; }
 input[readonly] { background-color: #f0f0f0; color: #555555; }
+input[type="checkbox"] { margin-left: 135px; margin-top: 3px; }
 
 .text-right { text-align: right; }
 .text-center { text-align: center; }
@@ -181,30 +172,72 @@ input[readonly] { background-color: #f0f0f0; color: #555555; }
 .italic { font-style: italic; }
 .gray-text { color: #666666; }
 
-.width-small { width: 65px; margin-right: 3px; }
-.width-medium { width: 170px; }
+.width-small { width: 60px; margin-right: 2px; }
+.width-medium { width: 130px; margin-right: 2px; }
 .width-remaining { flex: 1; }
 .width-full { width: 100%; }
 .margin-top-sm { margin-top: 6px; }
+.padding-top-sm { padding-top: 4px; }
 
-/* Corporate Registry Search Appendage Block Matcher */
+.horizontal-divider-line {
+    border-top: 1px dashed #9bbcdb;
+    margin: 6px 0;
+    width: 100%;
+}
+
 .input-group { display: flex; align-items: center; }
 .input-group input { flex: 1; }
 .search-btn {
     background-color: #e2e2e2;
     border: 1px solid #7f9db9;
     border-left: none;
-    height: 19px;
-    padding: 1px 4px;
+    height: 18px;
+    padding: 0 3px;
     cursor: pointer;
     display: flex;
     align-items: center;
 }
+.append-text-label {
+    padding-left: 4px;
+    font-weight: bold;
+    color: #555555;
+}
 
-/* Dynamic Structured Output Data Sheets Layout Tables */
+/* Secondary Tab Panels Navigation rules */
+.tab-interface-strip {
+    display: flex;
+    background-color: #edf5fa;
+    border: 1px solid #9bbcdb;
+    border-bottom: none;
+}
+
+.sub-tab {
+    padding: 4px 10px;
+    border-right: 1px solid #9bbcdb;
+    cursor: pointer;
+    background-color: #e2e2e2;
+    color: #333;
+}
+.sub-tab.active {
+    background-color: #ffffff;
+    font-weight: bold;
+    border-bottom: 1px solid #ffffff;
+    margin-bottom: -1px;
+}
+
+.tab-container-body {
+    border: 1px solid #9bbcdb;
+    padding: 4px;
+    background-color: #ffffff;
+}
+
+.sub-tab-view { display: none; }
+.sub-tab-view.active { display: block; }
+
+/* Grid Processing Sheet System rules */
 .grid-container {
     border: 1px solid #7f9db9;
-    overflow-y: auto;
+    overflow: auto;
     background-color: #ffffff;
 }
 
@@ -217,33 +250,42 @@ input[readonly] { background-color: #f0f0f0; color: #555555; }
     background-color: #eaf2fb;
     border-right: 1px solid #b5d0eb;
     border-bottom: 2px solid #9bbcdb;
-    padding: 5px 6px;
+    padding: 4px;
     font-weight: bold;
     text-align: left;
+    white-space: nowrap;
 }
 
 .ledger-grid td {
-    padding: 4px 6px;
+    padding: 3px 4px;
     border-right: 1px solid #e1eaf3;
     border-bottom: 1px solid #e1eaf3;
+    white-space: nowrap;
+}
+
+.action-row-container {
+    display: flex;
+    gap: 5px;
+    margin: 4px 0;
+    justify-content: flex-start;
 }
 
 .sub-footer-token {
     position: absolute;
-    bottom: 3px;
+    bottom: 2px;
     left: 6px;
-    color: #444444;
+    color: #555555;
     font-weight: bold;
 }
 
-/* Right Command Action Bar Rules */
+/* Right Command Sidebar Controls Interface rules */
 .action-sidebar {
-    width: 110px;
+    width: 105px;
     background-color: #d6e4f3;
-    padding: 4px;
+    padding: 3px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
     margin-left: 2px;
 }
 
@@ -253,7 +295,7 @@ input[readonly] { background-color: #f0f0f0; color: #555555; }
 .action-btn {
     background: linear-gradient(to bottom, #fcfcfc 0%, #e2e2e2 100%);
     border: 1px solid #8e8e8e;
-    padding: 5px 2px;
+    padding: 4px 2px;
     text-align: center;
     color: #000000;
     cursor: pointer;
