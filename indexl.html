@@ -3,107 +3,317 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Agri-business Loan Management</title>
+    <title>CBS Loan Ledger System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-    <div class="container">
-        <div class="account-header">
-            <h2>Loan Account Statement</h2>
-            <div class="meta-grid">
-                <div><strong>Account No:</strong> 011-004-9823-01</div>
-                <div><strong>Product:</strong> <span id="meta-product">Agri-business Term Loan</span></div>
-                <div><strong>Status:</strong> <span class="badge status-active">Active-Performing</span></div>
+<div class="app-shell">
+
+    <!-- ═══════════════════════════════════════════════
+         SIDEBAR: Configuration Panel
+    ═══════════════════════════════════════════════ -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-mark">CBS</div>
+            <div>
+                <div class="brand-title">Loan Ledger</div>
+                <div class="brand-sub">Core Banking System</div>
             </div>
         </div>
-        
-        <form id="loan-form" class="transaction-form">
+
+        <form id="loan-form">
+
+            <!-- Section 1: Loan Identity -->
             <div class="form-section">
-                <h3>1. Loan Terms Setup</h3>
-                <div class="form-group-row">
+                <div class="section-label">
+                    <span class="section-num">01</span>
+                    Loan Identity
+                </div>
+
+                <div class="field-group">
+                    <label>Account Number</label>
+                    <input type="text" id="account_number" value="011-004-9823-01" required>
+                </div>
+
+                <div class="field-group">
+                    <label>Borrower Name</label>
+                    <input type="text" id="borrower_name" value="ABC Trading / Project X" required>
+                </div>
+
+                <div class="field-group">
+                    <label>Product Type</label>
                     <select id="product_type" required>
                         <option value="Agri-business Term Loan">Agri-business Term Loan</option>
-                        <option value="Standard Loan">Standard Loan</option>
+                        <option value="Standard Term Loan">Standard Term Loan</option>
+                        <option value="CBS Standard Term Loan">CBS Standard Term Loan</option>
                     </select>
-                    <input type="number" id="loan_amount" value="50000" placeholder="Loan Amount (ETB)" required>
+                </div>
+
+                <div class="field-group">
+                    <label>Status</label>
+                    <select id="loan_status">
+                        <option value="Active-Performing">Active – Performing</option>
+                        <option value="Active-Watchlist">Active – Watchlist</option>
+                        <option value="Defaulted">Defaulted</option>
+                        <option value="Closed">Closed</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Section 2: Loan Terms -->
+            <div class="form-section">
+                <div class="section-label">
+                    <span class="section-num">02</span>
+                    Loan Terms
+                </div>
+
+                <div class="field-group">
+                    <label>Loan Amount (ETB)</label>
+                    <input type="number" id="loan_amount" value="100000" min="1" required>
+                </div>
+
+                <div class="field-row">
+                    <div class="field-group">
+                        <label>Interest Rate (% p.a.)</label>
+                        <input type="number" step="0.1" id="interest_rate" value="12" required>
+                    </div>
+                    <div class="field-group">
+                        <label>Term (Months)</label>
+                        <input type="number" id="loan_term" value="12" min="1" required>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label>Disbursement Date</label>
                     <input type="date" id="start_date" required>
                 </div>
-                <div class="form-group-row">
-                    <input type="number" step="0.1" id="interest_rate" value="12" placeholder="Interest Rate % p.a." required>
-                    <input type="number" id="loan_term" value="12" placeholder="Term (in Months)" required>
+
+                <div class="field-group">
+                    <label>Repayment Frequency</label>
                     <select id="repayment_frequency" required>
-                        <option value="monthly">Monthly Repayment</option>
-                        <option value="yearly">Yearly Repayment</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
                     </select>
                 </div>
             </div>
 
-            <div class="form-section" style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-                <h3>2. Advanced Rules Configuration</h3>
-                <div class="form-group-row">
-                    <div class="input-wrapper">
-                        <label for="grace_period">Grace Period (Days)</label>
-                        <input type="number" id="grace_period" value="5" min="0" placeholder="e.g. 5 days" required>
+            <!-- Section 3: Advanced Rules -->
+            <div class="form-section">
+                <div class="section-label">
+                    <span class="section-num">03</span>
+                    Advanced Rules
+                </div>
+
+                <div class="field-row">
+                    <div class="field-group">
+                        <label>Grace Period (Days)</label>
+                        <input type="number" id="grace_period" value="5" min="0" required>
                     </div>
-                    <div class="input-wrapper">
-                        <label for="flat_penalty">Flat Penalty Fee (ETB)</label>
-                        <input type="number" step="0.01" id="flat_penalty" value="150.00" placeholder="e.g. 150.00" required>
+                    <div class="field-group">
+                        <label>Flat Penalty Fee (ETB)</label>
+                        <input type="number" step="0.01" id="flat_penalty" value="150.00" required>
                     </div>
-                    <div class="input-wrapper">
-                        <label for="total_accrued_estimate">Initial Accrued Interest (a)</label>
-                        <input type="number" step="0.01" id="total_accrued_estimate" value="25000" placeholder="e.g. 25000" required>
-                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label>
+                        Initial Accrued Interest (ETB)
+                        <span class="label-hint">Pre-existing accrual at disbursement</span>
+                    </label>
+                    <input type="number" step="0.01" id="total_accrued_estimate" value="25000" required>
+                </div>
+
+                <div class="field-group checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="include_processing_fee" checked>
+                        <span>Include Admin / Processing Fee (ETB 1,000)</span>
+                    </label>
+                </div>
+
+                <div class="field-group checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="simulate_late_payment" checked>
+                        <span>Simulate late payment on installment 1</span>
+                    </label>
                 </div>
             </div>
 
-            <button type="submit" style="margin-top: 20px;">Generate Statement & Ledger Data</button>
+            <button type="submit" class="btn-generate" id="generate-btn">
+                <span class="btn-icon">⚡</span>
+                Generate Ledger
+            </button>
+
         </form>
+    </aside>
 
-        <h3>View A: Customer Account Statement</h3>
-        <div class="table-responsive">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Post Date</th>
-                        <th>Value Date</th>
-                        <th>Ref / Batch</th>
-                        <th>Transaction Description</th>
-                        <th>Principal</th>
-                        <th>Interest</th>
-                        <th>Charges / Penalties</th>
-                        <th>Running Balance</th>
-                    </tr>
-                </thead>
-                <tbody id="statement-body">
-                    </tbody>
-            </table>
+    <!-- ═══════════════════════════════════════════════
+         MAIN CONTENT: Reports
+    ═══════════════════════════════════════════════ -->
+    <main class="main-content">
+
+        <!-- Account Header Card -->
+        <div class="account-card" id="account-card">
+            <div class="account-card-left">
+                <div class="account-badge">LOAN ACCOUNT</div>
+                <div class="account-number" id="display-account-number">011-004-9823-01</div>
+                <div class="account-borrower" id="display-borrower">ABC Trading / Project X</div>
+            </div>
+            <div class="account-card-right">
+                <div class="account-meta-grid">
+                    <div class="meta-item">
+                        <span class="meta-label">Product</span>
+                        <span class="meta-value" id="display-product">Agri-business Term Loan</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Status</span>
+                        <span class="meta-value"><span class="status-badge active" id="display-status">Active – Performing</span></span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Disbursement</span>
+                        <span class="meta-value" id="display-disburse-date">—</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Original Balance</span>
+                        <span class="meta-value" id="display-orig-balance">—</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Rate</span>
+                        <span class="meta-value" id="display-rate">12% p.a.</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Term</span>
+                        <span class="meta-value" id="display-term">12 Months</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <h3 style="margin-top: 40px;">View B: Internal Accounting Ledger</h3>
-        <div class="table-responsive">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Value Date</th>
-                        <th>Description</th>
-                        <th>Ref #</th>
-                        <th>Principal (Debit)</th>
-                        <th>Interest (Debit)</th>
-                        <th>Penalty (Debit)</th>
-                        <th>Accrued Int. Receivable</th>
-                        <th>Total Paid (Credit)</th>
-                        <th>Accrued Unpaid Int.</th>
-                        <th>Principal Balance</th>
-                    </tr>
-                </thead>
-                <tbody id="ledger-body">
-                    </tbody>
-            </table>
+        <!-- ─── KPI Summary Bar ─── -->
+        <div class="kpi-bar" id="kpi-bar" style="display:none;">
+            <div class="kpi-card">
+                <div class="kpi-label">Original Principal</div>
+                <div class="kpi-value" id="kpi-principal">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Total Interest</div>
+                <div class="kpi-value kpi-amber" id="kpi-interest">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Total Penalties</div>
+                <div class="kpi-value kpi-red" id="kpi-penalties">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Total Paid</div>
+                <div class="kpi-value kpi-green" id="kpi-paid">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Closing Balance</div>
+                <div class="kpi-value kpi-blue" id="kpi-balance">—</div>
+            </div>
         </div>
-    </div>
 
-    <script src="script.js"></script>
+        <!-- ─── View Tabs ─── -->
+        <div class="view-tabs">
+            <button class="tab-btn active" data-tab="account-statement">Account Statement</button>
+            <button class="tab-btn" data-tab="internal-ledger">Internal Accounting Ledger</button>
+            <div class="tab-actions">
+                <button class="btn-export" onclick="exportCSV('statement')">↓ Export CSV</button>
+                <button class="btn-print" onclick="window.print()">⎙ Print</button>
+            </div>
+        </div>
+
+        <!-- ─── Empty / Loading State ─── -->
+        <div class="empty-state" id="empty-state">
+            <div class="empty-icon">📋</div>
+            <div class="empty-title">No Ledger Generated</div>
+            <div class="empty-sub">Configure loan parameters on the left and click <strong>Generate Ledger</strong> to produce reports.</div>
+        </div>
+
+        <div class="loading-state" id="loading-state" style="display:none;">
+            <div class="spinner"></div>
+            <div>Generating amortization schedule…</div>
+        </div>
+
+        <!-- ─── VIEW A: Customer Account Statement ─── -->
+        <div class="tab-panel active" id="tab-account-statement" style="display:none;">
+            <div class="report-header">
+                <div>
+                    <div class="report-title">Customer Account Statement</div>
+                    <div class="report-sub">Loan Account No: <span id="rpt-acct-no">—</span></div>
+                </div>
+                <div class="report-legend">
+                    <span class="legend-item"><span class="dot dot-green"></span>Credit / Payment</span>
+                    <span class="legend-item"><span class="dot dot-red"></span>Penalty / Charge</span>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table" id="statement-table">
+                    <thead>
+                        <tr>
+                            <th>Post Date</th>
+                            <th>Value Date</th>
+                            <th>Ref / Batch</th>
+                            <th>Transaction Description</th>
+                            <th class="num-col">Principal</th>
+                            <th class="num-col">Interest</th>
+                            <th class="num-col penalty-col">Charges / Penalties</th>
+                            <th class="num-col balance-col">Running Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody id="statement-body"></tbody>
+                    <tfoot id="statement-foot"></tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- ─── VIEW B: Internal Accounting Ledger ─── -->
+        <div class="tab-panel" id="tab-internal-ledger" style="display:none;">
+            <div class="report-header">
+                <div>
+                    <div class="report-title">Internal Accounting Ledger</div>
+                    <div class="report-sub">For reconciliation against Trial Balance — <strong>Zero variance required</strong></div>
+                </div>
+                <div class="report-legend">
+                    <span class="legend-item"><span class="dot dot-amber"></span>Accrual</span>
+                    <span class="legend-item"><span class="dot dot-green"></span>Credit</span>
+                </div>
+            </div>
+
+            <div class="audit-notice">
+                <strong>⚑ Audit Checkpoint:</strong> Closing balance must match corresponding line in Trial Balance.
+                Payments are split: Interest Income account first, then Loans Receivable (principal reduction).
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table" id="ledger-table">
+                    <thead>
+                        <tr>
+                            <th>Value Date</th>
+                            <th>Description</th>
+                            <th>Ref #</th>
+                            <th class="num-col">Principal (Dr)</th>
+                            <th class="num-col">Interest (Dr)</th>
+                            <th class="num-col penalty-col">Penalty (Dr)</th>
+                            <th class="num-col">Accrued Int. Receivable</th>
+                            <th class="num-col">Total Paid (Cr)</th>
+                            <th class="num-col">Accrued Unpaid Int.</th>
+                            <th class="num-col balance-col">Principal Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ledger-body"></tbody>
+                    <tfoot id="ledger-foot"></tfoot>
+                </table>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script src="script.js"></script>
 </body>
 </html>
