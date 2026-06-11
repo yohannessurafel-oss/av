@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loan Application</title>
+    <link rel="stylesheet" href="style2.css">
+</head>
+<body>
+
+<div class="window-container">
+    <div class="title-bar">
+        <div class="title-text">
+            <span class="icon">📁</span> Loan Application
+        </div>
+        <div class="window-controls">
+            <span>➖</span> <span>🗖</span> <span>❌</span>
+        </div>
+    </div>
+
+    <div class="workspace">
+        
+        <div class="sidebar">
+            <div class="dropdown-container">
+                <select id="navigation-select">
+                    <option>DataEntry</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <form id="loanForm">
+                
+                <div class="form-section top-section">
+                    <div class="form-row">
+                        <label>Branch ID</label>
+                        <div class="input-group width-small">
+                            <input type="text" value="001">
+                            <span class="search-btn">🔍</span>
+                        </div>
+                        <input type="text" class="width-large" value="Koinange Street Branch" readonly>
+                    </div>
+                    
+                    <div class="form-row">
+                        <label>Group ID</label>
+                        <div class="input-group width-medium">
+                            <input type="text">
+                            <span class="search-btn">🔍</span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <label>Sub Group ID</label>
+                        <div class="input-group width-small">
+                            <input type="text">
+                            <span class="search-btn">🔍</span>
+                        </div>
+                    </div>
+
+                    <div class="form-row split-row">
+                        <div class="flex-item">
+                            <label>Application ID</label>
+                            <div class="input-group width-small">
+                                <input type="text">
+                                <span class="search-btn">🔍</span>
+                            </div>
+                        </div>
+                        <div class="flex-item date-container">
+                            <label>Date</label>
+                            <input type="text" value="14/Sep/2014" class="width-small">
+                            <select class="dropdown-arrow-btn"><option></option></select>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="section-divider">
+
+                <div class="form-section middle-section">
+                    <div class="form-row">
+                        <label class="blue-text">Client Branch ID</label>
+                        <div class="input-group width-small">
+                            <input type="text" value="001">
+                            <span class="search-btn">🔍</span>
+                        </div>
+                        <input type="text" class="width-large" value="Koinange Street Branch" readonly>
+                    </div>
+
+                    <div class="form-row">
+                        <label class="blue-text">Client ID</label>
+                        <div class="input-group width-full">
+                            <input type="text" id="clientIdInput">
+                            <span class="search-btn">🔍</span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <label class="blue-text">Product ID</label>
+                        <div class="input-group width-full">
+                            <input type="text">
+                            <span class="search-btn">🔍</span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <label class="blue-text multi-line">Main Repayment AccountID</label>
+                        <div class="input-group width-full">
+                            <input type="text">
+                            <span class="search-btn">🔍</span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <label class="blue-text">Donor ID</label>
+                        <div class="input-group width-full">
+                            <input type="text">
+                            <span class="search-btn">🔍</span>
+                        </div>
+                    </div>
+
+                    <div class="two-column-grid">
+                        <div class="form-row">
+                            <label class="blue-text">Loan Purpose</label>
+                            <select class="width-full">
+                                <option>OTHER</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label class="blue-text">Line Of Business</label>
+                            <select class="width-full">
+                                <option>Proprietary</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row span-two">
+                            <label class="blue-text">Officer ID</label>
+                            <div class="input-group width-full">
+                                <input type="text">
+                                <span class="search-btn">🔍</span>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <label class="blue-text">Loan Amount</label>
+                            <input type="text" class="width-full">
+                        </div>
+                        <div class="form-row">
+                            <label>Currency ID</label>
+                            <input type="text" value="KES" class="width-full">
+                        </div>
+
+                        <div class="form-row">
+                            <label class="blue-text">Term</label>
+                            <input type="text" value="12" class="width-full text-right font-bold">
+                        </div>
+                        <div class="form-row">
+                            <label>Interest Rate</label>
+                            <input type="text" class="width-full">
+                        </div>
+
+                        <div class="form-row">
+                            <label class="blue-text">Commission Rate</label>
+                            <input type="text" class="width-full">
+                        </div>
+                        <div class="form-row">
+                            <label class="blue-text">Tax Rate</label>
+                            <input type="text" class="width-full">
+                        </div>
+
+                        <div class="form-row">
+                            <label class="blue-text">Effective Rate</label>
+                            <input type="text" class="width-full">
+                        </div>
+                        <div class="form-row">
+                            <label class="blue-text">Disbursement Date</label>
+                            <select class="width-full muted-text">
+                                <option>--Select--</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <label>Spread</label>
+                            <div class="flex-layout">
+                                <input type="text" class="width-full">
+                                <span class="parentheses">()</span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <label>Application Status</label>
+                            <div class="status-line"></div>
+                        </div>
+
+                        <div class="form-row span-two">
+                            <label>File Number</label>
+                            <input type="text" class="width-full">
+                        </div>
+
+                        <div class="form-row span-two">
+                            <label class="blue-text">Sales Officer</label>
+                            <div class="input-group width-full">
+                                <input type="text">
+                                <span class="search-btn">🔍</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-section">
+                    <table class="data-grid">
+                        <thead>
+                            <tr>
+                                <th style="width: 15%;">Apply</th>
+                                <th style="width: 25%;">Client ID</th>
+                                <th style="width: 60%;">Client Name</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="empty-row">
+                                <td colspan="3">No records to display.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        </div>
+
+        <div class="action-sidebar">
+            <button type="button" class="action-btn">More Info</button>
+            <button type="button" class="action-btn underline-letter"><u>V</u>iew</button>
+            <button type="button" class="action-btn underline-letter" id="addBtn"><u>A</u>dd</button>
+            <button type="button" class="action-btn underline-letter disabled" disabled><u>E</u>dit</button>
+            <button type="button" class="action-btn underline-letter disabled" disabled><u>D</u>elete</button>
+            <button type="button" class="action-btn underline-letter"><u>S</u>ave</button>
+            <button type="button" class="action-btn underline-letter"><u>C</u>ancel</button>
+        </div>
+    </div>
+
+    <div class="footer-bar">
+        <span>BR.Net Web Banking</span>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
