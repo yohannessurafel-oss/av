@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CBS Loan Ledger System</title>
+    <title>AVMF Loan Ledger System</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
@@ -13,21 +13,34 @@
 
 <div class="app-shell">
 
-    <!-- ═══════════════════════════════════════════════
-         SIDEBAR: Configuration Panel
-    ═══════════════════════════════════════════════ -->
     <aside class="sidebar">
         <div class="sidebar-header">
-            <div class="brand-mark">CBS</div>
+            <div class="brand-logo-container">
+                <svg viewBox="0 0 100 80" class="brand-logo-svg" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M45,5 C55,4 68,11 75,18 C83,26 80,33 77,36 C74,38 78,43 72,48 C67,52 64,48 60,54 C58,57 56,60 52,65 C48,70 51,76 46,78 C41,80 39,73 37,68 C35,63 33,59 36,54 C38,50 34,44 31,43 C26,41 21,43 17,41 C11,39 12,30 14,24 C16,18 20,13 27,11 C33,10 37,6 45,5 Z" class="svg-continent-blue" />
+                    <path d="M60,54 C58,57 56,60 52,65 C48,70 51,76 46,78 C41,80 39,73 37,68 C35,63 33,59 36,54 C38,50 34,44 31,43 C31,43" fill="none" />
+                    <path d="M72,56 C75,54 77,58 76,62 C74,67 71,71 68,69 C66,67 69,60 72,56 Z" class="svg-orange" />
+                    <path d="M45,5 C55,4 68,11 75,18 C83,26 80,33 77,36 C74,38 78,43 72,48 C67,51 64,48 60,54 L36,54 C38,50 34,44 31,43 C26,41 21,43 17,41 C11,39 12,30 14,24 C16,18 20,13 27,11 C33,10 37,6 45,5 Z" class="svg-blue" />
+                    <path d="M60,54 C58,57 56,60 52,65 C48,70 51,76 46,78 C41,80 39,73 37,68 C35,63 33,59 36,54 Z" class="svg-orange" />
+                    <path d="M28,34 L38,21 L43,28 L35,36" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M35,38 L43,26 L48,32 L40,41" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <polyline points="38,52 48,42 58,49 68,39" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                    <rect x="42" y="34" width="4" height="11" fill="#fff" />
+                    <rect x="48" y="30" width="4" height="15" fill="#fff" />
+                    <rect x="54" y="28" width="4" height="17" fill="#fff" />
+                    <circle cx="44" cy="37" r="0.5" fill="#0f2340" /> <circle cx="44" cy="41" r="0.5" fill="#0f2340" />
+                    <circle cx="50" cy="33" r="0.5" fill="#0f2340" /> <circle cx="50" cy="37" r="0.5" fill="#0f2340" />
+                    <circle cx="56" cy="31" r="0.5" fill="#0f2340" /> <circle cx="56" cy="35" r="0.5" fill="#0f2340" />
+                </svg>
+            </div>
             <div>
-                <div class="brand-title">Loan Ledger</div>
-                <div class="brand-sub">Core Banking System</div>
+                <div class="brand-title">Africa Village</div>
+                <div class="brand-sub">Microfinance Loan Ledger</div>
             </div>
         </div>
 
         <form id="loan-form">
 
-            <!-- Section 1: Loan Identity -->
             <div class="form-section">
                 <div class="section-label">
                     <span class="section-num">01</span>
@@ -49,7 +62,8 @@
                     <select id="product_type" required>
                         <option value="Agri-business Term Loan">Agri-business Term Loan</option>
                         <option value="Standard Term Loan">Standard Term Loan</option>
-                        <option value="CBS Standard Term Loan">CBS Standard Term Loan</option>
+                        <option value="AVMF Women Entrepreneur Loan">AVMF Women Entrepreneur Loan</option>
+                        <option value="Micro-Enterprise Credit">Micro-Enterprise Credit</option>
                     </select>
                 </div>
 
@@ -64,7 +78,6 @@
                 </div>
             </div>
 
-            <!-- Section 2: Loan Terms -->
             <div class="form-section">
                 <div class="section-label">
                     <span class="section-num">02</span>
@@ -101,7 +114,6 @@
                 </div>
             </div>
 
-            <!-- Section 3: Advanced Rules -->
             <div class="form-section">
                 <div class="section-label">
                     <span class="section-num">03</span>
@@ -150,15 +162,11 @@
         </form>
     </aside>
 
-    <!-- ═══════════════════════════════════════════════
-         MAIN CONTENT: Reports
-    ═══════════════════════════════════════════════ -->
     <main class="main-content">
 
-        <!-- Account Header Card -->
         <div class="account-card" id="account-card">
             <div class="account-card-left">
-                <div class="account-badge">LOAN ACCOUNT</div>
+                <div class="account-badge">AVMF LOAN ACCOUNT</div>
                 <div class="account-number" id="display-account-number">011-004-9823-01</div>
                 <div class="account-borrower" id="display-borrower">ABC Trading / Project X</div>
             </div>
@@ -192,7 +200,6 @@
             </div>
         </div>
 
-        <!-- ─── KPI Summary Bar ─── -->
         <div class="kpi-bar" id="kpi-bar" style="display:none;">
             <div class="kpi-card">
                 <div class="kpi-label">Original Principal</div>
@@ -200,7 +207,7 @@
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Total Interest</div>
-                <div class="kpi-value kpi-amber" id="kpi-interest">—</div>
+                <div class="kpi-value kpi-orange" id="kpi-interest">—</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Total Penalties</div>
@@ -216,7 +223,6 @@
             </div>
         </div>
 
-        <!-- ─── View Tabs ─── -->
         <div class="view-tabs">
             <button class="tab-btn active" data-tab="account-statement">Account Statement</button>
             <button class="tab-btn" data-tab="internal-ledger">Internal Accounting Ledger</button>
@@ -226,7 +232,6 @@
             </div>
         </div>
 
-        <!-- ─── Empty / Loading State ─── -->
         <div class="empty-state" id="empty-state">
             <div class="empty-icon">📋</div>
             <div class="empty-title">No Ledger Generated</div>
@@ -238,7 +243,6 @@
             <div>Generating amortization schedule…</div>
         </div>
 
-        <!-- ─── VIEW A: Customer Account Statement ─── -->
         <div class="tab-panel active" id="tab-account-statement" style="display:none;">
             <div class="report-header">
                 <div>
@@ -271,7 +275,6 @@
             </div>
         </div>
 
-        <!-- ─── VIEW B: Internal Accounting Ledger ─── -->
         <div class="tab-panel" id="tab-internal-ledger" style="display:none;">
             <div class="report-header">
                 <div>
@@ -279,7 +282,7 @@
                     <div class="report-sub">For reconciliation against Trial Balance — <strong>Zero variance required</strong></div>
                 </div>
                 <div class="report-legend">
-                    <span class="legend-item"><span class="dot dot-amber"></span>Accrual</span>
+                    <span class="legend-item"><span class="dot dot-orange"></span>Accrual</span>
                     <span class="legend-item"><span class="dot dot-green"></span>Credit</span>
                 </div>
             </div>
