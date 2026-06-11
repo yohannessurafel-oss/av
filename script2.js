@@ -1,3 +1,8 @@
+const SUPABASE_URL = 'https://oxzthrubidohuwwhxsrk.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+
 document.addEventListener("DOMContentLoaded", function() {
 
     // 1. Core Left Sidebar Module Routing Panel Engine
