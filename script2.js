@@ -73,14 +73,31 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // 4. Global Action Command Toolbar Dispatches
-    const btnGlobalView = document.getElementById("btnGlobalView");
-    if (btnGlobalView) {
-        btnGlobalView.addEventListener("click", function() {
-            const activeView = document.querySelector(".module-view.active");
-            const contextName = activeView ? activeView.querySelector(".context-badge-bar").textContent : "Current Form";
-            alert(`Mode Context: Pulling records data simulation directory registry overview parameters for:\n"${contextName}"`);
-        });
-    }
+  const btnGlobalView = document.getElementById("btnGlobalView");
+if (btnGlobalView) {
+    btnGlobalView.addEventListener("click", async function() {
+        alert("Fetching latest live records from database execution tables...");
+
+        // Mock confirmation reading snippet assuming 'supabase' client initialization variable is configured
+        if (typeof supabase !== 'undefined') {
+            let { data: loanRecords, error } = await supabase
+                .from('LoanMasterRecords')
+                .select('*')
+                .order('created_on', { ascending: false })
+                .limit(5);
+
+            if (error) {
+                console.error("Database Retrieval Error:", error.message);
+                alert("Error reading tables: " + error.message);
+            } else {
+                console.log("Verified Live Database Rows Saved:", loanRecords);
+                alert(`Success! Found ${loanRecords.length} records saved in the database cloud storage tracker.`);
+            }
+        } else {
+            console.log("Interface Status: Supabase engine initialization credentials not fully linked yet.");
+        }
+    });
+}
 
     const btnGlobalAdd = document.getElementById("btnGlobalAdd");
     if (btnGlobalAdd) {
