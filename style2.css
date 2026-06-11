@@ -1,4 +1,4 @@
-/* Core Styling & Reset */
+/* Core Win32 Structural System Canvas Skin Layout Rules */
 * {
     box-sizing: border-box;
     font-family: Arial, sans-serif;
@@ -6,238 +6,257 @@
 }
 
 body {
-    background-color: #555;
-    margin: 20px;
+    background-color: #212121;
+    margin: 15px;
     display: flex;
     justify-content: center;
 }
 
-/* App Window Setup */
 .window-container {
-    width: 960px;
+    width: 1060px;
     background-color: #d6e4f3;
-    border: 3px solid #1a4d80;
-    box-shadow: 2px 2px 10px rgba(0,0,0,0.3);
-    display: flex;
-    flex-direction: column;
+    border: 2px solid #1a4d80;
+    box-shadow: 2px 2px 15px rgba(0,0,0,0.6);
 }
 
-/* Windows Top Title Bar */
 .title-bar {
     background: linear-gradient(to bottom, #1e5799 0%, #2989d8 50%, #207cca 100%);
-    color: white;
-    padding: 4px 8px;
+    color: #ffffff;
+    padding: 5px 8px;
     display: flex;
     justify-content: space-between;
-    align-items: center;
     font-weight: bold;
 }
+
 .window-controls span {
     margin-left: 6px;
     cursor: pointer;
 }
 
-/* Layout Workspace Split */
 .workspace {
     display: flex;
     background-color: #d6e4f3;
     padding: 2px;
-    height: 520px;
 }
 
-/* Left Navigation Sidebar */
+/* Consolidated Left Side Routing Navigation Panel Engine */
 .sidebar {
-    width: 140px;
-    background-color: #e8f1fc;
+    width: 175px;
+    background-color: #edf5fa;
     border: 1px solid #9bbcdb;
-    padding: 5px;
-}
-.dropdown-container select {
-    width: 100%;
-    padding: 2px;
-    background-color: #fff;
-    border: 1px solid #7f9db9;
-}
-
-/* Main Form Layout Container */
-.main-content {
-    flex: 1;
-    background-color: #f4f8fb;
-    border-top: 1px solid #9bbcdb;
-    border-bottom: 1px solid #9bbcdb;
-    padding: 10px 15px;
-    overflow-y: auto;
-}
-
-/* Right Side Actions Panel */
-.action-sidebar {
-    width: 110px;
-    background-color: #d6e4f3;
-    padding: 30px 5px 5px 8px;
+    padding: 4px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-}
-.action-btn {
-    background: linear-gradient(to bottom, #f2f2f2 0%, #e1e1e1 100%);
-    border: 1px solid #8f8f8f;
-    padding: 6px 2px;
-    text-align: center;
-    color: #000;
-    cursor: pointer;
-    box-shadow: inset 0 1px 0 #fff;
-}
-.action-btn:active {
-    background: #d1d1d1;
-}
-.action-btn.disabled {
-    color: #888;
-    cursor: not-allowed;
-    background: #e1e1e1;
 }
 
-/* Global Form Row styling */
+.sidebar-header {
+    background-color: #1a4d80;
+    color: white;
+    padding: 3px 6px;
+    font-weight: bold;
+    margin-bottom: 4px;
+    text-align: center;
+}
+
+.nav-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background-color: #ffffff;
+    border: 1px solid #9bbcdb;
+}
+
+.nav-menu li {
+    padding: 6px 10px;
+    color: #333333;
+    cursor: pointer;
+    border-bottom: 1px solid #edf4fa;
+}
+
+.nav-menu li:hover {
+    background-color: #eaf3fc;
+}
+
+.nav-menu li.active {
+    background-color: #b0c4de;
+    color: #000000;
+    font-weight: bold;
+    border: 1px dotted #444444;
+}
+
+/* Dynamic Active Modules Rendering Window Engine Rules */
+.main-content {
+    flex: 1;
+    background-color: #ffffff;
+    border: 1px solid #9bbcdb;
+    padding: 6px;
+    margin-left: 2px;
+    position: relative;
+    min-height: 420px;
+    padding-bottom: 24px;
+}
+
+.module-view {
+    display: none;
+}
+
+.module-view.active {
+    display: block;
+}
+
+/* Header Component Ribbon Strips */
+.context-badge-bar {
+    background: linear-gradient(to bottom, #7abcff 0%, #60abf8 44%, #4096ee 100%);
+    border: 1px solid #1a4d80;
+    padding: 4px 8px;
+    color: #ffffff;
+    font-weight: bold;
+    text-shadow: 1px 1px 1px #000;
+    border-radius: 2px;
+    margin-bottom: 8px;
+}
+
+.form-section-card {
+    border: 1px solid #9bbcdb;
+    background-color: #f7fbfd;
+    margin-bottom: 6px;
+}
+
+.card-header-banner {
+    background-color: #0078d7;
+    color: white;
+    font-weight: bold;
+    padding: 3px 6px;
+}
+
+.card-body {
+    padding: 8px;
+}
+
+/* Master Grid Row Alignments Definitions */
 .form-row {
     display: flex;
     align-items: center;
-    margin-bottom: 4px;
+    margin-bottom: 5px;
 }
+
 .form-row label {
     width: 130px;
     text-align: right;
-    padding-right: 8px;
-    font-weight: bold;
-    color: #333;
-}
-.form-row label.blue-text {
+    padding-right: 12px;
     color: #002d62;
+    font-weight: bold;
+    white-space: nowrap;
 }
 
-/* Inputs & Form Controls styling */
-input[type="text"], select {
-    border: 1px solid #7f9db9;
-    height: 19px;
-    padding: 1px 3px;
-    background-color: #fff;
-}
-input[readonly] {
-    background-color: #f0f0f0;
-    border: 1px solid #b5b5b5;
+.shifted-label {
+    width: 115px !important;
 }
 
-/* Reusable Sizing Helpers */
-.width-small { width: 75px; }
-.width-medium { width: 150px; }
-.width-large { width: 280px; }
-.width-full { width: 100%; }
-.text-right { text-align: right; }
-.font-bold { font-weight: bold; }
-.muted-text { color: #777; }
-
-/* Input field groups with simulated Magnifying Glass glass icons */
-.input-group {
-    display: flex;
-    align-items: center;
-}
-.input-group input {
-    flex: 1;
-}
-.search-btn {
-    background-color: #f0f0f0;
-    border: 1px solid #7f9db9;
-    border-left: none;
-    height: 19px;
-    padding: 1px 3px 0px 3px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    font-size: 9px;
-}
-
-/* Structural Components styling */
-.split-row {
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-}
-.flex-item {
-    display: flex;
-    align-items: center;
-}
-.date-container {
-    margin-right: 120px;
-}
-.dropdown-arrow-btn {
-    width: 16px;
-    height: 19px;
-    border-left: none;
-    background-color: #e2e2e2;
-}
-.section-divider {
-    border: 0;
-    height: 1px;
-    background: #9bbcdb;
-    margin: 8px 0;
-}
-
-/* Two Column Form System Grid */
-.two-column-grid {
+.grid-two-column {
     display: grid;
     grid-template-columns: 1fr 1fr;
     column-gap: 20px;
 }
-.span-two {
-    grid-column: span 2;
+
+.sub-column {
+    display: flex;
+    flex-direction: column;
 }
-.flex-layout {
+
+/* Native Entry Element Layout Skins */
+input[type="text"], input[type="number"], select, textarea {
+    border: 1px solid #7f9db9;
+    height: 19px;
+    padding: 1px 4px;
+    background-color: #ffffff;
+}
+
+textarea { height: auto; resize: none; }
+input[readonly] { background-color: #f0f0f0; color: #555555; }
+
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.font-bold { font-weight: bold; }
+.italic { font-style: italic; }
+.gray-text { color: #666666; }
+
+.width-small { width: 65px; margin-right: 3px; }
+.width-medium { width: 170px; }
+.width-remaining { flex: 1; }
+.width-full { width: 100%; }
+.margin-top-sm { margin-top: 6px; }
+
+/* Corporate Registry Search Appendage Block Matcher */
+.input-group { display: flex; align-items: center; }
+.input-group input { flex: 1; }
+.search-btn {
+    background-color: #e2e2e2;
+    border: 1px solid #7f9db9;
+    border-left: none;
+    height: 19px;
+    padding: 1px 4px;
+    cursor: pointer;
     display: flex;
     align-items: center;
-    width: 100%;
-}
-.parentheses {
-    margin-left: 5px;
-    font-weight: bold;
-}
-.status-line {
-    flex: 1;
-    height: 2px;
-    background-color: #9bbcdb;
-    margin-top: 8px;
 }
 
-/* Bottom Grid / Table styling */
-.grid-section {
-    margin-top: 15px;
-    border: 1px solid #9bbcdb;
-    background-color: #fff;
-    height: 100px;
+/* Dynamic Structured Output Data Sheets Layout Tables */
+.grid-container {
+    border: 1px solid #7f9db9;
     overflow-y: auto;
+    background-color: #ffffff;
 }
-.data-grid {
+
+.ledger-grid {
     width: 100%;
     border-collapse: collapse;
-    text-align: left;
-}
-.data-grid th {
-    background-color: #e8f1fc;
-    color: #444;
-    font-weight: normal;
-    padding: 3px 5px;
-    border-right: 1px solid #cbdbee;
-    border-bottom: 1px solid #cbdbee;
-}
-.data-grid td {
-    padding: 4px 6px;
-}
-.empty-row td {
-    color: #333;
-    font-style: normal;
 }
 
-/* Window Footer Bar */
-.footer-bar {
-    background-color: #f4f8fb;
-    border-top: 1px solid #9bbcdb;
-    padding: 3px 8px;
-    color: #333;
+.ledger-grid th {
+    background-color: #eaf2fb;
+    border-right: 1px solid #b5d0eb;
+    border-bottom: 2px solid #9bbcdb;
+    padding: 5px 6px;
+    font-weight: bold;
+    text-align: left;
 }
+
+.ledger-grid td {
+    padding: 4px 6px;
+    border-right: 1px solid #e1eaf3;
+    border-bottom: 1px solid #e1eaf3;
+}
+
+.sub-footer-token {
+    position: absolute;
+    bottom: 3px;
+    left: 6px;
+    color: #444444;
+    font-weight: bold;
+}
+
+/* Right Command Action Bar Rules */
+.action-sidebar {
+    width: 110px;
+    background-color: #d6e4f3;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-left: 2px;
+}
+
+.sidebar-spacer { flex: 1; }
+.sidebar-footer { text-align: center; color: #777777; margin-top: auto; font-size: 9px; }
+
+.action-btn {
+    background: linear-gradient(to bottom, #fcfcfc 0%, #e2e2e2 100%);
+    border: 1px solid #8e8e8e;
+    padding: 5px 2px;
+    text-align: center;
+    color: #000000;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 #ffffff;
+}
+.action-btn:active { background: linear-gradient(to bottom, #e2e2e2 0%, #fcfcfc 100%); }
