@@ -99,7 +99,7 @@ document.addEventListener("DOMContentLoaded", function() {
             try {
                 // Adjust 'LoanMasterRecords' string parameter to match your specific Supabase table designation!
                 const { data, error } = await db
-                    .from('LoanMasterrRecords') 
+                    .from('LoanMasterRecords')
                     .insert([dataPayload]);
 
                 if (error) throw error;
@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", function() {
             try {
                 // Adjust table identifier 'LoanMasterRecords' to match your actual Supabase cloud naming matrix
                 const { data: loanRecords, error } = await db
-                    .from('LoanMasterrRecords')
+                   .from('LoanMasterRecords')
                     .select('*')
                     .order('created_at', { ascending: false })
                     .limit(5);
