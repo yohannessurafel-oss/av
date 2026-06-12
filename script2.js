@@ -87,7 +87,8 @@ function getFormData() {
 
     return {
         [COL.application_id]:   v('fApplicationId'),
-        [COL.branch_id]:        v('loanBranchId'),
+        [COL.branch_id]:        v('loanBranchId') || null,
+        center_id:              v('fCenterId') || null,   // FK → OperationalCenters; null when blank
         [COL.group_id]:         v('fGroupId'),
         [COL.sub_group_id]:     v('fSubGroupId'),
         [COL.client_id]:        v('fClientId'),
@@ -157,8 +158,7 @@ function clearForm() {
 
     // Restore sensible defaults
     const def = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-    def('loanBranchId',       '001');
-    def('loanBranchName',     'Koinange Street Branch');
+    // Branch defaults are set by loadBranchDropdown(); don't hardcode
     def('fTerm',              '12');
     def('fCurrencyId',        'ETB');
     def('fApplicationStatus', 'DataEntry');
@@ -393,6 +393,65 @@ async function runSearch(showAll) {
 }
 
 // ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+//  BRANCH DROPDOWN — Load from BranchRegistry table
+// ══════════════════════════════════════════════════════
+async function loadBranchDropdown() {
+    try {
+        const { data, error } = await db
+            .from('branchregistry')
+            .select('branch_id, branch_name')
+            .order('branch_name', { ascending: true });
+
+        const sel = document.getElementById('loanBranchId');
+        if (!sel) return;
+
+        if (error) {
+            console.warn('Could not load branches:', error.message);
+            return;
+        }
+
+        // Populate the select with real DB branches
+        sel.innerHTML = '<option value="">— Select Branch —</option>';
+        (data || []).forEach(b => {
+            const opt = document.createElement('option');
+            opt.value       = b.branch_id;
+            opt.textContent = b.branch_id + ' — ' + b.branch_name;
+            sel.appendChild(opt);
+        });
+
+        // Also update the branch name label when selection changes
+        sel.addEventListener('change', function () {
+            const chosen = (data || []).find(b => b.branch_id === this.value);
+            const nameEl = document.getElementById('loanBranchName');
+            if (nameEl) nameEl.value = chosen ? chosen.branch_name : '';
+        });
+
+        // Store branch list for pre-save validation
+        sel._branchData = data || [];
+
+        console.log('Branches loaded:', (data || []).length);
+    } catch (e) {
+        console.warn('loadBranchDropdown exception:', e);
+    }
+}
+
+// ── Pre-save FK validation: branch must exist in BranchRegistry ──
+async function validateBranchExists(branchId) {
+    if (!branchId) return true;  // null is allowed (nullable column)
+    try {
+        const { data, error } = await db
+            .from('branchregistry')
+            .select('branch_id')
+            .eq('branch_id', branchId)
+            .maybeSingle();
+        if (error) throw error;
+        return !!data;  // true if found
+    } catch (e) {
+        return false;
+    }
+}
+
 //  DOMContentLoaded — Wire Everything Up
 // ═══════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', function () {
@@ -434,6 +493,9 @@ document.addEventListener('DOMContentLoaded', function () {
     lockForm(true);
     updateButtonStates();
     setStatus('Ready');
+
+    // ── Load branches from BranchRegistry into dropdown ─
+    loadBranchDropdown();
 
     // ══════════════════════════════════════════════════
     //  VIEW — Open search modal
@@ -497,6 +559,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         setStatus('Saving to database...');
+
+        // ── Pre-flight: verify branch_id exists in BranchRegistry ──
+        const branchVal = payload[COL.branch_id];
+        if (branchVal) {
+            const branchOk = await validateBranchExists(branchVal);
+            if (!branchOk) {
+                alert('❌  Save failed!\n\nBranch ID "' + branchVal + '" does not exist in BranchRegistry.\n\nPlease select a valid branch from the Branch dropdown.');
+                setStatus('Save failed — invalid Branch ID');
+                return;
+            }
+        }
 
         try {
             let result;
