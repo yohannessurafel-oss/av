@@ -66,34 +66,34 @@
     <input type="text" id="loanBranchName" class="width-remaining" value="Koinange Street Branch" readonly>
 </div>
                         
-                        <div class="form-row"><label>Group ID</label><div class="input-group width-full"><input type="text"><span class="search-btn">🔍</span></div></div>
-                        <div class="form-row"><label>Sub Group ID</label><div class="input-group width-full"><input type="text"><span class="search-btn">🔍</span></div></div>
-                        <div class="form-row"><label>Application ID</label><div class="input-group width-full"><input type="text"><span class="search-btn">🔍</span></div></div>
+                        <div class="form-row"><label>Group ID</label><div class="input-group width-full"><input type="text" id="fGroupId"><span class="search-btn">🔍</span></div></div>
+                        <div class="form-row"><label>Sub Group ID</label><div class="input-group width-full"><input type="text" id="fSubGroupId"><span class="search-btn">🔍</span></div></div>
+                        <div class="form-row"><label>Application ID</label><div class="input-group width-full"><input type="text" id="fApplicationId"><span class="search-btn">🔍</span></div></div>
                         <div class="horizontal-divider-line"></div>
                         <div class="form-row"><label>Client Branch ID</label><div class="input-group width-small"><input type="text" value="001"><span class="search-btn">🔍</span></div><input type="text" class="width-remaining" value="Koinange Street Branch" readonly></div>
-                        <div class="form-row"><label>Client ID</label><div class="input-group width-full"><input type="text"><span class="search-btn">🔍</span></div></div>
-                        <div class="form-row"><label>Product ID</label><div class="input-group width-full"><input type="text"><span class="search-btn">🔍</span></div></div>
-                        <div class="form-row"><label>Main Repayment AccID</label><div class="input-group width-full"><input type="text"><span class="search-btn">🔍</span></div></div>
-                        <div class="form-row"><label>Donor ID</label><div class="input-group width-full"><input type="text"><span class="search-btn">🔍</span></div></div>
-                        <div class="form-row"><label>Loan Purpose</label><select class="width-full"><option>OTHER</option><option>BUSINESS EXPANSION</option></select></div>
-                        <div class="form-row"><label>Officer ID</label><div class="input-group width-full"><input type="text"><span class="search-btn">🔍</span></div></div>
-                        <div class="form-row"><label>Loan Amount</label><input type="number" class="text-right width-full"></div>
-                        <div class="form-row"><label>Term</label><input type="number" value="12" class="text-right width-full"></div>
-                        <div class="form-row"><label>Commission Rate</label><input type="number" class="text-right width-full"></div>
-                        <div class="form-row"><label>Effective Rate</label><input type="number" class="text-right width-full"></div>
-                        <div class="form-row"><label>Spread</label><input type="text" class="width-full"></div>
-                        <div class="form-row"><label>File Number</label><input type="text" class="width-full"></div>
-                        <div class="form-row"><label>Sales Officer</label><div class="input-group width-full"><input type="text"><span class="search-btn">🔍</span></div></div>
+                        <div class="form-row"><label>Client ID</label><div class="input-group width-full"><input type="text" id="fClientId"><span class="search-btn">🔍</span></div></div>
+                        <div class="form-row"><label>Product ID</label><div class="input-group width-full"><input type="text" id="fProductId"><span class="search-btn">🔍</span></div></div>
+                        <div class="form-row"><label>Main Repayment AccID</label><div class="input-group width-full"><input type="text" id="fRepaymentAccId"><span class="search-btn">🔍</span></div></div>
+                        <div class="form-row"><label>Donor ID</label><div class="input-group width-full"><input type="text" id="fDonorId"><span class="search-btn">🔍</span></div></div>
+                        <div class="form-row"><label>Loan Purpose</label><select id="fLoanPurpose" class="width-full"><option>OTHER</option><option>BUSINESS EXPANSION</option><option>AGRICULTURE</option><option>EDUCATION</option><option>HEALTH</option><option>HOUSING</option></select></div>
+                        <div class="form-row"><label>Officer ID</label><div class="input-group width-full"><input type="text" id="fOfficerId"><span class="search-btn">🔍</span></div></div>
+                        <div class="form-row"><label>Loan Amount</label><input type="number" id="fLoanAmount" class="text-right width-full"></div>
+                        <div class="form-row"><label>Term</label><input type="number" id="fTerm" value="12" class="text-right width-full"></div>
+                        <div class="form-row"><label>Commission Rate</label><input type="number" id="fCommissionRate" class="text-right width-full"></div>
+                        <div class="form-row"><label>Effective Rate</label><input type="number" id="fEffectiveRate" class="text-right width-full"></div>
+                        <div class="form-row"><label>Spread</label><input type="text" id="fSpread" class="width-full"></div>
+                        <div class="form-row"><label>File Number</label><input type="text" id="fFileNumber" class="width-full"></div>
+                        <div class="form-row"><label>Sales Officer</label><div class="input-group width-full"><input type="text" id="fSalesOfficer"><span class="search-btn">🔍</span></div></div>
                     </div>
                     <div class="sub-column">
-                        <div class="form-row"><label class="shifted-label">Date</label><input type="date" value="2014-09-14" class="width-full"></div>
+                        <div class="form-row"><label class="shifted-label">Date</label><input type="date" id="fDate" value="2014-09-14" class="width-full"></div>
                         <div class="form-spacer" style="height:105px;"></div>
-                        <div class="form-row"><label class="shifted-label">Line Of Business</label><select class="width-full"><option>Proprietary</option><option>Commercial</option></select></div>
-                        <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" value="ETB" class="font-bold width-full"></div>
-                        <div class="form-row"><label class="shifted-label">Interest Rate</label><input type="number" class="text-right width-full"></div>
-                        <div class="form-row"><label class="shifted-label">Tax Rate</label><input type="number" class="text-right width-full"></div>
-                        <div class="form-row"><label class="shifted-label">Disbursement Date</label><select class="width-full"><option>--Select--</option></select></div>
-                        <div class="form-row"><label class="shifted-label">Application Status</label><input type="text" value="DataEntry" readonly class="width-full"></div>
+                        <div class="form-row"><label class="shifted-label">Line Of Business</label><select id="fLineOfBusiness" class="width-full"><option>Proprietary</option><option>Commercial</option></select></div>
+                        <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" id="fCurrencyId" value="ETB" class="font-bold width-full"></div>
+                        <div class="form-row"><label class="shifted-label">Interest Rate</label><input type="number" id="fInterestRate" class="text-right width-full"></div>
+                        <div class="form-row"><label class="shifted-label">Tax Rate</label><input type="number" id="fTaxRate" class="text-right width-full"></div>
+                        <div class="form-row"><label class="shifted-label">Disbursement Date</label><input type="date" id="fDisbursementDate" class="width-full"></div>
+                        <div class="form-row"><label class="shifted-label">Application Status</label><input type="text" id="fApplicationStatus" value="DataEntry" readonly class="width-full"></div>
                     </div>
                 </form>
                 <div class="grid-container margin-top-sm" style="height:80px;">
@@ -531,12 +531,12 @@
 
         <!-- ── Right Action Sidebar ── -->
         <div class="action-sidebar">
-            <button type="button" class="action-btn font-bold" id="btnGlobalView">View</button>
-            <button type="button" class="action-btn font-bold" id="btnGlobalAdd">Add</button>
-            <button type="button" class="action-btn" id="btnGlobalEdit">Edit</button>
-            <button type="button" class="action-btn" id="btnGlobalDelete">Delete</button>
-            <button type="button" class="action-btn" id="btnGlobalSave">Save</button>
-            <button type="button" class="action-btn" id="btnGlobalCancel">Cancel</button>
+            <button type="button" class="action-btn font-bold" id="btnGlobalView" title="Search and load a record">View</button>
+            <button type="button" class="action-btn font-bold" id="btnGlobalAdd" title="Clear form and enter a new record">Add</button>
+            <button type="button" class="action-btn" id="btnGlobalEdit" title="Edit the currently loaded record">Edit</button>
+            <button type="button" class="action-btn" id="btnGlobalDelete" title="Delete the currently loaded record">Delete</button>
+            <button type="button" class="action-btn" id="btnGlobalSave" title="Save the current record to database">Save</button>
+            <button type="button" class="action-btn" id="btnGlobalCancel" title="Cancel and discard changes">Cancel</button>
             <div class="sidebar-spacer"></div>
             <button type="button" class="action-btn" id="btnGlobalPrint">🖨 Print</button>
             <div class="sidebar-footer">Africa Village<br>Microfinance</div>
