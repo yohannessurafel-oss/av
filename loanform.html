@@ -59,11 +59,10 @@
                     <div class="sub-column">
                         <div class="form-row">
     <label>Branch ID</label>
-    <div class="input-group width-small">
-        <input type="text" id="loanBranchId" value="001">
-        <span class="search-btn">🔍</span>
-    </div>
-    <input type="text" id="loanBranchName" class="width-remaining" value="Koinange Street Branch" readonly>
+    <select id="loanBranchId" class="width-small" style="width:120px;height:18px;font-size:11px;">
+        <option value="">Loading...</option>
+    </select>
+    <input type="text" id="loanBranchName" class="width-remaining" placeholder="Branch name" readonly>
 </div>
                         
                         <div class="form-row"><label>Group ID</label><div class="input-group width-full"><input type="text" id="fGroupId"><span class="search-btn">🔍</span></div></div>
