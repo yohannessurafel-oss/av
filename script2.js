@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
 //  Africa Village Microfinance — Loan Ledger System
-//  Full CRUD Engine — aligned to LoanMasterRecords schema
+//  Full CRUD Engine — aligned to LoanApplication schema
 // ═══════════════════════════════════════════════════════
 
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
@@ -18,13 +18,13 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     }
 });
 
-const TABLE = 'LoanMasterRecords';
+const TABLE = 'LoanApplication';
 
 // ══════════════════════════════════════════════════════
 //  COLUMN NAME MAP — Edit these if your DB uses different
 //  column names. These are the EXACT names in Supabase.
 // ══════════════════════════════════════════════════════
-// ── Column names verified against LoanMasterRecords schema ──
+// ── Column names verified against LoanApplication schema ──
 const COL = {
     application_id:   'application_id',        // VARCHAR(40) PRIMARY KEY
     branch_id:        'branch_id',             // VARCHAR(15)
@@ -79,7 +79,7 @@ function lockForm(locked) {
     });
 }
 
-// ── Read Form → DB Payload (matches LoanMasterRecords) ─
+// ── Read Form → DB Payload (matches LoanApplication) ─
 function getFormData() {
     const v = id => document.getElementById(id)?.value?.trim() || null;
     const n = id => { const val = parseFloat(document.getElementById(id)?.value); return isNaN(val) ? null : val; };
