@@ -5,9 +5,55 @@
 
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    db: { schema: 'public' },
+    global: {
+        headers: {
+            // Forces PostgREST to reload its schema cache on every request.
+            // This fixes "column not found in schema cache" errors after
+            // table alterations without needing a Supabase restart.
+            'Accept-Profile': 'public',
+            'Content-Profile': 'public'
+        }
+    }
+});
 
 const TABLE = 'LoanMasterRecords';
+
+// ══════════════════════════════════════════════════════
+//  COLUMN NAME MAP — Edit these if your DB uses different
+//  column names. These are the EXACT names in Supabase.
+// ══════════════════════════════════════════════════════
+// ── Column names verified against LoanMasterRecords schema ──
+const COL = {
+    application_id:   'application_id',        // VARCHAR(40) PRIMARY KEY
+    branch_id:        'branch_id',             // VARCHAR(15)
+    group_id:         'group_id',              // VARCHAR(40)
+    sub_group_id:     'sub_group_id',          // VARCHAR(40)
+    client_id:        'client_id',             // VARCHAR(40) NOT NULL
+    client_name:      'client_name',           // VARCHAR(150)
+    product_id:       'product_id',            // VARCHAR(30) NOT NULL
+    repayment_acc:    'main_repayment_account_id', // VARCHAR(40) NOT NULL
+    donor_id:         'donor_id',              // VARCHAR(40)
+    loan_purpose:     'loan_purpose',          // VARCHAR(50)
+    officer_id:       'credit_officer_id',     // VARCHAR(40)
+    sales_officer:    'sales_officer',         // VARCHAR(100)
+    file_number:      'file_number',           // VARCHAR(50)
+    applied_amount:   'applied_amount',        // NUMERIC(15,2) NOT NULL
+    term_months:      'term_months',           // INT NOT NULL
+    commission_rate:  'commission_rate',       // NUMERIC(5,2)
+    effective_rate:   'effective_rate',        // NUMERIC(5,2)
+    spread:           'spread',                // NUMERIC(5,2)
+    app_date:         'application_date',      // DATE  <- exact DB column name
+    line_of_business: 'line_of_business',      // VARCHAR(50)
+    currency_id:      'currency_id',           // VARCHAR(5)
+    interest_rate:    'interest_rate',         // NUMERIC(5,2) NOT NULL
+    tax_rate:         'tax_rate',              // NUMERIC(5,2)
+    disbursement_date:'disbursement_date',     // DATE
+    app_status:       'application_status',    // VARCHAR(50)
+    created_on:       'created_on',            // TIMESTAMP
+    modified_on:      'modified_on',           // TIMESTAMP
+};
 
 // ── App State ─────────────────────────────────────────
 let appState = {
@@ -40,31 +86,31 @@ function getFormData() {
     const i = id => { const val = parseInt(document.getElementById(id)?.value); return isNaN(val) ? null : val; };
 
     return {
-        application_id:             v('fApplicationId'),
-        branch_id:                  v('loanBranchId'),
-        group_id:                   v('fGroupId'),
-        sub_group_id:               v('fSubGroupId'),
-        client_id:                  v('fClientId'),
-        product_id:                 v('fProductId'),
-        main_repayment_account_id:  v('fRepaymentAccId'),
-        donor_id:                   v('fDonorId'),
-        loan_purpose:               v('fLoanPurpose'),
-        credit_officer_id:          v('fOfficerId'),
-        sales_officer:              v('fSalesOfficer'),
-        file_number:                v('fFileNumber'),
-        applied_amount:             n('fLoanAmount'),
-        term_months:                i('fTerm'),
-        commission_rate:            n('fCommissionRate'),
-        effective_rate:             n('fEffectiveRate'),
-        spread:                     n('fSpread'),
-        application_date:           v('fDate') || null,
-        line_of_business:           v('fLineOfBusiness'),
-        currency_id:                v('fCurrencyId') || 'ETB',
-        interest_rate:              n('fInterestRate'),
-        tax_rate:                   n('fTaxRate'),
-        disbursement_date:          v('fDisbursementDate') || null,
-        application_status:         v('fApplicationStatus') || 'DataEntry',
-        modified_on:                new Date().toISOString()
+        [COL.application_id]:   v('fApplicationId'),
+        [COL.branch_id]:        v('loanBranchId'),
+        [COL.group_id]:         v('fGroupId'),
+        [COL.sub_group_id]:     v('fSubGroupId'),
+        [COL.client_id]:        v('fClientId'),
+        [COL.product_id]:       v('fProductId'),
+        [COL.repayment_acc]:    v('fRepaymentAccId'),
+        [COL.donor_id]:         v('fDonorId'),
+        [COL.loan_purpose]:     v('fLoanPurpose'),
+        [COL.officer_id]:       v('fOfficerId'),
+        [COL.sales_officer]:    v('fSalesOfficer'),
+        [COL.file_number]:      v('fFileNumber'),
+        [COL.applied_amount]:   n('fLoanAmount'),
+        [COL.term_months]:      i('fTerm'),
+        [COL.commission_rate]:  n('fCommissionRate'),
+        [COL.effective_rate]:   n('fEffectiveRate'),
+        [COL.spread]:           n('fSpread'),
+        [COL.app_date]:         v('fDate') || null,
+        [COL.line_of_business]: v('fLineOfBusiness'),
+        [COL.currency_id]:      v('fCurrencyId') || 'ETB',
+        [COL.interest_rate]:    n('fInterestRate'),
+        [COL.tax_rate]:         n('fTaxRate'),
+        [COL.disbursement_date]:v('fDisbursementDate') || null,
+        [COL.app_status]:       v('fApplicationStatus') || 'DataEntry',
+        [COL.modified_on]:      new Date().toISOString()
     };
 }
 
@@ -75,33 +121,33 @@ function populateForm(row) {
         if (el) el.value = val ?? '';
     };
 
-    set('loanBranchId',       row.branch_id);
+    set('loanBranchId',       row[COL.branch_id]);
     set('loanBranchName',     row.branch_name || '');   // from BranchRegistry join if available
-    set('fGroupId',           row.group_id);
-    set('fSubGroupId',        row.sub_group_id);
-    set('fApplicationId',     row.application_id);
-    set('fClientId',          row.client_id);
-    set('fProductId',         row.product_id);
-    set('fRepaymentAccId',    row.main_repayment_account_id);
-    set('fDonorId',           row.donor_id);
-    set('fLoanPurpose',       row.loan_purpose);
-    set('fOfficerId',         row.credit_officer_id);
-    set('fSalesOfficer',      row.sales_officer);
-    set('fFileNumber',        row.file_number);
-    set('fLoanAmount',        row.applied_amount);
-    set('fTerm',              row.term_months);
-    set('fCommissionRate',    row.commission_rate);
-    set('fEffectiveRate',     row.effective_rate);
-    set('fSpread',            row.spread);
-    set('fDate',              row.application_date);
-    set('fLineOfBusiness',    row.line_of_business);
-    set('fCurrencyId',        row.currency_id || 'ETB');
-    set('fInterestRate',      row.interest_rate);
-    set('fTaxRate',           row.tax_rate);
-    set('fDisbursementDate',  row.disbursement_date);
-    set('fApplicationStatus', row.application_status || 'DataEntry');
+    set('fGroupId',           row[COL.group_id]);
+    set('fSubGroupId',        row[COL.sub_group_id]);
+    set('fApplicationId',     row[COL.application_id]);
+    set('fClientId',          row[COL.client_id]);
+    set('fProductId',         row[COL.product_id]);
+    set('fRepaymentAccId',    row[COL.repayment_acc]);
+    set('fDonorId',           row[COL.donor_id]);
+    set('fLoanPurpose',       row[COL.loan_purpose]);
+    set('fOfficerId',         row[COL.officer_id]);
+    set('fSalesOfficer',      row[COL.sales_officer]);
+    set('fFileNumber',        row[COL.file_number]);
+    set('fLoanAmount',        row[COL.applied_amount]);
+    set('fTerm',              row[COL.term_months]);
+    set('fCommissionRate',    row[COL.commission_rate]);
+    set('fEffectiveRate',     row[COL.effective_rate]);
+    set('fSpread',            row[COL.spread]);
+    set('fDate',              row[COL.app_date]);
+    set('fLineOfBusiness',    row[COL.line_of_business]);
+    set('fCurrencyId',        row[COL.currency_id] || 'ETB');
+    set('fInterestRate',      row[COL.interest_rate]);
+    set('fTaxRate',           row[COL.tax_rate]);
+    set('fDisbursementDate',  row[COL.disbursement_date]);
+    set('fApplicationStatus', row[COL.app_status] || 'DataEntry');
 
-    appState.currentRecordId = row.application_id;
+    appState.currentRecordId = row[COL.application_id];
 }
 
 // ── Clear Form to Defaults ─────────────────────────────
@@ -251,10 +297,18 @@ async function runSearch(showAll) {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:14px;color:#667788;">Loading records...</td></tr>';
 
     try {
+        // Build the select string from the COL map so it always matches DB columns
+        const selectCols = [
+            COL.application_id, COL.client_id, COL.client_name,
+            COL.branch_id, COL.applied_amount, COL.loan_purpose,
+            COL.app_status, COL.app_date, COL.interest_rate,
+            COL.term_months, COL.currency_id
+        ].join(', ');
+
         let query = db
             .from(TABLE)
-            .select('application_id, client_id, client_name, branch_id, applied_amount, loan_purpose, application_status, application_date, interest_rate, term_months, currency_id')
-            .order('created_on', { ascending: false })
+            .select(selectCols)
+            .order(COL.created_on, { ascending: false })
             .limit(300);
 
         if (!showAll) {
@@ -277,8 +331,8 @@ async function runSearch(showAll) {
         tbody.innerHTML = data.map((row, i) => {
             const even = i % 2 === 0;
             const bg   = even ? '#f5f9fd' : '#ffffff';
-            const amt  = row.applied_amount != null
-                ? Number(row.applied_amount).toLocaleString('en-ET', { minimumFractionDigits: 2 })
+            const amt  = row[COL.applied_amount] != null
+                ? Number(row[COL.applied_amount]).toLocaleString('en-ET', { minimumFractionDigits: 2 })
                 : '—';
             const statusColor = {
                 'DataEntry':  '#ddeaf7',
@@ -286,22 +340,22 @@ async function runSearch(showAll) {
                 'Rejected':   '#f8d7da',
                 'Disbursed':  '#fff3cd',
                 'Closed':     '#e2e3e5'
-            }[row.application_status] || '#eef4fb';
+            }[row[COL.app_status]] || '#eef4fb';
 
-            return `<tr data-appid="${row.application_id}"
+            return `<tr data-appid="${row[COL.application_id]}"
                         style="cursor:pointer;background:${bg};"
                         onmouseover="this.style.background='#d8edfb'"
                         onmouseout="this.style.background='${bg}'">
-                <td style="padding:3px 7px;border-right:1px solid #cde0f0;border-bottom:1px solid #cde0f0;font-weight:bold;color:#0d3460;">${row.application_id || '—'}</td>
-                <td style="padding:3px 7px;border-right:1px solid #cde0f0;border-bottom:1px solid #cde0f0;">${row.client_id || '—'}</td>
-                <td style="padding:3px 7px;border-right:1px solid #cde0f0;border-bottom:1px solid #cde0f0;">${row.client_name || '—'}</td>
-                <td style="padding:3px 7px;border-right:1px solid #cde0f0;border-bottom:1px solid #cde0f0;">${row.branch_id || '—'}</td>
+                <td style="padding:3px 7px;border-right:1px solid #cde0f0;border-bottom:1px solid #cde0f0;font-weight:bold;color:#0d3460;">${row[COL.application_id] || '—'}</td>
+                <td style="padding:3px 7px;border-right:1px solid #cde0f0;border-bottom:1px solid #cde0f0;">${row[COL.client_id] || '—'}</td>
+                <td style="padding:3px 7px;border-right:1px solid #cde0f0;border-bottom:1px solid #cde0f0;">${row[COL.client_name] || '—'}</td>
+                <td style="padding:3px 7px;border-right:1px solid #cde0f0;border-bottom:1px solid #cde0f0;">${row[COL.branch_id] || '—'}</td>
                 <td style="padding:3px 7px;border-right:1px solid #cde0f0;border-bottom:1px solid #cde0f0;text-align:right;">${amt}</td>
-                <td style="padding:3px 7px;border-right:1px solid #cde0f0;border-bottom:1px solid #cde0f0;">${row.loan_purpose || '—'}</td>
+                <td style="padding:3px 7px;border-right:1px solid #cde0f0;border-bottom:1px solid #cde0f0;">${row[COL.loan_purpose] || '—'}</td>
                 <td style="padding:3px 7px;border-right:1px solid #cde0f0;border-bottom:1px solid #cde0f0;">
-                    <span style="background:${statusColor};padding:1px 6px;border-radius:2px;font-size:10px;font-weight:bold;">${row.application_status || '—'}</span>
+                    <span style="background:${statusColor};padding:1px 6px;border-radius:2px;font-size:10px;font-weight:bold;">${row[COL.app_status] || '—'}</span>
                 </td>
-                <td style="padding:3px 7px;border-bottom:1px solid #cde0f0;">${row.application_date || '—'}</td>
+                <td style="padding:3px 7px;border-bottom:1px solid #cde0f0;">${row[COL.app_date] || '—'}</td>
             </tr>`;
         }).join('');
 
@@ -314,7 +368,7 @@ async function runSearch(showAll) {
                     const { data: full, error: err2 } = await db
                         .from(TABLE)
                         .select('*')
-                        .eq('application_id', appId)
+                        .eq(COL.application_id, appId)
                         .single();
                     if (err2) throw err2;
                     populateForm(full);
@@ -429,13 +483,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // ── Required field validation ──────────────────
         const missing = [];
-        if (!payload.application_id)            missing.push('Application ID');
-        if (!payload.client_id)                 missing.push('Client ID');
-        if (!payload.product_id)                missing.push('Product ID');
-        if (!payload.main_repayment_account_id) missing.push('Main Repayment AccID');
-        if (!payload.applied_amount)            missing.push('Loan Amount');
-        if (!payload.term_months)               missing.push('Term');
-        if (!payload.interest_rate && payload.interest_rate !== 0) missing.push('Interest Rate');
+        if (!payload[COL.application_id])            missing.push('Application ID');
+        if (!payload[COL.client_id])                 missing.push('Client ID');
+        if (!payload[COL.product_id])                missing.push('Product ID');
+        if (!payload[COL.repayment_acc])             missing.push('Main Repayment AccID');
+        if (!payload[COL.applied_amount])            missing.push('Loan Amount');
+        if (!payload[COL.term_months])               missing.push('Term');
+        if (!payload[COL.interest_rate] && payload[COL.interest_rate] !== 0) missing.push('Interest Rate');
 
         if (missing.length > 0) {
             alert('⚠️  Required fields are missing:\n\n• ' + missing.join('\n• ') + '\n\nPlease fill in all required fields before saving.');
@@ -448,16 +502,17 @@ document.addEventListener('DOMContentLoaded', function () {
             let result;
 
             if (appState.mode === 'add') {
-                payload.created_on  = new Date().toISOString();
-                payload.modified_on = new Date().toISOString();
+                payload[COL.created_on]  = new Date().toISOString();
+                payload[COL.modified_on] = new Date().toISOString();
                 result = await db.from(TABLE).insert([payload]).select();
             } else {
                 // Edit — update by primary key
-                payload.modified_on = new Date().toISOString();
-                // Remove PK from update payload — never update the PK column itself
-                const { application_id, ...updatePayload } = payload;
+                payload[COL.modified_on] = new Date().toISOString();
+                // Remove business key from update payload — never update it
+                const updatePayload = { ...payload };
+                delete updatePayload[COL.application_id];
                 result = await db.from(TABLE).update(updatePayload)
-                    .eq('application_id', appState.currentRecordId)
+                    .eq(COL.application_id, appState.currentRecordId)
                     .select();
             }
 
@@ -471,15 +526,15 @@ document.addEventListener('DOMContentLoaded', function () {
             appState.mode = 'view';
             lockForm(true);
             updateButtonStates();
-            setStatus('Saved — ' + payload.application_id);
-            alert('✅  Record saved successfully!\n\nApplication ID: ' + payload.application_id);
+            setStatus('Saved — ' + payload[COL.application_id]);
+            alert('✅  Record saved successfully!\n\nApplication ID: ' + payload[COL.application_id]);
 
         } catch (err) {
             setStatus('Save failed');
             console.error('Save error:', err);
             let hint = err.message;
             if (err.message.includes('duplicate') || err.message.includes('unique'))
-                hint += '\n\nHint: Application ID "' + payload.application_id + '" already exists. Use a unique ID.';
+                hint += '\n\nHint: Application ID "' + payload[COL.application_id] + '" already exists. Use a unique ID.';
             if (err.message.includes('foreign key'))
                 hint += '\n\nHint: Branch ID or Client ID does not exist in the reference tables.';
             alert('❌  Save failed!\n\n' + hint);
@@ -506,7 +561,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         setStatus('Deleting...');
         try {
-            const { error } = await db.from(TABLE).delete().eq('application_id', appId);
+            const { error } = await db.from(TABLE).delete().eq(COL.application_id, appId);
             if (error) throw error;
 
             clearForm();
