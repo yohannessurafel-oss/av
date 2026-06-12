@@ -18,7 +18,7 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     }
 });
 
-const TABLE = 'LoanMasterRecords';
+const TABLE = 'loanmasterrecords';
 
 // ══════════════════════════════════════════════════════
 //  COLUMN NAME MAP — Edit these if your DB uses different
