@@ -531,3 +531,24 @@ input[type="checkbox"] {
     .window-container { box-shadow: none; border: none; width: 100%; }
     .module-view.active { display: block !important; }
 }
+
+/* ── Button Disabled States ───────────────────────── */
+.action-btn:disabled {
+    opacity: 0.42;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+    pointer-events: none;
+}
+
+#btnGlobalSave:disabled,
+#btnGlobalDelete:disabled {
+    opacity: 0.38;
+}
+
+/* ── View Modal Scrollbar ─────────────────────────── */
+#viewModal table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
