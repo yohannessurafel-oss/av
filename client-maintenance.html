@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Client Maintenance – Africa Village Microfinance</title>
 <link rel="stylesheet" href="client-maintenance.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
 <div class="app-shell">
-  <!-- Left Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-logo">
       <div class="logo-mark">AV</div>
@@ -34,10 +34,8 @@
     </nav>
   </aside>
 
-  <!-- Main Content -->
   <main class="main-content">
     <div class="form-window">
-      <!-- Window Header -->
       <div class="window-header">
         <span class="window-title">Client Maintenance</span>
         <div class="window-controls">
@@ -47,7 +45,6 @@
         </div>
       </div>
 
-      <!-- Top Identity Bar -->
       <div class="identity-bar">
         <div class="id-row">
           <div class="id-field">
@@ -60,9 +57,9 @@
           <div class="id-field">
             <label>Client Type</label>
             <select id="clientType" class="id-select">
-              <option>Individual Client</option>
-              <option>Group Client</option>
-              <option>Corporate</option>
+              <option value="Individual Client">Individual Client</option>
+              <option value="Group Client">Group Client</option>
+              <option value="Corporate">Corporate</option>
             </select>
           </div>
         </div>
@@ -78,9 +75,9 @@
             <label>Base ID</label>
             <select id="baseId" class="id-select">
               <option value="">– Select –</option>
-              <option>Branch 01</option>
-              <option>Branch 02</option>
-              <option>Head Office</option>
+              <option value="BR001">Branch 01 (Addis Ababa)</option>
+              <option value="BR002">Branch 02 (Hawassa)</option>
+              <option value="HO001">Head Office</option>
             </select>
           </div>
         </div>
@@ -92,7 +89,6 @@
         </div>
       </div>
 
-      <!-- Tabs -->
       <div class="tab-bar">
         <button class="tab active" data-tab="personal">Personal</button>
         <button class="tab" data-tab="address">Address</button>
@@ -100,10 +96,8 @@
         <button class="tab" data-tab="special">Special Offers</button>
       </div>
 
-      <!-- Tab Panels -->
       <div class="tab-panels">
 
-        <!-- PERSONAL TAB -->
         <div id="tab-personal" class="tab-panel active">
           <div class="section-header">Personal Details</div>
           <div class="form-grid">
@@ -148,7 +142,7 @@
             <div class="form-row">
               <div class="form-field">
                 <label>Age</label>
-                <input type="number" name="age" class="short-input" readonly/>
+                <input type="number" name="age" class="short-input"/>
               </div>
               <div class="form-field">
                 <label>Age As On</label>
@@ -271,7 +265,6 @@
             </div>
           </div>
 
-          <!-- Behind The Scene -->
           <div class="bts-section">
             <div class="bts-header">Behind The Scene</div>
             <div class="bts-grid">
@@ -288,7 +281,6 @@
           </div>
         </div>
 
-        <!-- ADDRESS TAB -->
         <div id="tab-address" class="tab-panel">
           <div class="section-header">Mailing Address</div>
           <div class="form-grid">
@@ -296,9 +288,9 @@
               <div class="form-field">
                 <label>Address Type</label>
                 <select name="addressType">
-                  <option>Residential Address</option>
-                  <option>Business Address</option>
-                  <option>Postal Address</option>
+                  <option value="Residential Address">Residential Address</option>
+                  <option value="Business Address">Business Address</option>
+                  <option value="Postal Address">Postal Address</option>
                 </select>
               </div>
               <div class="form-field"></div>
@@ -334,8 +326,7 @@
               <div class="form-field">
                 <label>Country</label>
                 <select name="country">
-                  <option value="">– Select –</option>
-                  <option>Ethiopia</option><option>Other</option>
+                  <option value="Ethiopia">Ethiopia</option><option value="Other">Other</option>
                 </select>
               </div>
               <div class="form-field">
@@ -381,7 +372,6 @@
           </div>
         </div>
 
-        <!-- EMPLOYMENT TAB -->
         <div id="tab-employment" class="tab-panel">
           <div class="section-header">Employment Details</div>
           <p class="em-note">* All Figures Are Monthly Based</p>
@@ -502,7 +492,6 @@
           </div>
         </div>
 
-        <!-- SPECIAL OFFERS TAB -->
         <div id="tab-special" class="tab-panel">
           <div class="section-header">Special Offers</div>
           <div class="form-grid">
@@ -555,11 +544,8 @@
           </div>
         </div>
 
-      </div><!-- /tab-panels -->
-    </div><!-- /form-window -->
-  </main>
+      </div></div></main>
 
-  <!-- Right Toolbar -->
   <aside class="toolbar">
     <div class="nav-arrows">
       <button class="arrow-btn" id="btnPrev" title="Previous Record">&#9650;</button>
@@ -576,7 +562,6 @@
   </aside>
 </div>
 
-<!-- Toast -->
 <div id="toast" class="toast"></div>
 
 <script src="client-maintenance.js"></script>
