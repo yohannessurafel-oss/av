@@ -354,7 +354,91 @@ async function saveRecord() {
     showToast(`Save failed: ${e.message}`, 'error');
   }
 }
+// ── Personal Info Layout Builders & Business Rules ─────────────────
 
+function initPersonalDropdowns() {
+  const daySelectors   = document.querySelectorAll('[name="dobDay"], [name="idExpiryDay"]');
+  const monthSelectors = document.querySelectorAll('[name="dobMonth"], [name="idExpiryMonth"]');
+  const dobYearSel     = document.querySelector('[name="dobYear"]');
+  const expiryYearSel  = document.querySelector('[name="idExpiryYear"]');
+
+  // Populate Days (1-31)
+  daySelectors.forEach(sel => {
+    if (!sel) return;
+    for (let i = 1; i <= 31; i++) {
+      const opt = document.createElement('option');
+      opt.value = i; opt.textContent = String(i).padStart(2, '0');
+      sel.appendChild(opt);
+    }
+  });
+
+  // Populate Months
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  monthSelectors.forEach(sel => {
+    if (!sel) return;
+    months.forEach((m, idx) => {
+      const opt = document.createElement('option');
+      opt.value = idx + 1; opt.textContent = m;
+      sel.appendChild(opt);
+    });
+  });
+
+  // Populate DOB Years (Retrograde generation from present down to 100 years past)
+  if (dobYearSel) {
+    const currentYear = new Date().getFullYear();
+    for (let y = currentYear; y >= currentYear - 100; y--) {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y;
+      dobYearSel.appendChild(opt);
+    }
+  }
+
+  // Populate ID Expiry Years (Forward mapping up to 25 years into future context)
+  if (expiryYearSel) {
+    const currentYear = new Date().getFullYear();
+    for (let y = currentYear - 5; y <= currentYear + 25; y++) {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y;
+      expiryYearSel.appendChild(opt);
+    }
+  }
+}
+
+// Live Chronological Mathematical Engine for Age Values
+function calculateLiveAge() {
+  const day = document.querySelector('[name="dobDay"]').value;
+  const mon = document.querySelector('[name="dobMonth"]').value;
+  const yr  = document.querySelector('[name="dobYear"]').value;
+  const ageInput = document.querySelector('[name="age"]');
+
+  if (!day || !mon || !yr) {
+    if (ageInput) ageInput.value = '';
+    return;
+  }
+
+  const birthDate = new Date(parseInt(yr), parseInt(mon) - 1, parseInt(day));
+  const today = new Date();
+  
+  let structuralAge = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff  = today.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    structuralAge--;
+  }
+
+  if (ageInput) {
+    ageInput.value = structuralAge >= 0 ? structuralAge : 0;
+  }
+}
+
+// Bind calculations to execute whenever date parameters are altered
+['dobDay', 'dobMonth', 'dobYear'].forEach(name => {
+  const el = document.querySelector(`[name="${name}"]`);
+  if (el) el.addEventListener('change', calculateLiveAge);
+});
+
+// Run dropdown generation routines within the application initialization setup block
+initPersonalDropdowns();
 // ── Toolbar Button Events ─────────────────────────────────
 btnView.addEventListener('click', async () => {
   const cid = document.getElementById('clientId').value.trim();
