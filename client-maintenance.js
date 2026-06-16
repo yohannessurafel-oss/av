@@ -212,19 +212,20 @@ function populateBTS(rec) {
 }
 
 // ── Form → Record ─────────────────────────────────────────
-function collectForm() {
-  const get = (name) => {
+const get = (name) => {
     const el = document.querySelector(`[name="${name}"]`);
     if (!el) return null;
     if (el.type === 'checkbox') return el.checked;
-    return el.value || null;
+    // CRITICAL: If a field is empty, return null instead of "" so numbers don't break
+    return el.value.trim() === '' ? null : el.value;
   };
+
   return {
-    client_id:       document.getElementById('clientId').value || null,
-    application_id:  document.getElementById('applicationId').value || null,
-    client_name:     document.getElementById('clientName').value || null,
-    client_type:     document.getElementById('clientType').value || null,
-    base_id:         document.getElementById('baseId').value || null,
+    client_id:       document.getElementById('clientId').value.trim() || null,
+    application_id:  document.getElementById('applicationId').value.trim() || null,
+    client_name:     document.getElementById('clientName').value.trim() || null,
+    client_type:     document.getElementById('clientType').value || 'Individual Client',
+    base_id:         document.getElementById('baseId').value.trim() || null,
     // Personal
     title: get('title'), first_name: get('firstName'), middle_name: get('middleName'),
     last_name: get('lastName'), gender: get('gender'), nationality: get('nationality'),
@@ -310,44 +311,58 @@ async function loadRecord(clientId) {
 
 async function saveRecord() {
   const payload = collectForm();
-
-  // 1. MODIFIED VALIDATION: Only require Client ID during updates (Edit mode)
-  if (mode === 'edit' && !payload.client_id) { 
-    showToast('Client ID is required to update a record.', 'error'); 
-    return; 
-  }
   
-  // First Name validation remains mandatory for both modes
+  // 1. Core Structural Validation Check
   if (!payload.first_name) { 
     showToast('First Name is required.', 'error'); 
     return; 
   }
 
+  // 2. Clear Database Generated and Stale Fields
+  delete payload.total_income;
+  delete payload.total_expenses;
+  delete payload.net_savings;
+
+  // Clean empty form strings out of the payload object entirely 
+  // so PostgreSQL handles default configurations and nullable constraints properly.
+  Object.keys(payload).forEach(key => {
+    if (payload[key] === '' || payload[key] === null || payload[key] === undefined) {
+      delete payload[key];
+    }
+  });
+
   try {
-    showToast('Processing transaction...', 'info');
-
     if (mode === 'add') {
-      // If adding a new record and Client ID is empty, remove it from payload 
-      // so PostgreSQL knows to apply its default automatic generation rules.
-      if (!payload.client_id) {
-        delete payload.client_id; 
-      }
+      // Direct the database engine to autogenerate IDs by removing empty references
+      delete payload.client_id;
+      delete payload.application_id;
 
+      showToast('Creating record...', 'info');
       const data = await sbFetch('ClientMasterRecords', {
         method: 'POST',
         body: JSON.stringify(payload),
         prefer: 'return=representation'
       });
+      
       currentRecord = Array.isArray(data) ? data[0] : data;
       showToast('Client saved successfully.', 'success');
-      
     } else {
-      // Edit mode logic remains unchanged
+      // Edit Mode Layout: Avoid mutating target primary tracking elements
+      if (!currentRecord || !currentRecord.client_id) {
+        showToast('Update failed: Missing base record tracking context.', 'error');
+        return;
+      }
+
+      const updatePayload = { ...payload };
+      delete updatePayload.client_id; // Never push an tracking ID parameter into update targets
+
+      showToast('Updating record...', 'info');
       await sbFetch(`ClientMasterRecords?client_id=eq.${encodeURIComponent(currentRecord.client_id)}`, {
         method: 'PATCH',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(updatePayload),
         prefer: 'return=representation'
       });
+      
       currentRecord = { ...currentRecord, ...payload };
       showToast('Client updated successfully.', 'success');
     }
@@ -355,6 +370,7 @@ async function saveRecord() {
     populateForm(currentRecord);
     setMode('view');
   } catch (e) {
+    console.error('Supabase Core Rejection Details:', e);
     showToast(`Save failed: ${e.message}`, 'error');
   }
 }
