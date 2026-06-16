@@ -11,19 +11,13 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     db: { schema: 'public' },
     global: {
         headers: {
-            // Forces PostgREST to reload its schema cache on every request.
-            // This fixes "column not found in schema cache" errors after
-            // table alterations without needing a Supabase restart.
             'Accept-Profile': 'public',
             'Content-Profile': 'public'
         }
     }
 });
 
-
-
 async function sbFetch(path, options = {}) {
-  // FIX 1: was SUPABASE_KEY (undefined) — corrected to SUPABASE_ANON_KEY
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
     headers: {
@@ -96,12 +90,12 @@ function clearForm() {
   document.getElementById('clientName').value = '';
   document.getElementById('clientType').value = 'Individual Client';
   document.getElementById('baseId').value = '';
-  // FIX 8: reset split date selects that getAllInputs() misses (they are selects in tab-panel)
+  
   ['dobDay','dobMonth','dobYear','idExpiryDay','idExpiryMonth','idExpiryYear'].forEach(n => {
     const el = document.querySelector(`[name="${n}"]`);
     if (el) el.selectedIndex = 0;
   });
-  // FIX 8: reset empType radio to default
+  
   const defaultRadio = document.querySelector('[name="empType"][value="salaried"]');
   if (defaultRadio) defaultRadio.checked = true;
   clearBTS();
@@ -148,16 +142,14 @@ function populateForm(rec) {
   set('children', rec.children); set('dependents', rec.dependents);
   set('bloodGroup', rec.blood_group); set('canDonate', rec.can_donate);
   set('openedBy', rec.opened_by); set('age', rec.age);
-  set('openedOn', rec.opened_on);       // FIX 2a: was missing
-  set('ageAsOn', rec.age_as_on);        // FIX 2b: was missing
-  set('relManager', rec.relationship_manager); // FIX 2c: was missing
+  set('openedOn', rec.opened_on);       
+  set('ageAsOn', rec.age_as_on);        
+  set('relManager', rec.relationship_manager); 
 
-  // FIX 2d: date_of_birth split across 3 selects
   if (rec.date_of_birth) {
     const [y, m, d] = rec.date_of_birth.split('-');
     set('dobDay', +d); set('dobMonth', +m); set('dobYear', +y);
   }
-  // FIX 2e: id_expiry_date split across 3 selects
   if (rec.id_expiry_date) {
     const [y, m, d] = rec.id_expiry_date.split('-');
     set('idExpiryDay', +d); set('idExpiryMonth', +m); set('idExpiryYear', +y);
@@ -177,20 +169,16 @@ function populateForm(rec) {
   set('employeeNo', rec.employee_no); set('grossIncome', rec.gross_income);
   set('rentExpenses', rec.rent_expenses); set('familyIncome', rec.family_income);
   set('otherExpenses', rec.other_expenses); set('otherIncome', rec.other_income);
-  // FIX 3: employment_type (radio buttons) was never populated
+  
   if (rec.employment_type) {
     const radio = document.querySelector(`[name="empType"][value="${rec.employment_type === 'Salaried' ? 'salaried' : 'selfEmployed'}"]`);
     if (radio) radio.checked = true;
   }
   computeEmploymentTotals();
-
-  // BTS
   populateBTS(rec);
 }
 
 function populateBTS(rec) {
-  // FIX 9: use a fixed label→DB-column map instead of fragile label text parsing.
-  // "Open Date" label maps to rec.open_date (not opened_on), etc.
   const labelMap = {
     'status':        rec.status,
     'open date':     rec.open_date,
@@ -212,11 +200,11 @@ function populateBTS(rec) {
 }
 
 // ── Form → Record ─────────────────────────────────────────
-const get = (name) => {
+function collectForm() {
+  const get = (name) => {
     const el = document.querySelector(`[name="${name}"]`);
     if (!el) return null;
     if (el.type === 'checkbox') return el.checked;
-    // CRITICAL: If a field is empty, return null instead of "" so numbers don't break
     return el.value.trim() === '' ? null : el.value;
   };
 
@@ -231,25 +219,23 @@ const get = (name) => {
     last_name: get('lastName'), gender: get('gender'), nationality: get('nationality'),
     resident: get('resident'), id_type: get('idType'), issued_by: get('issuedBy'),
     id_no: get('idNo'), literacy_level: get('literacyLevel'),
-    marital_status: get('maritalStatus'), house_members: get('houseMembers') ? +get('houseMembers') : null,
+    marital_status: get('maritalStatus'), 
+    house_members: get('houseMembers') ? +get('houseMembers') : null,
     children: get('children') ? +get('children') : null,
     dependents: get('dependents') ? +get('dependents') : null,
     blood_group: get('bloodGroup'), can_donate: get('canDonate'),
     opened_by: get('openedBy'), age: get('age') ? +get('age') : null,
-    opened_on: get('openedOn') || null,               // FIX 4a
-    age_as_on: get('ageAsOn') || null,                // FIX 4b
-    relationship_manager: get('relManager') || null,  // FIX 4c
-    // FIX 4d: build date_of_birth from 3 separate selects
+    opened_on: get('openedOn') || null,               
+    age_as_on: get('ageAsOn') || null,                
+    relationship_manager: get('relManager') || null,  
     date_of_birth: (() => {
       const d = get('dobDay'), m = get('dobMonth'), y = get('dobYear');
       return (d && m && y) ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}` : null;
     })(),
-    // FIX 4e: build id_expiry_date from 3 separate selects
     id_expiry_date: (() => {
       const d = get('idExpiryDay'), m = get('idExpiryMonth'), y = get('idExpiryYear');
       return (d && m && y) ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}` : null;
     })(),
-    // FIX 4f: employment_type from radio buttons
     employment_type: (() => {
       const r = document.querySelector('[name="empType"]:checked');
       return r ? (r.value === 'salaried' ? 'Salaried' : 'Self Employed') : null;
@@ -309,90 +295,18 @@ async function loadRecord(clientId) {
   }
 }
 
-// ── Form → Record ─────────────────────────────────────────
-function collectForm() {
-  const get = (name) => {
-    const el = document.querySelector(`[name="${name}"]`);
-    if (!el) return null;
-    if (el.type === 'checkbox') return el.checked;
-    // If a field is empty text, return null so numbers/dates don't cause 400 errors
-    return el.value.trim() === '' ? null : el.value;
-  };
-
-  return {
-    client_id:       document.getElementById('clientId').value.trim() || null,
-    application_id:  document.getElementById('applicationId').value.trim() || null,
-    client_name:     document.getElementById('clientName').value.trim() || null,
-    client_type:     document.getElementById('clientType').value || 'Individual Client',
-    base_id:         document.getElementById('baseId').value.trim() || null,
-    // Personal
-    title: get('title'), first_name: get('firstName'), middle_name: get('middleName'),
-    last_name: get('lastName'), gender: get('gender'), nationality: get('nationality'),
-    resident: get('resident'), id_type: get('idType'), issued_by: get('issuedBy'),
-    id_no: get('idNo'), literacy_level: get('literacyLevel'),
-    marital_status: get('maritalStatus'), 
-    house_members: get('houseMembers') ? +get('houseMembers') : null,
-    children: get('children') ? +get('children') : null,
-    dependents: get('dependents') ? +get('dependents') : null,
-    blood_group: get('bloodGroup'), can_donate: get('canDonate'),
-    opened_by: get('openedBy'), age: get('age') ? +get('age') : null,
-    opened_on: get('openedOn') || null,               
-    age_as_on: get('ageAsOn') || null,                
-    relationship_manager: get('relManager') || null,  
-    // Build date_of_birth from 3 separate selects
-    date_of_birth: (() => {
-      const d = get('dobDay'), m = get('dobMonth'), y = get('dobYear');
-      return (d && m && y) ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}` : null;
-    })(),
-    // Build id_expiry_date from 3 separate selects
-    id_expiry_date: (() => {
-      const d = get('idExpiryDay'), m = get('idExpiryMonth'), y = get('idExpiryYear');
-      return (d && m && y) ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}` : null;
-    })(),
-    // Employment_type from radio buttons
-    employment_type: (() => {
-      const r = document.querySelector('[name="empType"]:checked');
-      return r ? (r.value === 'salaried' ? 'Salaried' : 'Self Employed') : null;
-    })(),
-    // Address
-    address_type: get('addressType'), postal_address: get('postalAddress'),
-    physical_address: get('physicalAddress'), city: get('city'),
-    zip_code: get('zipCode'), country: get('country'),
-    phone_home: get('phoneHome'), phone_work: get('phoneWork'),
-    mobile: get('mobile'), fax_no: get('faxNo'), email: get('email'),
-    // Employment
-    occupation: get('occupation'), designation: get('designation'),
-    company_type: get('companyType'), working_since: get('workingSince'),
-    company_name: get('companyName'), employer_code: get('employerCode'),
-    employee_no: get('employeeNo'),
-    gross_income: get('grossIncome') ? +get('grossIncome') : null,
-    rent_expenses: get('rentExpenses') ? +get('rentExpenses') : null,
-    family_income: get('familyIncome') ? +get('familyIncome') : null,
-    other_expenses: get('otherExpenses') ? +get('otherExpenses') : null,
-    other_income: get('otherIncome') ? +get('otherIncome') : null,
-    // Special Offers
-    offer_type: get('offerType'), offer_code: get('offerCode'),
-    valid_from: get('validFrom'), valid_to: get('validTo'),
-    remarks: get('remarks'),
-  };
-}
-
-// ── CRUD Operations ───────────────────────────────────────
 async function saveRecord() {
   const payload = collectForm();
   
-  // Validation Check
   if (!payload.first_name) { 
     showToast('First Name is required.', 'error'); 
     return; 
   }
 
-  // Remove database generated virtual columns safely
   delete payload.total_income;
   delete payload.total_expenses;
   delete payload.net_savings;
 
-  // Clean empty strings out of payload so PostgreSQL doesn't choke on constraints
   Object.keys(payload).forEach(key => {
     if (payload[key] === '' || payload[key] === null || payload[key] === undefined) {
       delete payload[key];
@@ -401,7 +315,6 @@ async function saveRecord() {
 
   try {
     if (mode === 'add') {
-      // Allow database to automatically assign auto-increment IDs
       delete payload.client_id;
       delete payload.application_id;
 
@@ -415,14 +328,13 @@ async function saveRecord() {
       currentRecord = Array.isArray(data) ? data[0] : data;
       showToast('Client saved successfully.', 'success');
     } else {
-      // Edit Mode Update Lifecycle
       if (!currentRecord || !currentRecord.client_id) {
         showToast('Update failed: Missing base record context tracking ID.', 'error');
         return;
       }
 
       const updatePayload = { ...payload };
-      delete updatePayload.client_id; // Primary key column is not updatable via PATCH payload body
+      delete updatePayload.client_id; 
 
       showToast('Updating client details...', 'info');
       await sbFetch(`ClientMasterRecords?client_id=eq.${encodeURIComponent(currentRecord.client_id)}`, {
@@ -442,6 +354,7 @@ async function saveRecord() {
     showToast(`Save failed: ${e.message}`, 'error');
   }
 }
+
 // ── Toolbar Button Events ─────────────────────────────────
 btnView.addEventListener('click', async () => {
   const cid = document.getElementById('clientId').value.trim();
@@ -449,7 +362,6 @@ btnView.addEventListener('click', async () => {
   await loadRecord(cid);
 });
 
-// ADD: Click first to clear form, reset tracking, and open fields for fresh input
 btnAdd.addEventListener('click', () => {
   clearForm();
   currentRecord = null;
@@ -458,7 +370,6 @@ btnAdd.addEventListener('click', () => {
   showToast('Form cleared. Type the data, then click Save.');
 });
 
-// EDIT: Modify current record. Must click before changing data.
 btnEdit.addEventListener('click', () => {
   if (!currentRecord) { showToast('Please load a record first before trying to edit.', 'error'); return; }
   setMode('edit');
@@ -467,7 +378,6 @@ btnEdit.addEventListener('click', () => {
 
 btnSave.addEventListener('click', saveRecord);
 
-// CANCEL: Closes the current record and clears out all selected data fields
 btnCancel.addEventListener('click', () => {
   clearForm();
   currentRecord = null;
@@ -475,7 +385,6 @@ btnCancel.addEventListener('click', () => {
   showToast('Record closed and selected data cleared.');
 });
 
-// CLOSE: Safely closes and unloads the current record from the workspace
 btnClose.addEventListener('click', () => {
   clearForm();
   currentRecord = null;
@@ -490,11 +399,8 @@ btnNext.addEventListener('click', () => {
   if (currentIndex < allRecords.length - 1) { currentIndex++; populateForm(allRecords[currentIndex]); }
 });
 
-// FIX 7: Wire each lookup button explicitly — querySelector('.identity-bar .lookup-btn')
-// only ever matched the FIRST button (clientId). The applicationId button was dead.
 const lookupBtns = document.querySelectorAll('.identity-bar .lookup-btn');
 
-// First lookup button → search by Client ID
 if (lookupBtns[0]) {
   lookupBtns[0].addEventListener('click', async () => {
     const cid = document.getElementById('clientId').value.trim();
@@ -503,7 +409,6 @@ if (lookupBtns[0]) {
   });
 }
 
-// Second lookup button → search by Application ID
 if (lookupBtns[1]) {
   lookupBtns[1].addEventListener('click', async () => {
     const aid = document.getElementById('applicationId').value.trim();
