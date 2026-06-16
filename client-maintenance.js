@@ -353,34 +353,38 @@ btnView.addEventListener('click', async () => {
   await loadRecord(cid);
 });
 
+// ADD: Click first to clear form, reset tracking, and open fields for fresh input
 btnAdd.addEventListener('click', () => {
   clearForm();
   currentRecord = null;
   setMode('add');
   document.getElementById('clientId').focus();
-  showToast('Enter new client details.');
+  showToast('Form cleared. Type the data, then click Save.');
 });
 
+// EDIT: Modify current record. Must click before changing data.
 btnEdit.addEventListener('click', () => {
-  if (!currentRecord) { showToast('Load a record first.', 'error'); return; }
+  if (!currentRecord) { showToast('Please load a record first before trying to edit.', 'error'); return; }
   setMode('edit');
-  showToast('Editing record – make your changes then Save.');
+  showToast('Form unlocked. Make your changes then click Save.');
 });
 
 btnSave.addEventListener('click', saveRecord);
 
+// CANCEL: Closes the current record and clears out all selected data fields
 btnCancel.addEventListener('click', () => {
-  if (currentRecord) populateForm(currentRecord);
-  else clearForm();
+  clearForm();
+  currentRecord = null;
   setMode('view');
-  showToast('Changes cancelled.');
+  showToast('Record closed and selected data cleared.');
 });
 
+// CLOSE: Safely closes and unloads the current record from the workspace
 btnClose.addEventListener('click', () => {
   clearForm();
   currentRecord = null;
   setMode('view');
-  showToast('Record closed.');
+  showToast('Current record closed.');
 });
 
 btnPrev.addEventListener('click', () => {
