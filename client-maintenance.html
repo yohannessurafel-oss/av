@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Client Maintenance – Africa Village Microfinance</title>
+<link rel="stylesheet" href="client-maintenance.css"/>
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- Left Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">AV</div>
+      <span>Africa Village<br><small>Microfinance</small></span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-group">
+        <label>DataEntry</label>
+        <a href="#" class="nav-item active">Client Maintenance</a>
+        <a href="#" class="nav-item">Loan Application</a>
+      </div>
+      <div class="nav-group">
+        <label>View</label>
+        <a href="#" class="nav-item">Client List</a>
+        <a href="#" class="nav-item">Reports</a>
+      </div>
+      <div class="nav-group">
+        <label>Recent Activities</label>
+        <a href="#" class="nav-item recent">CL-20250001</a>
+        <a href="#" class="nav-item recent">CL-20250002</a>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="form-window">
+      <!-- Window Header -->
+      <div class="window-header">
+        <span class="window-title">Client Maintenance</span>
+        <div class="window-controls">
+          <button class="wc-btn">–</button>
+          <button class="wc-btn">□</button>
+          <button class="wc-btn red">✕</button>
+        </div>
+      </div>
+
+      <!-- Top Identity Bar -->
+      <div class="identity-bar">
+        <div class="id-row">
+          <div class="id-field">
+            <label>Client ID</label>
+            <div class="id-input-wrap">
+              <input type="text" id="clientId" class="id-input" placeholder="Auto"/>
+              <button class="lookup-btn" title="Lookup">🔍</button>
+            </div>
+          </div>
+          <div class="id-field">
+            <label>Client Type</label>
+            <select id="clientType" class="id-select">
+              <option>Individual Client</option>
+              <option>Group Client</option>
+              <option>Corporate</option>
+            </select>
+          </div>
+        </div>
+        <div class="id-row">
+          <div class="id-field">
+            <label>Application ID</label>
+            <div class="id-input-wrap">
+              <input type="text" id="applicationId" class="id-input" placeholder=""/>
+              <button class="lookup-btn" title="Lookup">🔍</button>
+            </div>
+          </div>
+          <div class="id-field">
+            <label>Base ID</label>
+            <select id="baseId" class="id-select">
+              <option value="">– Select –</option>
+              <option>Branch 01</option>
+              <option>Branch 02</option>
+              <option>Head Office</option>
+            </select>
+          </div>
+        </div>
+        <div class="id-row">
+          <div class="id-field full">
+            <label>Client Name</label>
+            <input type="text" id="clientName" class="id-input wide" placeholder=""/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tab-bar">
+        <button class="tab active" data-tab="personal">Personal</button>
+        <button class="tab" data-tab="address">Address</button>
+        <button class="tab" data-tab="employment">Employment</button>
+        <button class="tab" data-tab="special">Special Offers</button>
+      </div>
+
+      <!-- Tab Panels -->
+      <div class="tab-panels">
+
+        <!-- PERSONAL TAB -->
+        <div id="tab-personal" class="tab-panel active">
+          <div class="section-header">Personal Details</div>
+          <div class="form-grid">
+            <div class="form-row">
+              <div class="form-field">
+                <label>Title</label>
+                <select name="title">
+                  <option value="">– Select –</option>
+                  <option>Mr.</option><option>Mrs.</option><option>Ms.</option><option>Dr.</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>First Name <span class="req">*</span></label>
+                <input type="text" name="firstName"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Middle Name</label>
+                <input type="text" name="middleName"/>
+              </div>
+              <div class="form-field">
+                <label>Last Name</label>
+                <input type="text" name="lastName"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Gender</label>
+                <select name="gender">
+                  <option value="">– Select –</option>
+                  <option>Male</option><option>Female</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Date of Birth</label>
+                <select name="dobDay" class="inline-sel"><option>– Day –</option></select>
+                <select name="dobMonth" class="inline-sel"><option>– Mon –</option></select>
+                <select name="dobYear" class="inline-sel"><option>– Year –</option></select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Age</label>
+                <input type="number" name="age" class="short-input" readonly/>
+              </div>
+              <div class="form-field">
+                <label>Age As On</label>
+                <select name="ageAsOn">
+                  <option value="">– Select –</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Nationality</label>
+                <select name="nationality">
+                  <option value="">– Select –</option>
+                  <option>Ethiopian</option><option>Other</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Resident</label>
+                <select name="resident">
+                  <option value="">– Select –</option>
+                  <option>Resident</option><option>Non-Resident</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Identification Type</label>
+                <select name="idType">
+                  <option value="">– Select –</option>
+                  <option>National ID</option><option>Passport</option><option>Kebele ID</option><option>Driving License</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Issued By</label>
+                <input type="text" name="issuedBy"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Identification No</label>
+                <input type="text" name="idNo"/>
+              </div>
+              <div class="form-field">
+                <label>Literacy Level</label>
+                <select name="literacyLevel">
+                  <option value="">– Select –</option>
+                  <option>Illiterate</option><option>Primary</option><option>Secondary</option><option>University</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>ID Expiry Date</label>
+                <select name="idExpiryDay" class="inline-sel"><option>– Day –</option></select>
+                <select name="idExpiryMonth" class="inline-sel"><option>– Mon –</option></select>
+                <select name="idExpiryYear" class="inline-sel"><option>– Year –</option></select>
+              </div>
+              <div class="form-field"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Marital Status</label>
+                <select name="maritalStatus">
+                  <option value="">– Select –</option>
+                  <option>Single</option><option>Married</option><option>Divorced</option><option>Widowed</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Number of House Members</label>
+                <input type="number" name="houseMembers" class="short-input"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Number of Children</label>
+                <input type="number" name="children" class="short-input"/>
+              </div>
+              <div class="form-field">
+                <label>Number of Dependents</label>
+                <input type="number" name="dependents" class="short-input"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Blood Group</label>
+                <select name="bloodGroup">
+                  <option value="">– Select –</option>
+                  <option>A+</option><option>A–</option><option>B+</option><option>B–</option>
+                  <option>AB+</option><option>AB–</option><option>O+</option><option>O–</option>
+                </select>
+              </div>
+              <div class="form-field checkbox-field">
+                <label>Can Donate Blood</label>
+                <input type="checkbox" name="canDonate"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Opened By</label>
+                <div class="id-input-wrap">
+                  <input type="text" name="openedBy"/>
+                  <button class="lookup-btn" title="Lookup">🔍</button>
+                </div>
+              </div>
+              <div class="form-field">
+                <label>Opened On</label>
+                <select name="openedOn">
+                  <option value="">– Select –</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Relationship Manager</label>
+                <select name="relManager">
+                  <option value="">– Select –</option>
+                </select>
+              </div>
+              <div class="form-field"></div>
+            </div>
+          </div>
+
+          <!-- Behind The Scene -->
+          <div class="bts-section">
+            <div class="bts-header">Behind The Scene</div>
+            <div class="bts-grid">
+              <div class="bts-field"><label>Status</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Open Date</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Closed Date</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Created By</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Modified By</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Supervised By</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Created On</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Modified On</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Supervised On</label><input type="text" readonly/></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ADDRESS TAB -->
+        <div id="tab-address" class="tab-panel">
+          <div class="section-header">Mailing Address</div>
+          <div class="form-grid">
+            <div class="form-row">
+              <div class="form-field">
+                <label>Address Type</label>
+                <select name="addressType">
+                  <option>Residential Address</option>
+                  <option>Business Address</option>
+                  <option>Postal Address</option>
+                </select>
+              </div>
+              <div class="form-field"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Postal Address</label>
+                <input type="text" name="postalAddress"/>
+              </div>
+              <div class="form-field"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Physical Address</label>
+                <input type="text" name="physicalAddress"/>
+              </div>
+              <div class="form-field"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>City</label>
+                <select name="city">
+                  <option value="">– Select –</option>
+                  <option>Addis Ababa</option><option>Dire Dawa</option><option>Mekelle</option><option>Hawassa</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Zip Code</label>
+                <input type="text" name="zipCode" class="short-input"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Country</label>
+                <select name="country">
+                  <option value="">– Select –</option>
+                  <option>Ethiopia</option><option>Other</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Phone (Home)</label>
+                <input type="tel" name="phoneHome"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Phone (Work)</label>
+                <input type="tel" name="phoneWork"/>
+              </div>
+              <div class="form-field">
+                <label>Mobile</label>
+                <input type="tel" name="mobile"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Fax No</label>
+                <input type="text" name="faxNo"/>
+              </div>
+              <div class="form-field">
+                <label>Email ID</label>
+                <input type="email" name="email"/>
+              </div>
+            </div>
+          </div>
+
+          <div class="bts-section">
+            <div class="bts-header">Behind The Scene</div>
+            <div class="bts-grid">
+              <div class="bts-field"><label>Status</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Open Date</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Closed Date</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Created By</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Modified By</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Supervised By</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Created On</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Modified On</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Supervised On</label><input type="text" readonly/></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- EMPLOYMENT TAB -->
+        <div id="tab-employment" class="tab-panel">
+          <div class="section-header">Employment Details</div>
+          <p class="em-note">* All Figures Are Monthly Based</p>
+          <div class="emp-type-row">
+            <label class="radio-label"><input type="radio" name="empType" value="salaried" checked/> Salaried</label>
+            <label class="radio-label"><input type="radio" name="empType" value="selfEmployed"/> Self Employed</label>
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <div class="form-field">
+                <label>Occupation</label>
+                <select name="occupation">
+                  <option value="">– Select –</option>
+                  <option>Government Employee</option><option>Private Employee</option><option>Farmer</option><option>Trader</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Designation</label>
+                <select name="designation">
+                  <option value="">– Select –</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Company Type</label>
+                <select name="companyType">
+                  <option value="">– Select –</option>
+                  <option>Government</option><option>Private</option><option>NGO</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Working Since</label>
+                <select name="workingSince">
+                  <option value="">– Select –</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Company Name</label>
+                <input type="text" name="companyName"/>
+              </div>
+              <div class="form-field"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Employer Code</label>
+                <div class="id-input-wrap">
+                  <input type="text" name="employerCode" value="HARBU MFI"/>
+                  <button class="lookup-btn">🔍</button>
+                </div>
+              </div>
+              <div class="form-field"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Employee No</label>
+                <input type="text" name="employeeNo"/>
+              </div>
+              <div class="form-field">
+                <label>Gross Income (ETB)</label>
+                <input type="number" name="grossIncome" step="0.01"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Rent Expenses (ETB)</label>
+                <input type="number" name="rentExpenses" step="0.01"/>
+              </div>
+              <div class="form-field">
+                <label>Family Income (ETB)</label>
+                <input type="number" name="familyIncome" step="0.01"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Other Expenses (ETB)</label>
+                <input type="number" name="otherExpenses" step="0.01"/>
+              </div>
+              <div class="form-field">
+                <label>Other Income (ETB)</label>
+                <input type="number" name="otherIncome" step="0.01"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Total Expenses (ETB)</label>
+                <input type="number" name="totalExpenses" readonly class="computed"/>
+              </div>
+              <div class="form-field">
+                <label>Total Income (ETB)</label>
+                <input type="number" name="totalIncome" readonly class="computed"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field"></div>
+              <div class="form-field">
+                <label>Net Savings (ETB)</label>
+                <input type="number" name="netSavings" readonly class="computed"/>
+              </div>
+            </div>
+          </div>
+
+          <div class="bts-section">
+            <div class="bts-header">Behind The Scene</div>
+            <div class="bts-grid">
+              <div class="bts-field"><label>Status</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Open Date</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Closed Date</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Created By</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Modified By</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Supervised By</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Created On</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Modified On</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Supervised On</label><input type="text" readonly/></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SPECIAL OFFERS TAB -->
+        <div id="tab-special" class="tab-panel">
+          <div class="section-header">Special Offers</div>
+          <div class="form-grid">
+            <div class="form-row">
+              <div class="form-field">
+                <label>Offer Type</label>
+                <select name="offerType">
+                  <option value="">– Select –</option>
+                  <option>Interest Rate Discount</option>
+                  <option>Fee Waiver</option>
+                  <option>Extended Term</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Offer Code</label>
+                <input type="text" name="offerCode"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Valid From</label>
+                <input type="date" name="validFrom"/>
+              </div>
+              <div class="form-field">
+                <label>Valid To</label>
+                <input type="date" name="validTo"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field full">
+                <label>Remarks</label>
+                <textarea name="remarks" rows="3"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="bts-section">
+            <div class="bts-header">Behind The Scene</div>
+            <div class="bts-grid">
+              <div class="bts-field"><label>Status</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Open Date</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Closed Date</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Created By</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Modified By</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Supervised By</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Created On</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Modified On</label><input type="text" readonly/></div>
+              <div class="bts-field"><label>Supervised On</label><input type="text" readonly/></div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /tab-panels -->
+    </div><!-- /form-window -->
+  </main>
+
+  <!-- Right Toolbar -->
+  <aside class="toolbar">
+    <div class="nav-arrows">
+      <button class="arrow-btn" id="btnPrev" title="Previous Record">&#9650;</button>
+      <button class="arrow-btn" id="btnNext" title="Next Record">&#9660;</button>
+    </div>
+    <div class="action-btns">
+      <button class="action-btn" id="btnView">View</button>
+      <button class="action-btn" id="btnAdd">Add</button>
+      <button class="action-btn" id="btnEdit">Edit</button>
+      <button class="action-btn" id="btnClose">Close</button>
+      <button class="action-btn primary" id="btnSave">Save</button>
+      <button class="action-btn" id="btnCancel">Cancel</button>
+    </div>
+  </aside>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script src="client-maintenance.js"></script>
+</body>
+</html>
