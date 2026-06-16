@@ -310,16 +310,29 @@ async function loadRecord(clientId) {
 
 async function saveRecord() {
   const payload = collectForm();
-  if (!payload.first_name) { showToast('First Name is required.', 'error'); return; }
-  if (!payload.client_id)  { showToast('Client ID is required.', 'error'); return; }
 
-  // FIX 5: Remove GENERATED ALWAYS columns — Supabase rejects them on INSERT/UPDATE
-  delete payload.total_income;
-  delete payload.total_expenses;
-  delete payload.net_savings;
+  // 1. MODIFIED VALIDATION: Only require Client ID during updates (Edit mode)
+  if (mode === 'edit' && !payload.client_id) { 
+    showToast('Client ID is required to update a record.', 'error'); 
+    return; 
+  }
+  
+  // First Name validation remains mandatory for both modes
+  if (!payload.first_name) { 
+    showToast('First Name is required.', 'error'); 
+    return; 
+  }
 
   try {
+    showToast('Processing transaction...', 'info');
+
     if (mode === 'add') {
+      // If adding a new record and Client ID is empty, remove it from payload 
+      // so PostgreSQL knows to apply its default automatic generation rules.
+      if (!payload.client_id) {
+        delete payload.client_id; 
+      }
+
       const data = await sbFetch('ClientMasterRecords', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -327,18 +340,18 @@ async function saveRecord() {
       });
       currentRecord = Array.isArray(data) ? data[0] : data;
       showToast('Client saved successfully.', 'success');
+      
     } else {
-      // FIX 6: PATCH must not send client_id in body (it's the filter key, not updatable)
-      const updatePayload = { ...payload };
-      delete updatePayload.client_id;
-      await sbFetch(`ClientMasterRecords?client_id=eq.${currentRecord.client_id}`, {
+      // Edit mode logic remains unchanged
+      await sbFetch(`ClientMasterRecords?client_id=eq.${encodeURIComponent(currentRecord.client_id)}`, {
         method: 'PATCH',
-        body: JSON.stringify(updatePayload),
+        body: JSON.stringify(payload),
         prefer: 'return=representation'
       });
       currentRecord = { ...currentRecord, ...payload };
       showToast('Client updated successfully.', 'success');
     }
+
     populateForm(currentRecord);
     setMode('view');
   } catch (e) {
