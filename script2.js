@@ -10,6 +10,10 @@
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
+let currentRecord = null; // Holds the active record data
+let workspaceMode = 'view'; // Modes: 'view', 'add', 'edit'
+
+
 async function sbFetch(path, opts = {}) {
   const res = await fetch(`${SUPA_URL}/rest/v1/${path}`, {
     ...opts,
@@ -112,6 +116,45 @@ document.querySelectorAll('.sub-tab').forEach(tab => {
     if (target) target.classList.add('active');
   });
 });
+
+
+
+
+
+
+
+
+function setWorkspaceMode(mode) {
+    workspaceMode = mode;
+    const inputs = document.querySelectorAll('.loan-form-input'); // Adjust selector to your form inputs
+    
+    if (mode === 'view') {
+        // Form is locked; Action buttons enabled; Save/Cancel disabled
+        inputs.forEach(input => input.disabled = true);
+        document.getElementById('btnGlobalView').disabled = false;
+        document.getElementById('btnGlobalAdd').disabled = false;
+        document.getElementById('btnGlobalEdit').disabled = (currentRecord === null); // Only edit if a record is loaded
+        document.getElementById('btnGlobalClose').disabled = (currentRecord === null);
+        document.getElementById('btnGlobalSave').disabled = true;
+        document.getElementById('btnGlobalCancel').disabled = true;
+    } else if (mode === 'add' || mode === 'edit') {
+        // Form is unlocked; Action buttons disabled; Save/Cancel active
+        inputs.forEach(input => input.disabled = false);
+        document.getElementById('btnGlobalView').disabled = true;
+        document.getElementById('btnGlobalAdd').disabled = true;
+        document.getElementById('btnGlobalEdit').disabled = true;
+        document.getElementById('btnGlobalClose').disabled = true;
+        document.getElementById('btnGlobalSave').disabled = false;
+        document.getElementById('btnGlobalCancel').disabled = false;
+    }
+}
+
+
+function clearFormFields() {
+    const form = document.getElementById('loanApplicationForm'); // Adjust to your form ID
+    if (form) form.reset();
+}
+
 
 /* ── Branch Dropdown ───────────────────────────────────── */
 async function loadBranches() {
@@ -484,6 +527,16 @@ function generateSchedule(principal, annualRate, termMonths, startDate) {
 
 /* VIEW ─────────────────────────────────────────────────── */
 document.getElementById('btnGlobalView').addEventListener('click', async () => {
+
+
+   {
+        if (selectedRecord) {
+            currentRecord = selectedRecord;
+            populateFormFields(currentRecord);
+            setWorkspaceMode('view');
+        }
+    });
+
   if (currentModule !== 'loan-app') { toast('View records: switch to Loan Application module.', 'warning'); return; }
   try {
     toast('Loading records…');
@@ -503,56 +556,93 @@ document.getElementById('btnGlobalAdd').addEventListener('click', () => {
   setMode('add');
   document.getElementById('fApplicationId')?.focus();
   toast('New record — fill in the details and Save.');
+   const firstInput = document.querySelector('.loan-form-input');
+    if (firstInput) firstInput.focus();
 });
 
 /* EDIT ─────────────────────────────────────────────────── */
 document.getElementById('btnGlobalEdit').addEventListener('click', () => {
-  if (!currentRecord) { toast('Load a record first.', 'warning'); return; }
-  setMode('edit');
-  toast('Editing record — make your changes then Save.');
+if (!currentRecord) {
+        alert("Please view and select a record first before trying to edit.");
+        return;
+    }
+    setWorkspaceMode('edit');
 });
 
 /* SAVE ─────────────────────────────────────────────────── */
+/* SAVE ──────────────────────────────────────────────────── */
 document.getElementById('btnGlobalSave').addEventListener('click', async () => {
-  if (currentModule !== 'loan-app') { toast('Save: switch to Loan Application module.', 'warning'); return; }
-  if (!validateLoanApp()) return;
+  // 1. Gather form payload parameters
+  const payload = collectFormData();
 
-  const payload = collectForm();
-  const appId   = payload[COL.application_id];
+  // 2. Client-side field validations before network transmission
+  if (!payload[COL.application_id]) {
+    toast('Application ID is a required field.', 'error');
+    const appEl = document.getElementById('fApplicationId');
+    if (appEl) appEl.focus();
+    return;
+  }
+  
+  if (!payload[COL.client_id]) {
+    toast('Client ID is a required field.', 'error');
+    const clientEl = document.getElementById('fClientId');
+    if (clientEl) clientEl.focus();
+    return;
+  }
 
   try {
-    toast('Saving…');
-    if (currentMode === 'add') {
-      const data = await sbFetch('LoanMasterRecords', {
-        method: 'POST',
-        body:   JSON.stringify(payload),
-        prefer: 'return=representation'
-      });
-      currentRecord = Array.isArray(data) ? data[0] : data;
-      toast(`✔ Record ${appId} created successfully.`, 'success');
-    } else {
-      await sbFetch(`LoanMasterRecords?${COL.application_id}=eq.${encodeURIComponent(appId)}`, {
-        method: 'PATCH',
-        body:   JSON.stringify(payload),
-        prefer: 'return=representation'
-      });
-      currentRecord = { ...currentRecord, ...payload };
-      toast(`✔ Record ${appId} updated successfully.`, 'success');
-    }
-    fillForm(currentRecord);
-    setMode('view');
+    toast('Processing transaction...', 'info');
 
-    // Regenerate schedule if in payoff tab
-    generateSchedule(
-      parseFloat(payload[COL.applied_amount]) || 0,
-      parseFloat(payload[COL.interest_rate])  || 0,
-      parseInt(payload[COL.term])              || 0,
-      payload[COL.disbursement_date]
-    );
-  } catch (e) {
-    toast(`Save failed: ${e.message}`, 'error');
+    if (mode === 'add') {
+      // Execute standard database insertion
+      const responseData = await sbFetch('LoanMasterRecords', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        prefer: 'return=representation'
+      });
+      
+      // Update local state record references
+      currentRecord = Array.isArray(responseData) ? responseData[0] : responseData;
+      toast('✔ Record successfully created.', 'success');
+
+    } else if (mode === 'edit') {
+      // Enforce update payload targeting matching current primary identifier
+      const currentAppId = currentRecord[COL.application_id];
+      if (!currentAppId) {
+        throw new Error('State reference exception: No active record identifier to modify.');
+      }
+
+      const responseData = await sbFetch(`LoanMasterRecords?${COL.application_id}=eq.${encodeURIComponent(currentAppId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+        prefer: 'return=representation'
+      });
+
+      // Update state matching the fresh modifications
+      currentRecord = Array.isArray(responseData) ? responseData[0] : responseData;
+      toast('✔ Record successfully modified.', 'success');
+    }
+
+    // 3. Post-Transaction Interface Reversion
+    if (currentRecord) {
+      fillForm(currentRecord); // Refresh form layouts with saved server entries
+    }
+    
+    setMode('view'); // Lock inputs safely back to view-only mode
+    
+  } catch (error) {
+    console.error('Database Mutation Failure:', error);
+    toast(`Save Operation Failed: ${error.message}`, 'error');
   }
 });
+
+// CLOSE: Safely unloads the active record and clears the screen
+document.getElementById('btnGlobalClose').addEventListener('click', () => {
+    currentRecord = null;
+    clearFormFields();
+    setWorkspaceMode('view');
+});
+
 
 /* DELETE ────────────────────────────────────────────────── */
 document.getElementById('btnGlobalDelete').addEventListener('click', async () => {
