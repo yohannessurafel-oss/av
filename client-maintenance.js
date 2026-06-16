@@ -309,22 +309,90 @@ async function loadRecord(clientId) {
   }
 }
 
+// ── Form → Record ─────────────────────────────────────────
+function collectForm() {
+  const get = (name) => {
+    const el = document.querySelector(`[name="${name}"]`);
+    if (!el) return null;
+    if (el.type === 'checkbox') return el.checked;
+    // If a field is empty text, return null so numbers/dates don't cause 400 errors
+    return el.value.trim() === '' ? null : el.value;
+  };
+
+  return {
+    client_id:       document.getElementById('clientId').value.trim() || null,
+    application_id:  document.getElementById('applicationId').value.trim() || null,
+    client_name:     document.getElementById('clientName').value.trim() || null,
+    client_type:     document.getElementById('clientType').value || 'Individual Client',
+    base_id:         document.getElementById('baseId').value.trim() || null,
+    // Personal
+    title: get('title'), first_name: get('firstName'), middle_name: get('middleName'),
+    last_name: get('lastName'), gender: get('gender'), nationality: get('nationality'),
+    resident: get('resident'), id_type: get('idType'), issued_by: get('issuedBy'),
+    id_no: get('idNo'), literacy_level: get('literacyLevel'),
+    marital_status: get('maritalStatus'), 
+    house_members: get('houseMembers') ? +get('houseMembers') : null,
+    children: get('children') ? +get('children') : null,
+    dependents: get('dependents') ? +get('dependents') : null,
+    blood_group: get('bloodGroup'), can_donate: get('canDonate'),
+    opened_by: get('openedBy'), age: get('age') ? +get('age') : null,
+    opened_on: get('openedOn') || null,               
+    age_as_on: get('ageAsOn') || null,                
+    relationship_manager: get('relManager') || null,  
+    // Build date_of_birth from 3 separate selects
+    date_of_birth: (() => {
+      const d = get('dobDay'), m = get('dobMonth'), y = get('dobYear');
+      return (d && m && y) ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}` : null;
+    })(),
+    // Build id_expiry_date from 3 separate selects
+    id_expiry_date: (() => {
+      const d = get('idExpiryDay'), m = get('idExpiryMonth'), y = get('idExpiryYear');
+      return (d && m && y) ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}` : null;
+    })(),
+    // Employment_type from radio buttons
+    employment_type: (() => {
+      const r = document.querySelector('[name="empType"]:checked');
+      return r ? (r.value === 'salaried' ? 'Salaried' : 'Self Employed') : null;
+    })(),
+    // Address
+    address_type: get('addressType'), postal_address: get('postalAddress'),
+    physical_address: get('physicalAddress'), city: get('city'),
+    zip_code: get('zipCode'), country: get('country'),
+    phone_home: get('phoneHome'), phone_work: get('phoneWork'),
+    mobile: get('mobile'), fax_no: get('faxNo'), email: get('email'),
+    // Employment
+    occupation: get('occupation'), designation: get('designation'),
+    company_type: get('companyType'), working_since: get('workingSince'),
+    company_name: get('companyName'), employer_code: get('employerCode'),
+    employee_no: get('employeeNo'),
+    gross_income: get('grossIncome') ? +get('grossIncome') : null,
+    rent_expenses: get('rentExpenses') ? +get('rentExpenses') : null,
+    family_income: get('familyIncome') ? +get('familyIncome') : null,
+    other_expenses: get('otherExpenses') ? +get('otherExpenses') : null,
+    other_income: get('otherIncome') ? +get('otherIncome') : null,
+    // Special Offers
+    offer_type: get('offerType'), offer_code: get('offerCode'),
+    valid_from: get('validFrom'), valid_to: get('validTo'),
+    remarks: get('remarks'),
+  };
+}
+
+// ── CRUD Operations ───────────────────────────────────────
 async function saveRecord() {
   const payload = collectForm();
   
-  // 1. Core Structural Validation Check
+  // Validation Check
   if (!payload.first_name) { 
     showToast('First Name is required.', 'error'); 
     return; 
   }
 
-  // 2. Clear Database Generated and Stale Fields
+  // Remove database generated virtual columns safely
   delete payload.total_income;
   delete payload.total_expenses;
   delete payload.net_savings;
 
-  // Clean empty form strings out of the payload object entirely 
-  // so PostgreSQL handles default configurations and nullable constraints properly.
+  // Clean empty strings out of payload so PostgreSQL doesn't choke on constraints
   Object.keys(payload).forEach(key => {
     if (payload[key] === '' || payload[key] === null || payload[key] === undefined) {
       delete payload[key];
@@ -333,11 +401,11 @@ async function saveRecord() {
 
   try {
     if (mode === 'add') {
-      // Direct the database engine to autogenerate IDs by removing empty references
+      // Allow database to automatically assign auto-increment IDs
       delete payload.client_id;
       delete payload.application_id;
 
-      showToast('Creating record...', 'info');
+      showToast('Creating new client...', 'info');
       const data = await sbFetch('ClientMasterRecords', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -347,16 +415,16 @@ async function saveRecord() {
       currentRecord = Array.isArray(data) ? data[0] : data;
       showToast('Client saved successfully.', 'success');
     } else {
-      // Edit Mode Layout: Avoid mutating target primary tracking elements
+      // Edit Mode Update Lifecycle
       if (!currentRecord || !currentRecord.client_id) {
-        showToast('Update failed: Missing base record tracking context.', 'error');
+        showToast('Update failed: Missing base record context tracking ID.', 'error');
         return;
       }
 
       const updatePayload = { ...payload };
-      delete updatePayload.client_id; // Never push an tracking ID parameter into update targets
+      delete updatePayload.client_id; // Primary key column is not updatable via PATCH payload body
 
-      showToast('Updating record...', 'info');
+      showToast('Updating client details...', 'info');
       await sbFetch(`ClientMasterRecords?client_id=eq.${encodeURIComponent(currentRecord.client_id)}`, {
         method: 'PATCH',
         body: JSON.stringify(updatePayload),
@@ -370,11 +438,10 @@ async function saveRecord() {
     populateForm(currentRecord);
     setMode('view');
   } catch (e) {
-    console.error('Supabase Core Rejection Details:', e);
+    console.error('Database Operation Error:', e);
     showToast(`Save failed: ${e.message}`, 'error');
   }
 }
-
 // ── Toolbar Button Events ─────────────────────────────────
 btnView.addEventListener('click', async () => {
   const cid = document.getElementById('clientId').value.trim();
