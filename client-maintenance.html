@@ -109,88 +109,116 @@
       <div class="tab-panels">
 
         <!-- PERSONAL TAB -->
-        <div id="tab-personal" class="tab-panel active">
-          <div class="section-header">Personal Details</div>
-          <div class="form-grid">
-            <div class="form-row">
-              <div class="form-field">
-                <label>Title</label>
-                <select name="title">
-                  <option value="">– Select –</option>
-                  <option>Mr.</option><option>Mrs.</option><option>Ms.</option><option>Dr.</option>
-                </select>
-              </div>
-              <div class="form-field">
-                <label>First Name <span class="req">*</span></label>
-                <input type="text" name="firstName"/>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-field">
-                <label>Middle Name</label>
-                <input type="text" name="middleName"/>
-              </div>
-              <div class="form-field">
-                <label>Last Name</label>
-                <input type="text" name="lastName"/>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-field">
-                <label>Gender</label>
-                <select name="gender">
-                  <option value="">– Select –</option>
-                  <option>Male</option><option>Female</option>
-                </select>
-              </div>
-              <div class="form-field">
-                <label>Date of Birth</label>
-                <select name="dobDay" class="inline-sel"><option>– Day –</option></select>
-                <select name="dobMonth" class="inline-sel"><option>– Mon –</option></select>
-                <select name="dobYear" class="inline-sel"><option>– Year –</option></select>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-field">
-                <label>Age</label>
-                <input type="number" name="age" class="short-input" readonly/>
-              </div>
-              <div class="form-field">
-                <label>Age As On</label>
-                <select name="ageAsOn">
-                  <option value="">– Select –</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-field">
-                <label>Nationality</label>
-                <select name="nationality">
-                  <option value="">– Select –</option>
-                  <option>Ethiopian</option><option>Other</option>
-                </select>
-              </div>
-              <div class="form-field">
-                <label>Resident</label>
-                <select name="resident">
-                  <option value="">– Select –</option>
-                  <option>Resident</option><option>Non-Resident</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-field">
-                <label>Identification Type</label>
-                <select name="idType">
-                  <option value="">– Select –</option>
-                  <option>National ID</option><option>Passport</option><option>Kebele ID</option><option>Driving License</option>
-                </select>
-              </div>
-              <div class="form-field">
-                <label>Issued By</label>
-                <input type="text" name="issuedBy"/>
-              </div>
-            </div>
+       <div id="tab-personal" class="tab-panel active">
+  <div class="section-header">Personal Details</div>
+  <div class="form-grid">
+    
+    <div class="form-row">
+      <div class="form-field">
+        <label>Title</label>
+        <select name="title">
+          <option value="">– Select –</option>
+          <option>Mr.</option><option>Mrs.</option><option>Ms.</option><option>Dr.</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>First Name <span class="req">*</span></label>
+        <input type="text" name="firstName"/>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label>Middle Name</label>
+        <input type="text" name="middleName"/>
+      </div>
+      <div class="form-field">
+        <label>Last Name</label>
+        <input type="text" name="lastName"/>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label>Gender</label>
+        <select name="gender">
+          <option value="">– Select –</option>
+          <option>Male</option><option>Female</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Date of Birth</label>
+        <div class="date-dropdowns">
+          <select name="dobDay" class="inline-sel"><option value="">– Day –</option></select>
+          <select name="dobMonth" class="inline-sel"><option value="">– Mon –</option></select>
+          <select name="dobYear" class="inline-sel"><option value="">– Year –</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label>Age</label>
+        <input type="number" name="age" class="short-input" readonly placeholder="Auto"/>
+      </div>
+      <div class="form-field">
+        <label>Age As On</label>
+        <select name="ageAsOn">
+          <option value="">– Select –</option>
+          <option value="Application Date">Application Date</option>
+          <option value="System Date">Current System Date</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label>Nationality</label>
+        <select name="nationality">
+          <option value="">– Select –</option>
+          <option>Ethiopian</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Resident</label>
+        <select name="resident">
+          <option value="">– Select –</option>
+          <option>Resident</option><option>Non-Resident</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label>Identification Type</label>
+        <select name="idType">
+          <option value="">– Select –</option>
+          <option>National ID</option><option>Passport</option><option>Kebele ID</option><option>Driving License</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Issued By</label>
+        <input type="text" name="issuedBy"/>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label>ID Expiry Date</label>
+        <div class="date-dropdowns">
+          <select name="idExpiryDay" class="inline-sel"><option value="">– Day –</option></select>
+          <select name="idExpiryMonth" class="inline-sel"><option value="">– Mon –</option></select>
+          <select name="idExpiryYear" class="inline-sel"><option value="">– Year –</option></select>
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Relationship Manager</label>
+        <input type="text" name="relManager" placeholder="Assigned Account Officer"/>
+      </div>
+    </div>
+
+  </div>
+</div>
             <div class="form-row">
               <div class="form-field">
                 <label>Identification No</label>
