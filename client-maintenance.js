@@ -23,11 +23,12 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 
 async function sbFetch(path, options = {}) {
+  // FIX 1: was SUPABASE_KEY (undefined) — corrected to SUPABASE_ANON_KEY
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
     headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       'Content-Type': 'application/json',
       'Prefer': options.prefer || 'return=representation',
       ...(options.headers || {})
@@ -95,6 +96,14 @@ function clearForm() {
   document.getElementById('clientName').value = '';
   document.getElementById('clientType').value = 'Individual Client';
   document.getElementById('baseId').value = '';
+  // FIX 8: reset split date selects that getAllInputs() misses (they are selects in tab-panel)
+  ['dobDay','dobMonth','dobYear','idExpiryDay','idExpiryMonth','idExpiryYear'].forEach(n => {
+    const el = document.querySelector(`[name="${n}"]`);
+    if (el) el.selectedIndex = 0;
+  });
+  // FIX 8: reset empType radio to default
+  const defaultRadio = document.querySelector('[name="empType"][value="salaried"]');
+  if (defaultRadio) defaultRadio.checked = true;
   clearBTS();
 }
 
@@ -139,6 +148,20 @@ function populateForm(rec) {
   set('children', rec.children); set('dependents', rec.dependents);
   set('bloodGroup', rec.blood_group); set('canDonate', rec.can_donate);
   set('openedBy', rec.opened_by); set('age', rec.age);
+  set('openedOn', rec.opened_on);       // FIX 2a: was missing
+  set('ageAsOn', rec.age_as_on);        // FIX 2b: was missing
+  set('relManager', rec.relationship_manager); // FIX 2c: was missing
+
+  // FIX 2d: date_of_birth split across 3 selects
+  if (rec.date_of_birth) {
+    const [y, m, d] = rec.date_of_birth.split('-');
+    set('dobDay', +d); set('dobMonth', +m); set('dobYear', +y);
+  }
+  // FIX 2e: id_expiry_date split across 3 selects
+  if (rec.id_expiry_date) {
+    const [y, m, d] = rec.id_expiry_date.split('-');
+    set('idExpiryDay', +d); set('idExpiryMonth', +m); set('idExpiryYear', +y);
+  }
 
   // Address
   set('addressType', rec.address_type); set('postalAddress', rec.postal_address);
@@ -154,6 +177,11 @@ function populateForm(rec) {
   set('employeeNo', rec.employee_no); set('grossIncome', rec.gross_income);
   set('rentExpenses', rec.rent_expenses); set('familyIncome', rec.family_income);
   set('otherExpenses', rec.other_expenses); set('otherIncome', rec.other_income);
+  // FIX 3: employment_type (radio buttons) was never populated
+  if (rec.employment_type) {
+    const radio = document.querySelector(`[name="empType"][value="${rec.employment_type === 'Salaried' ? 'salaried' : 'selfEmployed'}"]`);
+    if (radio) radio.checked = true;
+  }
   computeEmploymentTotals();
 
   // BTS
@@ -161,16 +189,25 @@ function populateForm(rec) {
 }
 
 function populateBTS(rec) {
+  // FIX 9: use a fixed label→DB-column map instead of fragile label text parsing.
+  // "Open Date" label maps to rec.open_date (not opened_on), etc.
+  const labelMap = {
+    'status':        rec.status,
+    'open date':     rec.open_date,
+    'closed date':   rec.closed_date,
+    'created by':    rec.created_by,
+    'modified by':   rec.modified_by,
+    'supervised by': rec.supervised_by,
+    'created on':    rec.created_on,
+    'modified on':   rec.modified_on,
+    'supervised on': rec.supervised_on,
+  };
   document.querySelectorAll('.bts-field').forEach(field => {
-    const label = field.querySelector('label')?.textContent?.trim().replace(/\s/g,'_').toLowerCase();
+    const labelText = field.querySelector('label')?.textContent?.trim().toLowerCase();
     const input = field.querySelector('input');
-    if (!input || !label) return;
-    const map = {
-      'status': rec.status, 'open_date': rec.open_date, 'closed_date': rec.closed_date,
-      'created_by': rec.created_by, 'modified_by': rec.modified_by, 'supervised_by': rec.supervised_by,
-      'created_on': rec.created_on, 'modified_on': rec.modified_on, 'supervised_on': rec.supervised_on
-    };
-    input.value = map[label] ?? '';
+    if (!input || !labelText) return;
+    const val = labelMap[labelText];
+    input.value = val ?? '';
   });
 }
 
@@ -198,6 +235,24 @@ function collectForm() {
     dependents: get('dependents') ? +get('dependents') : null,
     blood_group: get('bloodGroup'), can_donate: get('canDonate'),
     opened_by: get('openedBy'), age: get('age') ? +get('age') : null,
+    opened_on: get('openedOn') || null,               // FIX 4a
+    age_as_on: get('ageAsOn') || null,                // FIX 4b
+    relationship_manager: get('relManager') || null,  // FIX 4c
+    // FIX 4d: build date_of_birth from 3 separate selects
+    date_of_birth: (() => {
+      const d = get('dobDay'), m = get('dobMonth'), y = get('dobYear');
+      return (d && m && y) ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}` : null;
+    })(),
+    // FIX 4e: build id_expiry_date from 3 separate selects
+    id_expiry_date: (() => {
+      const d = get('idExpiryDay'), m = get('idExpiryMonth'), y = get('idExpiryYear');
+      return (d && m && y) ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}` : null;
+    })(),
+    // FIX 4f: employment_type from radio buttons
+    employment_type: (() => {
+      const r = document.querySelector('[name="empType"]:checked');
+      return r ? (r.value === 'salaried' ? 'Salaried' : 'Self Employed') : null;
+    })(),
     // Address
     address_type: get('addressType'), postal_address: get('postalAddress'),
     physical_address: get('physicalAddress'), city: get('city'),
@@ -256,6 +311,12 @@ async function loadRecord(clientId) {
 async function saveRecord() {
   const payload = collectForm();
   if (!payload.first_name) { showToast('First Name is required.', 'error'); return; }
+  if (!payload.client_id)  { showToast('Client ID is required.', 'error'); return; }
+
+  // FIX 5: Remove GENERATED ALWAYS columns — Supabase rejects them on INSERT/UPDATE
+  delete payload.total_income;
+  delete payload.total_expenses;
+  delete payload.net_savings;
 
   try {
     if (mode === 'add') {
@@ -267,9 +328,12 @@ async function saveRecord() {
       currentRecord = Array.isArray(data) ? data[0] : data;
       showToast('Client saved successfully.', 'success');
     } else {
+      // FIX 6: PATCH must not send client_id in body (it's the filter key, not updatable)
+      const updatePayload = { ...payload };
+      delete updatePayload.client_id;
       await sbFetch(`ClientMasterRecords?client_id=eq.${currentRecord.client_id}`, {
         method: 'PATCH',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(updatePayload),
         prefer: 'return=representation'
       });
       currentRecord = { ...currentRecord, ...payload };
@@ -326,12 +390,39 @@ btnNext.addEventListener('click', () => {
   if (currentIndex < allRecords.length - 1) { currentIndex++; populateForm(allRecords[currentIndex]); }
 });
 
-// Lookup btn on Client ID
-document.querySelector('.identity-bar .lookup-btn').addEventListener('click', async () => {
-  const cid = document.getElementById('clientId').value.trim();
-  if (!cid) { showToast('Enter a Client ID.', 'error'); return; }
-  await loadRecord(cid);
-});
+// FIX 7: Wire each lookup button explicitly — querySelector('.identity-bar .lookup-btn')
+// only ever matched the FIRST button (clientId). The applicationId button was dead.
+const lookupBtns = document.querySelectorAll('.identity-bar .lookup-btn');
+
+// First lookup button → search by Client ID
+if (lookupBtns[0]) {
+  lookupBtns[0].addEventListener('click', async () => {
+    const cid = document.getElementById('clientId').value.trim();
+    if (!cid) { showToast('Enter a Client ID.', 'error'); return; }
+    await loadRecord(cid);
+  });
+}
+
+// Second lookup button → search by Application ID
+if (lookupBtns[1]) {
+  lookupBtns[1].addEventListener('click', async () => {
+    const aid = document.getElementById('applicationId').value.trim();
+    if (!aid) { showToast('Enter an Application ID.', 'error'); return; }
+    try {
+      const data = await sbFetch(`ClientMasterRecords?application_id=eq.${aid}&limit=1`);
+      if (data && data.length) {
+        currentRecord = data[0];
+        populateForm(currentRecord);
+        setMode('view');
+        showToast(`Loaded: ${currentRecord.client_name || aid}`, 'success');
+      } else {
+        showToast('No record found for that Application ID.', 'error');
+      }
+    } catch (e) {
+      showToast(`Error: ${e.message}`, 'error');
+    }
+  });
+}
 
 // ── Init ─────────────────────────────────────────────────
 setMode('view');
