@@ -7,8 +7,8 @@
 'use strict';
 
 /* ── Supabase Config ───────────────────────────────────── */
-const SUPA_URL = 'https://oxzthrubidohuwwhxsrk.supabase.co';
-const SUPA_KEY = 'YOUR_SUPABASE_ANON_KEY'; // ← replace with your anon key
+const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
 async function sbFetch(path, opts = {}) {
   const res = await fetch(`${SUPA_URL}/rest/v1/${path}`, {
