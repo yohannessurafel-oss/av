@@ -20,14 +20,12 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     }
 });
 
-
-
 async function sbFetch(path, options = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
     headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       'Content-Type': 'application/json',
       'Prefer': options.prefer || 'return=representation',
       ...(options.headers || {})
@@ -114,6 +112,33 @@ function setMode(m) {
   btnView.disabled   = false;
 }
 
+// Helper to convert split dropdown elements to standardized ISO Strings (YYYY-MM-DD)
+function buildDateString(prefix) {
+  const d = document.querySelector(`[name="${prefix}Day"]`)?.value;
+  const m = document.querySelector(`[name="${prefix}Month"]`)?.value;
+  const y = document.querySelector(`[name="${prefix}Year"]`)?.value;
+  if (!d || !m || !y || d.includes('–') || m.includes('–') || y.includes('–')) return null;
+  return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+}
+
+// Helper to break a standardized YYYY-MM-DD string back into split dropdown lists
+function parseAndPopulateSplitDate(prefix, isoString) {
+  if (!isoString) return;
+  const parts = isoString.split('T')[0].split('-'); // Handles full timestamps if passed
+  if (parts.length !== 3) return;
+  const y = parts[0];
+  const m = parseInt(parts[1], 10).toString();
+  const d = parseInt(parts[2], 10).toString();
+  
+  const elD = document.querySelector(`[name="${prefix}Day"]`);
+  const elM = document.querySelector(`[name="${prefix}Month"]`);
+  const elY = document.querySelector(`[name="${prefix}Year"]`);
+  
+  if (elD) elD.value = d;
+  if (elM) elM.value = m;
+  if (elY) elY.value = y;
+}
+
 // ── Record → Form ─────────────────────────────────────────
 function populateForm(rec) {
   if (!rec) return;
@@ -130,6 +155,13 @@ function populateForm(rec) {
   document.getElementById('clientType').value = rec.client_type ?? 'Individual Client';
   document.getElementById('baseId').value = rec.base_id ?? '';
 
+  // Handle Employment Radio Mapping
+  if (rec.employment_type) {
+    const targetValue = rec.employment_type === 'Self Employed' ? 'selfEmployed' : 'salaried';
+    const radioEl = document.querySelector(`input[name="empType"][value="${targetValue}"]`);
+    if (radioEl) radioEl.checked = true;
+  }
+
   // Personal
   set('title', rec.title); set('firstName', rec.first_name); set('middleName', rec.middle_name);
   set('lastName', rec.last_name); set('gender', rec.gender); set('nationality', rec.nationality);
@@ -139,6 +171,10 @@ function populateForm(rec) {
   set('children', rec.children); set('dependents', rec.dependents);
   set('bloodGroup', rec.blood_group); set('canDonate', rec.can_donate);
   set('openedBy', rec.opened_by); set('age', rec.age);
+
+  // Parse Complex Date Schemas back into split structural selectors
+  parseAndPopulateSplitDate('dob', rec.date_of_birth);
+  parseAndPopulateSplitDate('idExpiry', rec.id_expiry_date);
 
   // Address
   set('addressType', rec.address_type); set('postalAddress', rec.postal_address);
@@ -182,12 +218,21 @@ function collectForm() {
     if (el.type === 'checkbox') return el.checked;
     return el.value || null;
   };
+
+  // Convert radio state back to clean string schemas expected by Postgres Check constraints
+  const selectedEmpType = document.querySelector('input[name="empType"]:checked')?.value;
+  const formattedEmploymentType = selectedEmpType === 'selfEmployed' ? 'Self Employed' : 'Salaried';
+
   return {
     client_id:       document.getElementById('clientId').value || null,
     application_id:  document.getElementById('applicationId').value || null,
     client_name:     document.getElementById('clientName').value || null,
     client_type:     document.getElementById('clientType').value || null,
     base_id:         document.getElementById('baseId').value || null,
+    
+    // Mapped Radio Value
+    employment_type: formattedEmploymentType,
+
     // Personal
     title: get('title'), first_name: get('firstName'), middle_name: get('middleName'),
     last_name: get('lastName'), gender: get('gender'), nationality: get('nationality'),
@@ -198,6 +243,11 @@ function collectForm() {
     dependents: get('dependents') ? +get('dependents') : null,
     blood_group: get('bloodGroup'), can_donate: get('canDonate'),
     opened_by: get('openedBy'), age: get('age') ? +get('age') : null,
+    
+    // Parsed Date Schemas
+    date_of_birth: buildDateString('dob'),
+    id_expiry_date: buildDateString('idExpiry'),
+
     // Address
     address_type: get('addressType'), postal_address: get('postalAddress'),
     physical_address: get('physicalAddress'), city: get('city'),
@@ -315,24 +365,4 @@ btnCancel.addEventListener('click', () => {
 btnClose.addEventListener('click', () => {
   clearForm();
   currentRecord = null;
-  setMode('view');
-  showToast('Record closed.');
-});
-
-btnPrev.addEventListener('click', () => {
-  if (currentIndex > 0) { currentIndex--; populateForm(allRecords[currentIndex]); }
-});
-btnNext.addEventListener('click', () => {
-  if (currentIndex < allRecords.length - 1) { currentIndex++; populateForm(allRecords[currentIndex]); }
-});
-
-// Lookup btn on Client ID
-document.querySelector('.identity-bar .lookup-btn').addEventListener('click', async () => {
-  const cid = document.getElementById('clientId').value.trim();
-  if (!cid) { showToast('Enter a Client ID.', 'error'); return; }
-  await loadRecord(cid);
-});
-
-// ── Init ─────────────────────────────────────────────────
-setMode('view');
-setFormEnabled(false);
+  setMode('
