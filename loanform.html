@@ -594,33 +594,27 @@
 
     <!-- ── Right Action Sidebar ─────────────────────────── -->
     <div class="action-sidebar">
-      <div class="action-sidebar-header">Actions</div>
-      <button type="button" class="action-btn" id="btnGlobalView" title="Search and load a record">
-        <span class="btn-icon">🔍</span> View
-      </button>
-      <button type="button" class="action-btn" id="btnGlobalAdd" title="Clear form and enter a new record">
-        <span class="btn-icon">➕</span> Add
-      </button>
-      <button type="button" class="action-btn" id="btnGlobalEdit" title="Edit the currently loaded record">
-        <span class="btn-icon">✏️</span> Edit
-      </button>
-      <button type="button" class="action-btn btn-delete" id="btnGlobalDelete" title="Delete the currently loaded record">
-        <span class="btn-icon">🗑</span> Delete
-      </button>
-      <button type="button" class="action-btn btn-save" id="btnGlobalSave" title="Save the current record to database">
-        <span class="btn-icon">💾</span> Save
-      </button>
-      <button type="button" class="action-btn" id="btnGlobalCancel" title="Cancel and discard changes">
-        <span class="btn-icon">✖</span> Cancel
-      </button>
-      <div class="sidebar-spacer"></div>
-      <button type="button" class="action-btn btn-print" id="btnGlobalPrint">
-        <span class="btn-icon">🖨</span> Print
-      </button>
-      <div class="sidebar-footer-brand sidebar-footer">
-        Africa Village<br/>Microfinance
-      </div>
-    </div>
+    <button id="btnGlobalView" class="btn btn-secondary">
+        <i class="fas fa-search"></i> View
+    </button>
+    <button id="btnGlobalAdd" class="btn btn-success">
+        <i class="fas fa-plus"></i> Add
+    </button>
+    <button id="btnGlobalEdit" class="btn btn-warning">
+        <i class="fas fa-edit"></i> Edit
+    </button>
+    <!-- Repurposed/Added Close Button -->
+    <button id="btnGlobalClose" class="btn btn-dark">
+        <i class="fas fa-times-circle"></i> Close
+    </button>
+    <hr class="sidebar-divider">
+    <button id="btnGlobalSave" class="btn btn-primary" disabled>
+        <i class="fas fa-save"></i> Save
+    </button>
+    <button id="btnGlobalCancel" class="btn btn-danger" disabled>
+        <i class="fas fa-ban"></i> Cancel
+    </button>
+</div>
 
   </div><!-- /workspace -->
 </div><!-- /window-container -->
