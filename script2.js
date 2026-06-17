@@ -161,9 +161,11 @@ async function loadBranches() {
 
 document.getElementById('loanBranchId')?.addEventListener('change', function () {
   const nameEl = document.getElementById('loanBranchName');
-  // FIX 7: use cached branch data instead of a second API call
   const chosen = (this._branchData || []).find(b => b.branch_id === this.value);
   nameEl.value = chosen ? chosen.branch_name : '';
+  // Step 2: only enable Add when a valid branch is selected
+  const addBtn = document.getElementById('btnGlobalAdd');
+  if (addBtn) addBtn.disabled = !this.value || currentMode === 'add' || currentMode === 'edit';
 });
 
 /* ── Client Name Auto-Fill ─────────────────────────────── */
@@ -529,12 +531,25 @@ document.getElementById('btnGlobalView').addEventListener('click', async () => {
 
 /* ADD ──────────────────────────────────────────────────── */
 document.getElementById('btnGlobalAdd').addEventListener('click', () => {
+  // Step 2: Branch ID must be selected before proceeding
+  const branchSel = document.getElementById('loanBranchId');
+  if (!branchSel || !branchSel.value) {
+    toast('⚠ Select a Branch ID first before adding a new loan application.', 'warning');
+    branchSel?.focus();
+    return;
+  }
   currentRecord = null;
   clearLoanAppForm();
+  // Keep the selected branch after clear
+  if (branchSel.value) {
+    const nameEl = document.getElementById('loanBranchName');
+    const chosen = (branchSel._branchData || []).find(b => b.branch_id === branchSel.value);
+    if (nameEl) nameEl.value = chosen ? chosen.branch_name : '';
+  }
   setMode('add');
-  // FIX 10: removed duplicate focus + setWorkspaceMode call
-  document.getElementById('fApplicationId')?.focus();
-  toast('New record — fill in the details and Save.');
+  // Step 3: focus moves to Client ID
+  document.getElementById('fClientId')?.focus();
+  toast('Branch selected. Enter Client ID, Product ID and loan details, then Save.');
 });
 
 /* EDIT ─────────────────────────────────────────────────── */
@@ -550,6 +565,116 @@ document.getElementById('btnGlobalSave').addEventListener('click', async () => {
   const payload = collectForm();
   if (!validateLoanApp()) return;
 
+  // Steps 14-15: Show confirmation dialog before committing to DB
+  showSaveConfirmation(payload, async () => {
+    await commitSave(payload);
+  });
+});
+
+/* ── Confirmation Dialog (Steps 14-15) ─────────────────── */
+function showSaveConfirmation(payload, onConfirm) {
+  const fmt = v => v != null && v !== '' ? v : '—';
+  const fmtAmt = v => v != null ? 'ETB ' + Number(v).toLocaleString('en-ET', { minimumFractionDigits: 2 }) : '—';
+  const action = currentMode === 'add' ? 'Create New' : 'Update';
+
+  // Remove any existing confirmation overlay
+  document.getElementById('saveConfirmOverlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'saveConfirmOverlay';
+  overlay.style.cssText = `
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    background:rgba(10,20,40,0.55);z-index:9000;
+    display:flex;align-items:center;justify-content:center;`;
+
+  overlay.innerHTML = `
+    <div style="
+      background:#fff;border-radius:6px;
+      box-shadow:0 8px 32px rgba(0,0,0,0.28);
+      width:480px;max-width:96vw;font-family:'Segoe UI',Inter,sans-serif;font-size:13px;overflow:hidden;">
+      <!-- Header -->
+      <div style="background:#0A291A;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:15px;">💾</span>
+        <span style="font-weight:700;letter-spacing:.03em;">Confirm Loan Application — ${action}</span>
+      </div>
+      <!-- Summary -->
+      <div style="padding:14px 16px 4px;color:#1a2a35;">
+        <div style="background:#f4f7f9;border:1px solid #ccd3da;border-radius:4px;padding:10px 14px;margin-bottom:10px;">
+          <table style="width:100%;border-collapse:collapse;line-height:1.9;">
+            <tr><td style="color:#6b7f8b;width:52%;">Application ID</td><td style="font-weight:700;color:#0A291A;">${fmt(payload['application_id'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Branch</td><td>${fmt(payload['branch_id'])} ${document.getElementById('loanBranchName')?.value ? '— ' + document.getElementById('loanBranchName').value : ''}</td></tr>
+            <tr><td style="color:#6b7f8b;">Client ID</td><td>${fmt(payload['client_id'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Client Name</td><td>${fmt(payload['client_name'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Product ID</td><td>${fmt(payload['product_id'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Repayment Account</td><td>${fmt(payload['main_repayment_account_id'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Loan Purpose</td><td>${fmt(payload['loan_purpose'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Line of Business</td><td>${fmt(payload['line_of_business'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Officer ID</td><td>${fmt(payload['credit_officer_id'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Loan Amount</td><td style="font-weight:700;">${fmtAmt(payload['applied_amount'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Term</td><td>${fmt(payload['term_months'])} months</td></tr>
+            <tr><td style="color:#6b7f8b;">Interest Rate</td><td>${fmt(payload['interest_rate'])}%</td></tr>
+            <tr><td style="color:#6b7f8b;">Disbursement Date</td><td>${fmt(payload['disbursement_date'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Application Status</td><td><span style="background:#ddeaf7;padding:1px 8px;border-radius:10px;font-weight:700;">${fmt(payload['application_status'])}</span></td></tr>
+          </table>
+        </div>
+        <p style="color:#6b7f8b;font-size:11px;margin:0 0 12px;">
+          Click <strong>Yes</strong> to confirm and save this loan application record.
+        </p>
+      </div>
+      <!-- Footer buttons (Step 15: Yes then OK) -->
+      <div style="padding:0 16px 14px;display:flex;justify-content:flex-end;gap:8px;">
+        <button id="confirmNo"  style="padding:6px 20px;border:1px solid #ccd3da;background:#fff;border-radius:4px;font-size:13px;cursor:pointer;">No</button>
+        <button id="confirmYes" style="padding:6px 20px;background:#F5A623;border:1px solid #e09615;color:#0A291A;border-radius:4px;font-size:13px;font-weight:700;cursor:pointer;">Yes</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('confirmNo').addEventListener('click', () => {
+    overlay.remove();
+    toast('Save cancelled.');
+  });
+
+  document.getElementById('confirmYes').addEventListener('click', async () => {
+    overlay.remove();
+    await onConfirm();
+    // Step 15b: "OK" acknowledgement after successful save
+    showSaveOkDialog();
+  });
+
+  // Click outside to cancel
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+function showSaveOkDialog() {
+  document.getElementById('saveOkOverlay')?.remove();
+  if (!currentRecord) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'saveOkOverlay';
+  overlay.style.cssText = `
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    background:rgba(10,20,40,0.45);z-index:9100;
+    display:flex;align-items:center;justify-content:center;`;
+  overlay.innerHTML = `
+    <div style="
+      background:#fff;border-radius:6px;
+      box-shadow:0 8px 32px rgba(0,0,0,0.22);
+      width:340px;text-align:center;font-family:'Segoe UI',Inter,sans-serif;font-size:13px;overflow:hidden;">
+      <div style="background:#27ae60;color:#fff;padding:10px 16px;font-weight:700;">✔ Application Saved Successfully</div>
+      <div style="padding:20px 16px 10px;">
+        <div style="font-size:22px;margin-bottom:8px;">✅</div>
+        <p style="color:#1a2a35;margin:0 0 4px;">Loan Application <strong>${currentRecord['application_id'] || ''}</strong></p>
+        <p style="color:#6b7f8b;margin:0 0 16px;font-size:11px;">has been saved with status <strong>DataEntry</strong>.</p>
+        <button id="saveOkBtn" style="padding:7px 30px;background:#0A291A;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:700;cursor:pointer;">OK</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('saveOkBtn').addEventListener('click', () => overlay.remove());
+  // Auto-dismiss after 8 seconds
+  setTimeout(() => overlay?.remove(), 8000);
+}
+
+async function commitSave(payload) {
   const appId      = payload[COL.application_id];
   const branchId   = payload[COL.branch_id];
   const groupId    = payload[COL.group_id];
@@ -561,10 +686,7 @@ document.getElementById('btnGlobalSave').addEventListener('click', async () => {
     toast('Processing…', 'info');
 
     if (currentMode === 'add') {
-
-      // ── STEP 1: Insert parent row into loanapplications ──────────────
-      // loanmasterrecords.application_id is a FK → loanapplications(application_id)
-      // so the parent record MUST exist before the child insert.
+      // Insert parent row into loanapplications first (FK dependency)
       const parentPayload = {
         application_id:     appId,
         application_date:   appDate || new Date().toISOString().split('T')[0],
@@ -573,33 +695,27 @@ document.getElementById('btnGlobalSave').addEventListener('click', async () => {
         sub_group_id:       subGroupId || null,
         application_status: appStatus,
       };
-
-      // Use upsert (POST with Prefer: resolution=merge-duplicates) so that
-      // re-saving after a partial failure doesn't throw a duplicate PK error.
       await sbFetch('loanapplications', {
         method: 'POST',
         body:   JSON.stringify(parentPayload),
         prefer: 'resolution=merge-duplicates,return=minimal'
       });
 
-      // ── STEP 2: Insert child row into loanmasterrecords ──────────────
+      // Insert child row into loanmasterrecords
       const responseData = await sbFetch(TABLE_LOANS, {
         method: 'POST',
         body:   JSON.stringify(payload),
         prefer: 'return=representation'
       });
       currentRecord = Array.isArray(responseData) ? responseData[0] : responseData;
-      toast('✔ Record successfully created.', 'success');
 
     } else if (currentMode === 'edit') {
       const currentAppId = currentRecord[COL.application_id];
       if (!currentAppId) throw new Error('No active record identifier to modify.');
 
-      // On edit — only loanmasterrecords needs updating (parent row already exists)
       const updatePayload = { ...payload };
-      delete updatePayload[COL.application_id]; // never send PK in PATCH body
+      delete updatePayload[COL.application_id];
 
-      // Also sync the status back to loanapplications
       await sbFetch(
         `loanapplications?application_id=eq.${encodeURIComponent(currentAppId)}`, {
         method: 'PATCH',
@@ -614,17 +730,17 @@ document.getElementById('btnGlobalSave').addEventListener('click', async () => {
         prefer: 'return=representation'
       });
       currentRecord = Array.isArray(responseData) ? responseData[0] : currentRecord;
-      toast('✔ Record successfully updated.', 'success');
     }
 
     if (currentRecord) fillForm(currentRecord);
     setMode('view');
+    toast('✔ Loan application record saved.', 'success');
 
   } catch (error) {
     console.error('Save error:', error);
     toast(`Save failed: ${error.message}`, 'error');
   }
-});
+}
 
 // CLOSE
 document.getElementById('btnGlobalClose').addEventListener('click', () => {
@@ -683,3 +799,71 @@ async function init() {
 }
 
 init();
+
+/* ── Disbursement Date Select Population (Step 13) ──────── */
+// Populates fDisbursementDate select with the next 24 monthly dates
+// from today, plus any existing date from a loaded record.
+function populateDisbursementDates(existingDate) {
+  const sel = document.getElementById('fDisbursementDate');
+  if (!sel) return;
+
+  const today = new Date();
+  const dates = [];
+
+  // Generate next 24 months of 1st-of-month disbursement dates
+  for (let i = 0; i <= 24; i++) {
+    const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+    dates.push(d.toISOString().split('T')[0]);
+  }
+
+  // Also include any specific date from the loaded record
+  if (existingDate && !dates.includes(existingDate)) {
+    dates.unshift(existingDate);
+  }
+
+  sel.innerHTML = '<option value="">-- Select Date --</option>';
+  dates.forEach(dateStr => {
+    const opt = document.createElement('option');
+    opt.value = dateStr;
+    const d = new Date(dateStr + 'T00:00:00');
+    opt.textContent = d.toLocaleDateString('en-ET', { year: 'numeric', month: 'long', day: 'numeric' });
+    if (dateStr === existingDate) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// Re-populate when Term field is tabbed out (Step 12 → Step 13 transition)
+document.getElementById('fTerm')?.addEventListener('blur', () => {
+  const existing = document.getElementById('fDisbursementDate')?.value;
+  populateDisbursementDates(existing || null);
+  // Focus disbursement date after tab
+  setTimeout(() => document.getElementById('fDisbursementDate')?.focus(), 50);
+});
+
+// Initial population on page load
+populateDisbursementDates(null);
+
+/* ── Patch: fillForm disbursement date awareness ─────────── */
+// Override the disbursement date fill to ensure the option exists in the select
+const _origFillForm = fillForm;
+// Re-wrap fillForm so that when a record is loaded, disbursement date
+// is first added to the select, then selected.
+window._patchedFillDisbDate = function(rec) {
+  if (!rec) return;
+  const disbDate = rec[COL.disbursement_date] || null;
+  populateDisbursementDates(disbDate);
+  const sel = document.getElementById('fDisbursementDate');
+  if (sel && disbDate) sel.value = disbDate;
+};
+
+// Intercept fillForm calls to also populate disbursement dates
+const _fillFormOriginal = fillForm;
+function fillForm(rec) {
+  _fillFormOriginal(rec);
+  if (rec) {
+    const disbDate = rec[COL.disbursement_date] || null;
+    populateDisbursementDates(disbDate);
+    const sel = document.getElementById('fDisbursementDate');
+    if (sel && disbDate) sel.value = disbDate;
+  }
+}
