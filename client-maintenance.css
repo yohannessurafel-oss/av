@@ -384,3 +384,10 @@ body {
   outline: none;
 }
 .date-dropdowns .inline-sel:focus { border-color: var(--navy); }
+
+/* ─── Required field error highlight ─────────────────────── */
+.field-error {
+  border-color: var(--error) !important;
+  background: #fff5f5 !important;
+  box-shadow: 0 0 0 2px rgba(192,57,43,.18) !important;
+}
