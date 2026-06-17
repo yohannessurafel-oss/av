@@ -10,16 +10,23 @@
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-let currentRecord = null; // Holds the active record data
-let workspaceMode = 'view'; // Modes: 'view', 'add', 'edit'
+// FIX 8/16: DB table names are snake_case — define once at top scope
+const TABLE_LOANS    = TABLE_LOANS;
+const TABLE_BRANCHES = 'branchregistry';
+const TABLE_CLIENTS  = '"ClientMasterRecords"';
 
-
-async function sbFetch(path, opts = {}) {
-  const res = await fetch(`${SUPA_URL}/rest/v1/${path}`, {
+/* ── State ─────────────────────────────────────────────── */
+// FIX 3: removed duplicate declarations of currentRecord and workspaceMode
+let currentMode   = 'view';  // 'view' | 'add' | 'edit'
+let currentRecord = null;
+let currentModule = 'loan-app';
+let viewModalData = [];
+  // FIX 1: SUPA_URL and SUPA_KEY were never declared — use the correct constants
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
     headers: {
-      'apikey':        SUPA_KEY,
-      'Authorization': `Bearer ${SUPA_KEY}`,
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       'Content-Type':  'application/json',
       'Prefer':        opts.prefer || 'return=representation',
       ...(opts.headers || {})
@@ -32,40 +39,36 @@ async function sbFetch(path, opts = {}) {
   return res.status === 204 ? null : res.json();
 }
 
-/* ── Column Map (LoanMasterRecords) ────────────────────── */
+/* ── Column Map (loanmasterrecords — snake_case to match DB) ── */
+// FIX 2: was PascalCase (ApplicationId etc) — DB uses snake_case
 const COL = {
-  application_id:   'ApplicationId',
-  branch_id:        'BranchId',
-  client_id:        'ClientId',
-  client_name:      'ClientName',
-  product_id:       'ProductId',
-  repayment_acc_id: 'RepaymentAccId',
-  donor_id:         'DonorId',
-  loan_purpose:     'LoanPurpose',
-  officer_id:       'OfficerId',
-  applied_amount:   'AppliedAmount',
-  term:             'Term',
-  interest_rate:    'InterestRate',
-  tax_rate:         'TaxRate',
-  commission_rate:  'CommissionRate',
-  effective_rate:   'EffectiveRate',
-  spread:           'Spread',
-  file_number:      'FileNumber',
-  sales_officer:    'SalesOfficer',
-  app_date:         'AppDate',
-  disbursement_date:'DisbursementDate',
-  line_of_business: 'LineOfBusiness',
-  currency_id:      'CurrencyId',
-  app_status:       'AppStatus',
-  group_id:         'GroupId',
-  sub_group_id:     'SubGroupId',
+  application_id:   'application_id',
+  branch_id:        'branch_id',
+  center_id:        'center_id',
+  group_id:         'group_id',
+  sub_group_id:     'sub_group_id',
+  client_id:        'client_id',
+  client_name:      'client_name',
+  product_id:       'product_id',
+  repayment_acc_id: 'main_repayment_account_id',
+  donor_id:         'donor_id',
+  loan_purpose:     'loan_purpose',
+  officer_id:       'credit_officer_id',
+  applied_amount:   'applied_amount',
+  term:             'term_months',
+  interest_rate:    'interest_rate',
+  tax_rate:         'tax_rate',
+  commission_rate:  'commission_rate',
+  effective_rate:   'effective_rate',
+  spread:           'spread',
+  file_number:      'file_number',
+  sales_officer:    'sales_officer',
+  app_date:         'application_date',
+  disbursement_date:'disbursement_date',
+  line_of_business: 'line_of_business',
+  currency_id:      'currency_id',
+  app_status:       'application_status',
 };
-
-/* ── State ─────────────────────────────────────────────── */
-let currentMode   = 'view';  // 'view' | 'add' | 'edit'
-let currentRecord = null;
-let currentModule = 'loan-app';
-let viewModalData = [];
 
 /* ── Toast ─────────────────────────────────────────────── */
 const toastEl = document.getElementById('toastNotification');
@@ -102,7 +105,9 @@ document.getElementById('globalModuleRouter').addEventListener('click', e => {
   currentModule = mod;
 
   setMode('view');
-  document.getElementById('statusBar').textContent = `Module: ${li.querySelector('.nav-label').textContent} — Ready`;
+  // FIX 4: statusBar id does not exist — correct id is in the active module view
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = `Module: ${li.querySelector('.nav-label').textContent} — Ready`;
 });
 
 /* ── Sub-Tab Navigation ────────────────────────────────── */
@@ -124,36 +129,8 @@ document.querySelectorAll('.sub-tab').forEach(tab => {
 
 
 
-function setWorkspaceMode(mode) {
-    workspaceMode = mode;
-    const inputs = document.querySelectorAll('.loan-form-input'); // Adjust selector to your form inputs
-    
-    if (mode === 'view') {
-        // Form is locked; Action buttons enabled; Save/Cancel disabled
-        inputs.forEach(input => input.disabled = true);
-        document.getElementById('btnGlobalView').disabled = false;
-        document.getElementById('btnGlobalAdd').disabled = false;
-        document.getElementById('btnGlobalEdit').disabled = (currentRecord === null); // Only edit if a record is loaded
-        document.getElementById('btnGlobalClose').disabled = (currentRecord === null);
-        document.getElementById('btnGlobalSave').disabled = true;
-        document.getElementById('btnGlobalCancel').disabled = true;
-    } else if (mode === 'add' || mode === 'edit') {
-        // Form is unlocked; Action buttons disabled; Save/Cancel active
-        inputs.forEach(input => input.disabled = false);
-        document.getElementById('btnGlobalView').disabled = true;
-        document.getElementById('btnGlobalAdd').disabled = true;
-        document.getElementById('btnGlobalEdit').disabled = true;
-        document.getElementById('btnGlobalClose').disabled = true;
-        document.getElementById('btnGlobalSave').disabled = false;
-        document.getElementById('btnGlobalCancel').disabled = false;
-    }
-}
-
-
-function clearFormFields() {
-    const form = document.getElementById('loanApplicationForm'); // Adjust to your form ID
-    if (form) form.reset();
-}
+// FIX 5: setWorkspaceMode() removed — it used '.loan-form-input' selector which
+// matches nothing in the HTML. All mode control goes through setMode() below.
 
 
 /* ── Branch Dropdown ───────────────────────────────────── */
@@ -161,12 +138,14 @@ async function loadBranches() {
   const sel = document.getElementById('loanBranchId');
   if (!sel) return;
   try {
-    const rows = await sbFetch('BranchRegistry?select=BranchId,BranchName&order=BranchId');
+    // FIX 7: table is branchregistry (snake_case), columns are branch_id/branch_name
+    const rows = await sbFetch(TABLE_BRANCHES + '?select=branch_id,branch_name&order=branch_id');
     sel.innerHTML = '<option value="">--</option>';
     (rows || []).forEach(r => {
       const o = document.createElement('option');
-      o.value = r.BranchId;
-      o.textContent = r.BranchId;
+      o.value = r.branch_id;
+      o.textContent = r.branch_id;
+      sel._branchData = rows; // cache for name lookup
       sel.appendChild(o);
     });
   } catch {
@@ -174,13 +153,11 @@ async function loadBranches() {
   }
 }
 
-document.getElementById('loanBranchId')?.addEventListener('change', async function () {
+document.getElementById('loanBranchId')?.addEventListener('change', function () {
   const nameEl = document.getElementById('loanBranchName');
-  if (!this.value) { nameEl.value = ''; return; }
-  try {
-    const rows = await sbFetch(`BranchRegistry?BranchId=eq.${this.value}&select=BranchName&limit=1`);
-    nameEl.value = (rows && rows[0]) ? rows[0].BranchName : '';
-  } catch { nameEl.value = ''; }
+  // FIX 7: use cached branch data instead of a second API call
+  const chosen = (this._branchData || []).find(b => b.branch_id === this.value);
+  nameEl.value = chosen ? chosen.branch_name : '';
 });
 
 /* ── Client Name Auto-Fill ─────────────────────────────── */
@@ -189,7 +166,7 @@ document.getElementById('fClientId')?.addEventListener('blur', async function ()
   const nameEl = document.getElementById('fClientName');
   if (!val) { nameEl.value = ''; return; }
   try {
-    const rows = await sbFetch(`ClientMasterRecords?client_id=eq.${encodeURIComponent(val)}&select=client_name&limit=1`);
+    const rows = await sbFetch(`${TABLE_CLIENTS}?client_id=eq.${encodeURIComponent(val)}&select=client_name&limit=1`);
     nameEl.value = (rows && rows[0]) ? (rows[0].client_name || '') : '';
     if (!nameEl.value) toast('Client ID not found in registry.', 'warning');
   } catch { nameEl.value = ''; }
@@ -247,18 +224,22 @@ function setMode(mode) {
   document.querySelectorAll('input[readonly]').forEach(el => el.disabled = false);
 
   const btnSave   = document.getElementById('btnGlobalSave');
-  const btnDelete = document.getElementById('btnGlobalDelete');
   const btnEdit   = document.getElementById('btnGlobalEdit');
   const btnAdd    = document.getElementById('btnGlobalAdd');
   const btnCancel = document.getElementById('btnGlobalCancel');
+  const btnClose  = document.getElementById('btnGlobalClose');
+  // FIX 6: btnGlobalDelete and btnGlobalPrint don't exist in HTML — guarded with ?.
+  const btnDelete = document.getElementById('btnGlobalDelete');
 
-  btnSave.disabled   = !isEdit;
-  btnCancel.disabled = !isEdit;
-  btnAdd.disabled    = isEdit;
-  btnEdit.disabled   = isEdit || !currentRecord;
-  btnDelete.disabled = !currentRecord || isEdit;
+  if (btnSave)   btnSave.disabled   = !isEdit;
+  if (btnCancel) btnCancel.disabled = !isEdit;
+  if (btnAdd)    btnAdd.disabled    = isEdit;
+  if (btnEdit)   btnEdit.disabled   = isEdit || !currentRecord;
+  if (btnDelete) btnDelete.disabled = !currentRecord || isEdit;
+  if (btnClose)  btnClose.disabled  = isEdit;
 
-  document.getElementById('statusBar').textContent =
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent =
     `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}${currentRecord ? ` — ${currentRecord[COL.application_id] || ''}` : ''}`;
 }
 
@@ -381,8 +362,7 @@ function validateLoanApp() {
   return true;
 }
 
-/* ── View Modal ────────────────────────────────────────── */
-function buildViewModal(rows) {
+  const TABLE = TABLE_LOANS;
   viewModalData = rows || [];
   const fmt = v => v != null ? Number(v).toLocaleString('en-ET', { minimumFractionDigits: 2 }) : '—';
   const statusColor = { DataEntry:'#ddeaf7', Approved:'#d4edda', Rejected:'#fde8e8', Disbursed:'#fff3cd', Closed:'#e2e3e5' };
@@ -527,21 +507,12 @@ function generateSchedule(principal, annualRate, termMonths, startDate) {
 
 /* VIEW ─────────────────────────────────────────────────── */
 document.getElementById('btnGlobalView').addEventListener('click', async () => {
-
-
-   {
-        if (selectedRecord) {
-            currentRecord = selectedRecord;
-            populateFormFields(currentRecord);
-            setWorkspaceMode('view');
-        }
-    });
-
+  // FIX 9: removed malformed inner block with undefined selectedRecord reference
   if (currentModule !== 'loan-app') { toast('View records: switch to Loan Application module.', 'warning'); return; }
   try {
     toast('Loading records…');
     const rows = await sbFetch(
-      `LoanMasterRecords?select=*&order=${COL.application_id}.desc&limit=200`
+      `${TABLE_LOANS}?select=*&order=${COL.application_id}.desc&limit=200`
     );
     buildViewModal(rows);
   } catch (e) {
@@ -554,120 +525,100 @@ document.getElementById('btnGlobalAdd').addEventListener('click', () => {
   currentRecord = null;
   clearLoanAppForm();
   setMode('add');
+  // FIX 10: removed duplicate focus + setWorkspaceMode call
   document.getElementById('fApplicationId')?.focus();
   toast('New record — fill in the details and Save.');
-   const firstInput = document.querySelector('.loan-form-input');
-    if (firstInput) firstInput.focus();
 });
 
 /* EDIT ─────────────────────────────────────────────────── */
 document.getElementById('btnGlobalEdit').addEventListener('click', () => {
-if (!currentRecord) {
-        alert("Please view and select a record first before trying to edit.");
-        return;
-    }
-    setWorkspaceMode('edit');
+  // FIX 11: was calling setWorkspaceMode (removed) and alert() — use setMode + toast
+  if (!currentRecord) { toast('Load a record first before editing.', 'warning'); return; }
+  setMode('edit');
+  toast('Editing — make your changes then Save.');
 });
 
-/* SAVE ─────────────────────────────────────────────────── */
 /* SAVE ──────────────────────────────────────────────────── */
 document.getElementById('btnGlobalSave').addEventListener('click', async () => {
-  // 1. Gather form payload parameters
-  const payload = collectFormData();
+  // FIX 12a: was collectFormData() — undefined function; correct name is collectForm()
+  const payload = collectForm();
 
-  // 2. Client-side field validations before network transmission
-  if (!payload[COL.application_id]) {
-    toast('Application ID is a required field.', 'error');
-    const appEl = document.getElementById('fApplicationId');
-    if (appEl) appEl.focus();
-    return;
-  }
-  
-  if (!payload[COL.client_id]) {
-    toast('Client ID is a required field.', 'error');
-    const clientEl = document.getElementById('fClientId');
-    if (clientEl) clientEl.focus();
-    return;
-  }
+  // FIX 12b: run the existing validateLoanApp() before touching the network
+  if (!validateLoanApp()) return;
 
   try {
-    toast('Processing transaction...', 'info');
+    toast('Processing…', 'info');
 
-    if (mode === 'add') {
-      // Execute standard database insertion
-      const responseData = await sbFetch('LoanMasterRecords', {
+    // FIX 12c: was checking `mode` (undefined) — must use `currentMode`
+    if (currentMode === 'add') {
+      const responseData = await sbFetch(TABLE_LOANS, {
         method: 'POST',
         body: JSON.stringify(payload),
         prefer: 'return=representation'
       });
-      
-      // Update local state record references
       currentRecord = Array.isArray(responseData) ? responseData[0] : responseData;
       toast('✔ Record successfully created.', 'success');
 
-    } else if (mode === 'edit') {
-      // Enforce update payload targeting matching current primary identifier
+    } else if (currentMode === 'edit') {
       const currentAppId = currentRecord[COL.application_id];
-      if (!currentAppId) {
-        throw new Error('State reference exception: No active record identifier to modify.');
-      }
+      if (!currentAppId) throw new Error('No active record identifier to modify.');
 
-      const responseData = await sbFetch(`LoanMasterRecords?${COL.application_id}=eq.${encodeURIComponent(currentAppId)}`, {
+      // FIX 12d: PATCH must not send application_id in body (it's the PK/filter key)
+      const updatePayload = { ...payload };
+      delete updatePayload[COL.application_id];
+
+      const responseData = await sbFetch(
+        `${TABLE_LOANS}?${COL.application_id}=eq.${encodeURIComponent(currentAppId)}`, {
         method: 'PATCH',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(updatePayload),
         prefer: 'return=representation'
       });
-
-      // Update state matching the fresh modifications
-      currentRecord = Array.isArray(responseData) ? responseData[0] : responseData;
-      toast('✔ Record successfully modified.', 'success');
+      currentRecord = Array.isArray(responseData) ? responseData[0] : (currentRecord);
+      toast('✔ Record successfully updated.', 'success');
     }
 
-    // 3. Post-Transaction Interface Reversion
-    if (currentRecord) {
-      fillForm(currentRecord); // Refresh form layouts with saved server entries
-    }
-    
-    setMode('view'); // Lock inputs safely back to view-only mode
-    
+    if (currentRecord) fillForm(currentRecord);
+    setMode('view');
+
   } catch (error) {
-    console.error('Database Mutation Failure:', error);
-    toast(`Save Operation Failed: ${error.message}`, 'error');
+    console.error('Save error:', error);
+    toast(`Save failed: ${error.message}`, 'error');
   }
 });
 
-// CLOSE: Safely unloads the active record and clears the screen
+// CLOSE
 document.getElementById('btnGlobalClose').addEventListener('click', () => {
-    currentRecord = null;
-    clearFormFields();
-    setWorkspaceMode('view');
+  // FIX 13: was calling setWorkspaceMode + clearFormFields (both undefined/removed)
+  currentRecord = null;
+  clearLoanAppForm();
+  setMode('view');
+  toast('Record closed.');
 });
 
 
 /* DELETE ────────────────────────────────────────────────── */
-document.getElementById('btnGlobalDelete').addEventListener('click', async () => {
-  if (!currentRecord) { toast('No record loaded.', 'warning'); return; }
-  const appId = currentRecord[COL.application_id];
-  if (!appId) { toast('Cannot delete — no Application ID.', 'error'); return; }
-
-  // Confirm via modal-style inline confirm
-  const confirmed = window.confirm(`Delete loan record ${appId}?\n\nThis action cannot be undone.`);
-  if (!confirmed) return;
-
-  try {
-    toast('Deleting…');
-    await sbFetch(`LoanMasterRecords?${COL.application_id}=eq.${encodeURIComponent(appId)}`, {
-      method: 'DELETE',
-      prefer: 'return=minimal'
-    });
-    toast(`✔ Record ${appId} deleted.`, 'success');
-    currentRecord = null;
-    clearLoanAppForm();
-    setMode('view');
-  } catch (e) {
-    toast(`Delete failed: ${e.message}`, 'error');
-  }
-});
+// FIX 14: btnGlobalDelete doesn't exist in HTML — guard with if block
+const _delBtn = document.getElementById('btnGlobalDelete');
+if (_delBtn) {
+  _delBtn.addEventListener('click', async () => {
+    if (!currentRecord) { toast('No record loaded.', 'warning'); return; }
+    const appId = currentRecord[COL.application_id];
+    if (!appId) { toast('Cannot delete — no Application ID.', 'error'); return; }
+    if (!window.confirm(`Delete loan record ${appId}?\nThis action cannot be undone.`)) return;
+    try {
+      toast('Deleting…');
+      await sbFetch(`${TABLE_LOANS}?${COL.application_id}=eq.${encodeURIComponent(appId)}`, {
+        method: 'DELETE', prefer: 'return=minimal'
+      });
+      toast(`✔ Record ${appId} deleted.`, 'success');
+      currentRecord = null;
+      clearLoanAppForm();
+      setMode('view');
+    } catch (e) {
+      toast(`Delete failed: ${e.message}`, 'error');
+    }
+  });
+}
 
 /* CANCEL ────────────────────────────────────────────────── */
 document.getElementById('btnGlobalCancel').addEventListener('click', () => {
@@ -678,9 +629,9 @@ document.getElementById('btnGlobalCancel').addEventListener('click', () => {
 });
 
 /* PRINT ─────────────────────────────────────────────────── */
-document.getElementById('btnGlobalPrint').addEventListener('click', () => {
-  window.print();
-});
+// FIX 15: btnGlobalPrint doesn't exist in HTML — guard with if block
+const _printBtn = document.getElementById('btnGlobalPrint');
+if (_printBtn) _printBtn.addEventListener('click', () => window.print());
 
 /* ── Init ──────────────────────────────────────────────── */
 async function init() {
