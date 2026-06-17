@@ -11,7 +11,7 @@ const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
 // FIX 8/16: DB table names are snake_case — define once at top scope
-const TABLE_LOANS    = TABLE_LOANS;
+const TABLE_LOANS    = 'loanmasterrecords';
 const TABLE_BRANCHES = 'branchregistry';
 const TABLE_CLIENTS  = '"ClientMasterRecords"';
 
@@ -365,7 +365,8 @@ function validateLoanApp() {
   return true;
 }
 
-  const TABLE = TABLE_LOANS;
+/* ── View Modal ────────────────────────────────────────── */
+function buildViewModal(rows) {
   viewModalData = rows || [];
   const fmt = v => v != null ? Number(v).toLocaleString('en-ET', { minimumFractionDigits: 2 }) : '—';
   const statusColor = { DataEntry:'#ddeaf7', Approved:'#d4edda', Rejected:'#fde8e8', Disbursed:'#fff3cd', Closed:'#e2e3e5' };
