@@ -1,0 +1,245 @@
+/* ── Global Stylesheet Standards ────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  font-family: 'Segoe UI', -apple-system, Arial, sans-serif;
+  font-size: 11px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #f0f4f8;
+  color: #061d3a;
+}
+
+.app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.main-content {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.form-window {
+  background: #ffffff;
+  border: 1px solid #95b3d7;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.window-header {
+  background: linear-gradient(to bottom, #0d3460, #061d3a);
+  color: #ffffff;
+  padding: 6px 10px;
+  font-weight: bold;
+}
+
+/* ── Verification & Identity Search Blocks ───────────────── */
+.identity-bar {
+  background: #eef4fb;
+  border-bottom: 1px solid #b8d0eb;
+  padding: 8px 12px;
+}
+
+.search-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-group label {
+  font-weight: bold;
+}
+
+.search-group input {
+  height: 22px;
+  border: 1px solid #95b3d7;
+  padding: 2px 6px;
+  width: 160px;
+}
+
+.lookup-btn {
+  height: 22px;
+  padding: 0 10px;
+  background: #e69c24;
+  border: 1px solid #b87a10;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* ── Core Functional Tabs Configuration ─────────────────── */
+.tabs-container {
+  display: flex;
+  background: #ddeaf7;
+  padding: 4px 6px 0 6px;
+  border-bottom: 1px solid #95b3d7;
+}
+
+.tab {
+  padding: 6px 14px;
+  background: #e1ecf7;
+  border: 1px solid #95b3d7;
+  border-bottom: none;
+  cursor: pointer;
+  margin-right: 2px;
+}
+
+.tab.active {
+  background: #ffffff;
+  font-weight: bold;
+  border-bottom: 1px solid #ffffff;
+  margin-bottom: -1px;
+}
+
+/* ── Tab Interface Workspaces ───────────────────────────── */
+.tab-panels {
+  padding: 15px;
+  min-height: 320px;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+.section-header {
+  font-size: 12px;
+  font-weight: bold;
+  color: #0d3460;
+  border-bottom: 2px solid #e69c24;
+  padding-bottom: 4px;
+  margin-bottom: 12px;
+}
+
+/* ── Data Input Control Fields Row Elements ─────────────── */
+.form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-row {
+  display: flex;
+  gap: 20px;
+}
+
+.form-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-field.dummy-spacer {
+  visibility: hidden;
+}
+
+.form-field label {
+  font-weight: 600;
+  color: #444;
+}
+
+.form-field input, .form-field select {
+  height: 22px;
+  border: 1px solid #bcbcbc;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+.form-field input:focus, .form-field select:focus {
+  border-color: #0d3460;
+  outline: none;
+}
+
+.req {
+  color: #d9534f;
+}
+
+/* ── Amortization Table Data Grid View ──────────────────── */
+.table-scroll-wrapper {
+  overflow-x: auto;
+  border: 1px solid #cfcfcf;
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.schedule-table th {
+  background: #0d3460;
+  color: white;
+  padding: 6px 8px;
+  font-weight: 600;
+}
+
+.schedule-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e1e1e1;
+}
+
+.schedule-table tr:nth-child(even) {
+  background: #f9fbfd;
+}
+
+.placeholder-text {
+  text-align: center;
+  color: #777;
+  font-style: italic;
+  padding: 20px !important;
+}
+
+/* ── Action Toolbar Block Layout ────────────────────────── */
+.toolbar {
+  width: 85px;
+  background: #ddeaf7;
+  border-left: 1px solid #95b3d7;
+  padding: 10px 6px;
+}
+
+.action-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.action-btn {
+  width: 100%;
+  height: 24px;
+  background: #ffffff;
+  border: 1px solid #95b3d7;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.action-btn.primary {
+  background: #e69c24;
+  border-color: #b87a10;
+  color: #ffffff;
+}
+
+/* ── Informational Feedback Toast Alerts ────────────────── */
+.toast {
+  position: fixed;
+  bottom: 15px;
+  right: 15px;
+  background: #333333;
+  color: #ffffff;
+  padding: 8px 15px;
+  border-radius: 3px;
+  display: none;
+  z-index: 9999;
+}
+
+.toast.show { display: block; }
+.toast.success { background: #2e7d32; }
+.toast.error { background: #c62828; }
