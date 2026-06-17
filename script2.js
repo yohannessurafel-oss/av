@@ -273,12 +273,20 @@ function setMode(mode) {
   const isEdit = mode === 'edit' || mode === 'add';
 
   getActiveFormInputs().forEach(el => {
+    // Never disable: elements with data-always-enabled or id="loanBranchId"
+    if (el.dataset.alwaysEnabled !== undefined || el.id === 'loanBranchId') {
+      el.disabled = false;
+      return;
+    }
     if (el.dataset.alwaysRo !== undefined) return;
     el.disabled = !isEdit;
   });
 
-  // Always keep readonly inputs truly readonly
+  // Always keep readonly inputs truly readonly (never disabled)
   document.querySelectorAll('input[readonly]').forEach(el => el.disabled = false);
+  // Always keep branch select enabled
+  const branchSel = document.getElementById('loanBranchId');
+  if (branchSel) branchSel.disabled = false;
 
   const btnSave   = document.getElementById('btnGlobalSave');
   const btnEdit   = document.getElementById('btnGlobalEdit');
@@ -845,9 +853,12 @@ if (_printBtn) _printBtn.addEventListener('click', () => window.print());
 
 /* ── Init ──────────────────────────────────────────────── */
 async function init() {
-  await loadBranches();
-  setMode('view');
-  // Default date
+  setMode('view');   // set mode first so buttons are correct
+  await loadBranches();  // branches load AFTER setMode, so branchSel ends enabled
+  // Ensure branch select is enabled after everything (belt-and-suspenders)
+  const branchSel = document.getElementById('loanBranchId');
+  if (branchSel) branchSel.disabled = false;
+  // Default application date
   const dateEl = document.getElementById('fDate');
   if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
 }
