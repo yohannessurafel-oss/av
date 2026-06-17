@@ -217,6 +217,52 @@ function updateAddButtonState() {
   }
 }
 
+/* ── Product Dropdown ─────────────────────────────────── */
+let _productCache = [];
+
+async function loadProducts() {
+  const sel = document.getElementById('fProductId');
+  if (!sel) return;
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/lendingproductparametermatrix?select=product_code_id,product_name_title,base_interest_rate&order=product_code_id`,
+      {
+        headers: {
+          'apikey':        SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Accept':        'application/json'
+        }
+      }
+    );
+    if (!res.ok) { console.error('Product load failed:', res.status); return; }
+    const rows = await res.json();
+    _productCache = rows || [];
+    sel.innerHTML = '<option value="">-- Select Product --</option>';
+    _productCache.forEach(r => {
+      const o = document.createElement('option');
+      o.value = r.product_code_id;
+      o.textContent = r.product_code_id + (r.product_name_title ? ' — ' + r.product_name_title : '');
+      o.dataset.rate = r.base_interest_rate || '';
+      sel.appendChild(o);
+    });
+    console.log(`Loaded ${_productCache.length} products OK`);
+  } catch (e) {
+    console.error('loadProducts exception:', e);
+  }
+}
+
+// Auto-fill Interest Rate when product is selected
+document.getElementById('fProductId')?.addEventListener('change', function () {
+  const chosen = _productCache.find(p => p.product_code_id === this.value);
+  if (chosen && chosen.base_interest_rate) {
+    const rateEl = document.getElementById('fInterestRate');
+    if (rateEl && !rateEl.value) {
+      rateEl.value = chosen.base_interest_rate;
+      calcLoanSummary();
+    }
+  }
+});
+
 /* ── Client Name Auto-Fill ─────────────────────────────── */
 document.getElementById('fClientId')?.addEventListener('blur', async function () {
   const val = this.value.trim();
@@ -324,7 +370,9 @@ function fillForm(rec) {
   set('fApplicationId',     COL.application_id);
   set('fClientId',          COL.client_id);
   set('fClientName',        COL.client_name);
-  set('fProductId',         COL.product_id);
+  // fProductId is now a <select> — set value directly
+  const prodSel = document.getElementById('fProductId');
+  if (prodSel) prodSel.value = rec[COL.product_id] ?? '';
   set('fRepaymentAccId',    COL.repayment_acc_id);
   set('fDonorId',           COL.donor_id);
   set('fLoanPurpose',       COL.loan_purpose);
@@ -853,9 +901,9 @@ if (_printBtn) _printBtn.addEventListener('click', () => window.print());
 
 /* ── Init ──────────────────────────────────────────────── */
 async function init() {
-  setMode('view');   // set mode first so buttons are correct
-  await loadBranches();  // branches load AFTER setMode, so branchSel ends enabled
-  // Ensure branch select is enabled after everything (belt-and-suspenders)
+  setMode('view');
+  await Promise.all([loadBranches(), loadProducts()]);
+  // Ensure branch select stays enabled after setMode
   const branchSel = document.getElementById('loanBranchId');
   if (branchSel) branchSel.disabled = false;
   // Default application date
