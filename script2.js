@@ -21,6 +21,9 @@ let currentMode   = 'view';  // 'view' | 'add' | 'edit'
 let currentRecord = null;
 let currentModule = 'loan-app';
 let viewModalData = [];
+
+/* ── HTTP Helper ────────────────────────────────────────── */
+async function sbFetch(path, opts = {}) {
   // FIX 1: SUPA_URL and SUPA_KEY were never declared — use the correct constants
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
