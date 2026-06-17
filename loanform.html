@@ -594,27 +594,19 @@
 
     <!-- ── Right Action Sidebar ─────────────────────────── -->
     <div class="action-sidebar">
-    <button id="btnGlobalView" class="btn btn-secondary">
-        <i class="fas fa-search"></i> View
-    </button>
-    <button id="btnGlobalAdd" class="btn btn-success">
-        <i class="fas fa-plus"></i> Add
-    </button>
-    <button id="btnGlobalEdit" class="btn btn-warning">
-        <i class="fas fa-edit"></i> Edit
-    </button>
-    <!-- Repurposed/Added Close Button -->
-    <button id="btnGlobalClose" class="btn btn-dark">
-        <i class="fas fa-times-circle"></i> Close
-    </button>
-    <hr class="sidebar-divider">
-    <button id="btnGlobalSave" class="btn btn-primary" disabled>
-        <i class="fas fa-save"></i> Save
-    </button>
-    <button id="btnGlobalCancel" class="btn btn-danger" disabled>
-        <i class="fas fa-ban"></i> Cancel
-    </button>
-</div>
+      <!-- FIX 17: replaced Bootstrap btn classes with project action-btn class -->
+      <!-- FIX 14/15: added btnGlobalDelete and btnGlobalPrint that JS references -->
+      <button id="btnGlobalView"   class="action-btn">🔍 View</button>
+      <button id="btnGlobalAdd"    class="action-btn">➕ Add</button>
+      <button id="btnGlobalEdit"   class="action-btn">✏️ Edit</button>
+      <button id="btnGlobalClose"  class="action-btn">✕ Close</button>
+      <div class="sidebar-spacer"></div>
+      <button id="btnGlobalSave" class="action-btn" disabled>💾 Save</button>
+      <button id="btnGlobalCancel" class="action-btn" disabled>🚫 Cancel</button>
+      <button id="btnGlobalDelete" class="action-btn" style="background:linear-gradient(to bottom,#f8d0d0,#f0a0a0);border-color:#c06060;color:#7a0000;" disabled>🗑 Delete</button>
+      <button id="btnGlobalPrint"  class="action-btn">🖨 Print</button>
+      <div class="sidebar-footer">AVMF CBS v2.0</div>
+    </div>
 
   </div><!-- /workspace -->
 </div><!-- /window-container -->
