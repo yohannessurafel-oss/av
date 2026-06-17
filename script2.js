@@ -140,25 +140,64 @@ document.querySelectorAll('.sub-tab').forEach(tab => {
 
 
 /* ── Branch Dropdown ───────────────────────────────────── */
-// Module-level branch cache — not stored on DOM element
+// Module-level branch cache
 let _branchCache = [];
 
 async function loadBranches() {
   const sel = document.getElementById('loanBranchId');
   if (!sel) return;
+
+  sel.innerHTML = '<option value="">Loading branches…</option>';
+  sel.disabled = true;
+
   try {
-    const rows = await sbFetch(TABLE_BRANCHES + '?select=branch_id,branch_name&order=branch_id');
-    _branchCache = rows || [];
+    // Use raw fetch so we can see the exact response on failure
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/branchregistry?select=branch_id,branch_name&order=branch_id`,
+      {
+        headers: {
+          'apikey':        SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Accept':        'application/json'
+        }
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('branchregistry fetch failed:', res.status, errText);
+      toast(`Branch list error ${res.status}: ${errText.slice(0, 120)}`, 'error');
+      sel.innerHTML = '<option value="">-- Load failed --</option>';
+      sel.disabled = false;
+      return;
+    }
+
+    const rows = await res.json();
+    console.log('branchregistry rows:', rows);   // visible in browser console
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      console.warn('branchregistry returned no rows');
+      sel.innerHTML = '<option value="">-- No branches found --</option>';
+      sel.disabled = false;
+      return;
+    }
+
+    _branchCache = rows;
     sel.innerHTML = '<option value="">-- Select Branch --</option>';
-    _branchCache.forEach(r => {
+    rows.forEach(r => {
       const o = document.createElement('option');
-      o.value = r.branch_id;
+      o.value       = r.branch_id;
       o.textContent = r.branch_id + (r.branch_name ? ' — ' + r.branch_name : '');
       sel.appendChild(o);
     });
+    sel.disabled = false;
+    console.log(`Loaded ${rows.length} branches OK`);
+
   } catch (e) {
-    console.warn('Branch load failed:', e.message);
+    console.error('loadBranches exception:', e);
+    toast('Could not load branch list. Check console for details.', 'error');
     sel.innerHTML = '<option value="">-- Select Branch --</option>';
+    sel.disabled = false;
   }
 }
 
