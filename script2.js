@@ -13,7 +13,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // FIX 8/16: DB table names are snake_case — define once at top scope
 const TABLE_LOANS    = 'loanmasterrecords';
 const TABLE_BRANCHES = 'branchregistry';
-const TABLE_CLIENTS  = '"ClientMasterRecords"';
+const TABLE_CLIENTS  = 'ClientMasterRecords'; // no surrounding quotes — PostgREST handles case via quoting internally
 
 /* ── State ─────────────────────────────────────────────── */
 // FIX 3: removed duplicate declarations of currentRecord and workspaceMode
@@ -39,7 +39,10 @@ async function sbFetch(path, opts = {}) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.message || `HTTP ${res.status}`);
   }
-  return res.status === 204 ? null : res.json();
+  // FIX: also handle 201 with empty body and return=minimal (no content)
+  const text = await res.text();
+  if (!text || !text.trim()) return null;
+  try { return JSON.parse(text); } catch { return null; }
 }
 
 /* ── Column Map (loanmasterrecords — snake_case to match DB) ── */
@@ -576,7 +579,7 @@ document.getElementById('btnGlobalSave').addEventListener('click', async () => {
       await sbFetch('loanapplications', {
         method: 'POST',
         body:   JSON.stringify(parentPayload),
-        headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' }
+        prefer: 'resolution=merge-duplicates,return=minimal'
       });
 
       // ── STEP 2: Insert child row into loanmasterrecords ──────────────
