@@ -481,11 +481,56 @@ function updateRecentsList(rec) {
   });
 }
 
+// ── Required field validation ─────────────────────────────
+const REQUIRED_FIELDS = [
+  { key: 'first_name',    label: 'First Name',          name: 'firstName',   tab: 'personal'   },
+  { key: 'middle_name',   label: 'Middle Name',         name: 'middleName',  tab: 'personal'   },
+  { key: 'last_name',     label: 'Last Name',           name: 'lastName',    tab: 'personal'   },
+  { key: 'date_of_birth', label: 'Date of Birth',       name: 'dobDay',      tab: 'personal'   },
+  { key: 'resident',      label: 'Resident',            name: 'resident',    tab: 'personal'   },
+  { key: 'id_type',       label: 'Identification Type', name: 'idType',      tab: 'personal'   },
+  { key: 'id_expiry_date',label: 'ID Expiry Date',      name: 'idExpiryDay', tab: 'personal'   },
+  { key: 'city',          label: 'City',                name: 'city',        tab: 'address'    },
+  { key: 'country',       label: 'Country',             name: 'country',     tab: 'address'    },
+  { key: 'phone_work',    label: 'Phone (Work)',        name: 'phoneWork',   tab: 'address'    },
+  { key: 'mobile',        label: 'Mobile',              name: 'mobile',      tab: 'address'    },
+  { key: 'occupation',    label: 'Occupation',          name: 'occupation',  tab: 'employment' },
+];
+
+function validateForm(payload) {
+  document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+  const errors = [];
+  REQUIRED_FIELDS.forEach(({ key, label, name, tab }) => {
+    if (!payload[key] && payload[key] !== 0) {
+      errors.push({ label, name, tab });
+      const el = document.querySelector(`[name="${name}"]`);
+      if (el) el.classList.add('field-error');
+    }
+  });
+  return errors;
+}
+
+REQUIRED_FIELDS.forEach(({ name }) => {
+  const el = document.querySelector(`[name="${name}"]`);
+  if (el) {
+    el.addEventListener('change', () => el.classList.remove('field-error'));
+    el.addEventListener('input',  () => el.classList.remove('field-error'));
+  }
+});
+
 async function saveRecord() {
   const payload = collectForm();
 
-  if (!payload.first_name) {
-    showToast('First Name is required.', 'error');
+  const errors = validateForm(payload);
+  if (errors.length > 0) {
+    const firstTab = errors[0].tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    const tabBtn = document.querySelector(`.tab[data-tab="${firstTab}"]`);
+    if (tabBtn) tabBtn.classList.add('active');
+    const tabPanel = document.getElementById(`tab-${firstTab}`);
+    if (tabPanel) tabPanel.classList.add('active');
+    showToast(`Required: ${errors.map(e => e.label).join(', ')}`, 'error');
     return;
   }
 
@@ -503,13 +548,10 @@ async function saveRecord() {
 
   try {
     if (mode === 'add') {
-      delete payload.client_id;
+      // Generate unique Client ID
+      payload.client_id = 'CLI-' + Math.floor(100000 + Math.random() * 900000);
       delete payload.application_id;
       showToast('Creating new client…');
-       payload.client_id = "CLI-" + Math.floor(100000 + Math.random() * 900000);
-
-  delete payload.application_id;
-  showToast('Creating new client…');
       const data = await sbFetch('ClientMasterRecords', {
         method: 'POST',
         body: JSON.stringify(payload),
