@@ -7,16 +7,6 @@
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    db: { schema: 'public' },
-    global: {
-        headers: {
-            'Accept-Profile': 'public',
-            'Content-Profile': 'public'
-        }
-    }
-});
-
 async function sbFetch(path, options = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
@@ -72,17 +62,24 @@ document.querySelectorAll('.tab').forEach(btn => {
 
 // ── Form helpers ─────────────────────────────────────────
 function getAllInputs() {
-  return document.querySelectorAll('.tab-panel input:not([readonly]), .tab-panel select, .tab-panel textarea');
+  return document.querySelectorAll(
+    '.tab-panel input:not([readonly]):not([type="radio"]):not([type="checkbox"]), ' +
+    '.tab-panel select, .tab-panel textarea'
+  );
 }
 
 function setFormEnabled(enabled) {
   getAllInputs().forEach(el => el.disabled = !enabled);
+  // Radio and checkbox controls need separate handling
+  document.querySelectorAll('.tab-panel input[type="radio"], .tab-panel input[type="checkbox"]')
+    .forEach(el => el.disabled = !enabled);
+  // clientName is always readonly (auto-computed)
+  document.getElementById('clientName').disabled = true;
 }
 
 function clearForm() {
   getAllInputs().forEach(el => {
     if (el.type === 'checkbox') el.checked = false;
-    else if (el.type === 'radio') el.checked = el.value === 'salaried';
     else el.value = '';
   });
   document.getElementById('clientId').value = '';
@@ -90,12 +87,7 @@ function clearForm() {
   document.getElementById('clientName').value = '';
   document.getElementById('clientType').value = 'Individual Client';
   document.getElementById('baseId').value = '';
-  
-  ['dobDay','dobMonth','dobYear','idExpiryDay','idExpiryMonth','idExpiryYear'].forEach(n => {
-    const el = document.querySelector(`[name="${n}"]`);
-    if (el) el.selectedIndex = 0;
-  });
-  
+
   const defaultRadio = document.querySelector('[name="empType"][value="salaried"]');
   if (defaultRadio) defaultRadio.checked = true;
   clearBTS();
@@ -109,13 +101,39 @@ function setMode(m) {
   mode = m;
   const isEdit = m === 'edit' || m === 'add';
   setFormEnabled(isEdit);
+  // clientId: editable only in add mode
   document.getElementById('clientId').disabled = m !== 'add';
+  // Identity bar fields always editable in add/edit
+  ['clientType', 'applicationId', 'baseId'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !isEdit;
+  });
+
   btnSave.disabled   = !isEdit;
   btnCancel.disabled = !isEdit;
   btnAdd.disabled    = isEdit;
   btnEdit.disabled   = isEdit || !currentRecord;
   btnView.disabled   = false;
+
+  updateNavArrows();
 }
+
+function updateNavArrows() {
+  btnPrev.disabled = currentIndex <= 0;
+  btnNext.disabled = currentIndex < 0 || currentIndex >= allRecords.length - 1;
+}
+
+// ── Auto-fill Client Name from first/middle/last ─────────
+function syncClientName() {
+  const first  = document.querySelector('[name="firstName"]')?.value?.trim() || '';
+  const middle = document.querySelector('[name="middleName"]')?.value?.trim() || '';
+  const last   = document.querySelector('[name="lastName"]')?.value?.trim() || '';
+  document.getElementById('clientName').value = [first, middle, last].filter(Boolean).join(' ');
+}
+['firstName','middleName','lastName'].forEach(n => {
+  const el = document.querySelector(`[name="${n}"]`);
+  if (el) el.addEventListener('input', syncClientName);
+});
 
 // ── Record → Form ─────────────────────────────────────────
 function populateForm(rec) {
@@ -127,54 +145,90 @@ function populateForm(rec) {
     else el.value = val ?? '';
   };
 
-  document.getElementById('clientId').value = rec.client_id ?? '';
+  document.getElementById('clientId').value      = rec.client_id ?? '';
   document.getElementById('applicationId').value = rec.application_id ?? '';
-  document.getElementById('clientName').value = rec.client_name ?? '';
-  document.getElementById('clientType').value = rec.client_type ?? 'Individual Client';
-  document.getElementById('baseId').value = rec.base_id ?? '';
+  document.getElementById('clientName').value    = rec.client_name ?? '';
+  document.getElementById('clientType').value    = rec.client_type ?? 'Individual Client';
+  document.getElementById('baseId').value        = rec.base_id ?? '';
 
   // Personal
-  set('title', rec.title); set('firstName', rec.first_name); set('middleName', rec.middle_name);
-  set('lastName', rec.last_name); set('gender', rec.gender); set('nationality', rec.nationality);
-  set('resident', rec.resident); set('idType', rec.id_type); set('issuedBy', rec.issued_by);
-  set('idNo', rec.id_no); set('literacyLevel', rec.literacy_level);
-  set('maritalStatus', rec.marital_status); set('houseMembers', rec.house_members);
-  set('children', rec.children); set('dependents', rec.dependents);
-  set('bloodGroup', rec.blood_group); set('canDonate', rec.can_donate);
-  set('openedBy', rec.opened_by); set('age', rec.age);
-  set('openedOn', rec.opened_on);       
-  set('ageAsOn', rec.age_as_on);        
-  set('relManager', rec.relationship_manager); 
+  set('title', rec.title);
+  set('firstName', rec.first_name);
+  set('middleName', rec.middle_name);
+  set('lastName', rec.last_name);
+  set('gender', rec.gender);
+  set('nationality', rec.nationality);
+  set('resident', rec.resident);
+  set('idType', rec.id_type);
+  set('issuedBy', rec.issued_by);
+  set('idNo', rec.id_no);
+  set('literacyLevel', rec.literacy_level);
+  set('maritalStatus', rec.marital_status);
+  set('houseMembers', rec.house_members);
+  set('children', rec.children);
+  set('dependents', rec.dependents);
+  set('bloodGroup', rec.blood_group);
+  set('canDonate', rec.can_donate);
+  set('openedBy', rec.opened_by);
+  set('openedOn', rec.opened_on);
+  set('ageAsOn', rec.age_as_on);
+  set('relManager', rec.relationship_manager);
+  set('age', rec.age);
 
   if (rec.date_of_birth) {
     const [y, m, d] = rec.date_of_birth.split('-');
     set('dobDay', +d); set('dobMonth', +m); set('dobYear', +y);
+  } else {
+    set('dobDay', ''); set('dobMonth', ''); set('dobYear', '');
   }
   if (rec.id_expiry_date) {
     const [y, m, d] = rec.id_expiry_date.split('-');
     set('idExpiryDay', +d); set('idExpiryMonth', +m); set('idExpiryYear', +y);
+  } else {
+    set('idExpiryDay', ''); set('idExpiryMonth', ''); set('idExpiryYear', '');
   }
 
   // Address
-  set('addressType', rec.address_type); set('postalAddress', rec.postal_address);
-  set('physicalAddress', rec.physical_address); set('city', rec.city);
-  set('zipCode', rec.zip_code); set('country', rec.country);
-  set('phoneHome', rec.phone_home); set('phoneWork', rec.phone_work);
-  set('mobile', rec.mobile); set('faxNo', rec.fax_no); set('email', rec.email);
+  set('addressType', rec.address_type);
+  set('postalAddress', rec.postal_address);
+  set('physicalAddress', rec.physical_address);
+  set('city', rec.city);
+  set('zipCode', rec.zip_code);
+  set('country', rec.country);
+  set('phoneHome', rec.phone_home);
+  set('phoneWork', rec.phone_work);
+  set('mobile', rec.mobile);
+  set('faxNo', rec.fax_no);
+  set('email', rec.email);
 
   // Employment
-  set('occupation', rec.occupation); set('designation', rec.designation);
-  set('companyType', rec.company_type); set('workingSince', rec.working_since);
-  set('companyName', rec.company_name); set('employerCode', rec.employer_code);
-  set('employeeNo', rec.employee_no); set('grossIncome', rec.gross_income);
-  set('rentExpenses', rec.rent_expenses); set('familyIncome', rec.family_income);
-  set('otherExpenses', rec.other_expenses); set('otherIncome', rec.other_income);
-  
+  set('occupation', rec.occupation);
+  set('designation', rec.designation);
+  set('companyType', rec.company_type);
+  set('workingSince', rec.working_since);
+  set('companyName', rec.company_name);
+  set('employerCode', rec.employer_code);
+  set('employeeNo', rec.employee_no);
+  set('grossIncome', rec.gross_income);
+  set('rentExpenses', rec.rent_expenses);
+  set('familyIncome', rec.family_income);
+  set('otherExpenses', rec.other_expenses);
+  set('otherIncome', rec.other_income);
+
   if (rec.employment_type) {
-    const radio = document.querySelector(`[name="empType"][value="${rec.employment_type === 'Salaried' ? 'salaried' : 'selfEmployed'}"]`);
+    const val = rec.employment_type === 'Salaried' ? 'salaried' : 'selfEmployed';
+    const radio = document.querySelector(`[name="empType"][value="${val}"]`);
     if (radio) radio.checked = true;
   }
   computeEmploymentTotals();
+
+  // Special Offers
+  set('offerType', rec.offer_type);
+  set('offerCode', rec.offer_code);
+  set('validFrom', rec.valid_from);
+  set('validTo', rec.valid_to);
+  set('remarks', rec.remarks);
+
   populateBTS(rec);
 }
 
@@ -194,8 +248,7 @@ function populateBTS(rec) {
     const labelText = field.querySelector('label')?.textContent?.trim().toLowerCase();
     const input = field.querySelector('input');
     if (!input || !labelText) return;
-    const val = labelMap[labelText];
-    input.value = val ?? '';
+    input.value = labelMap[labelText] ?? '';
   });
 }
 
@@ -205,29 +258,29 @@ function collectForm() {
     const el = document.querySelector(`[name="${name}"]`);
     if (!el) return null;
     if (el.type === 'checkbox') return el.checked;
-    return el.value.trim() === '' ? null : el.value;
+    return el.value.trim() === '' ? null : el.value.trim();
   };
 
   return {
-    client_id:       document.getElementById('clientId').value.trim() || null,
-    application_id:  document.getElementById('applicationId').value.trim() || null,
-    client_name:     document.getElementById('clientName').value.trim() || null,
-    client_type:     document.getElementById('clientType').value || 'Individual Client',
-    base_id:         document.getElementById('baseId').value.trim() || null,
+    client_id:      document.getElementById('clientId').value.trim() || null,
+    application_id: document.getElementById('applicationId').value.trim() || null,
+    client_name:    document.getElementById('clientName').value.trim() || null,
+    client_type:    document.getElementById('clientType').value || 'Individual Client',
+    base_id:        document.getElementById('baseId').value || null,
     // Personal
     title: get('title'), first_name: get('firstName'), middle_name: get('middleName'),
     last_name: get('lastName'), gender: get('gender'), nationality: get('nationality'),
     resident: get('resident'), id_type: get('idType'), issued_by: get('issuedBy'),
     id_no: get('idNo'), literacy_level: get('literacyLevel'),
-    marital_status: get('maritalStatus'), 
+    marital_status: get('maritalStatus'),
     house_members: get('houseMembers') ? +get('houseMembers') : null,
-    children: get('children') ? +get('children') : null,
-    dependents: get('dependents') ? +get('dependents') : null,
+    children:      get('children')     ? +get('children')     : null,
+    dependents:    get('dependents')   ? +get('dependents')   : null,
     blood_group: get('bloodGroup'), can_donate: get('canDonate'),
-    opened_by: get('openedBy'), age: get('age') ? +get('age') : null,
-    opened_on: get('openedOn') || null,               
-    age_as_on: get('ageAsOn') || null,                
-    relationship_manager: get('relManager') || null,  
+    opened_by: get('openedBy'), opened_on: get('openedOn') || null,
+    age_as_on: get('ageAsOn') || null,
+    relationship_manager: get('relManager') || null,
+    age: get('age') ? +get('age') : null,
     date_of_birth: (() => {
       const d = get('dobDay'), m = get('dobMonth'), y = get('dobYear');
       return (d && m && y) ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}` : null;
@@ -251,11 +304,11 @@ function collectForm() {
     company_type: get('companyType'), working_since: get('workingSince'),
     company_name: get('companyName'), employer_code: get('employerCode'),
     employee_no: get('employeeNo'),
-    gross_income: get('grossIncome') ? +get('grossIncome') : null,
-    rent_expenses: get('rentExpenses') ? +get('rentExpenses') : null,
-    family_income: get('familyIncome') ? +get('familyIncome') : null,
+    gross_income:   get('grossIncome')   ? +get('grossIncome')   : null,
+    rent_expenses:  get('rentExpenses')  ? +get('rentExpenses')  : null,
+    family_income:  get('familyIncome')  ? +get('familyIncome')  : null,
     other_expenses: get('otherExpenses') ? +get('otherExpenses') : null,
-    other_income: get('otherIncome') ? +get('otherIncome') : null,
+    other_income:   get('otherIncome')   ? +get('otherIncome')   : null,
     // Special Offers
     offer_type: get('offerType'), offer_code: get('offerCode'),
     valid_from: get('validFrom'), valid_to: get('validTo'),
@@ -269,44 +322,179 @@ function computeEmploymentTotals() {
   const totalExp = g('rentExpenses') + g('otherExpenses');
   const totalInc = g('grossIncome') + g('familyIncome') + g('otherIncome');
   const net = totalInc - totalExp;
-  document.querySelector('[name="totalExpenses"]').value = totalExp || '';
-  document.querySelector('[name="totalIncome"]').value   = totalInc || '';
-  document.querySelector('[name="netSavings"]').value    = net || '';
+  const setV = (n, v) => { const el = document.querySelector(`[name="${n}"]`); if (el) el.value = v || ''; };
+  setV('totalExpenses', totalExp || '');
+  setV('totalIncome',   totalInc || '');
+  setV('netSavings',    net !== 0 ? net.toFixed(2) : '');
 }
 ['grossIncome','familyIncome','otherIncome','rentExpenses','otherExpenses'].forEach(n => {
   const el = document.querySelector(`[name="${n}"]`);
   if (el) el.addEventListener('input', computeEmploymentTotals);
 });
 
+// ── Personal dropdowns ────────────────────────────────────
+function initPersonalDropdowns() {
+  const daySelectors   = document.querySelectorAll('[name="dobDay"], [name="idExpiryDay"]');
+  const monthSelectors = document.querySelectorAll('[name="dobMonth"], [name="idExpiryMonth"]');
+  const dobYearSel     = document.querySelector('[name="dobYear"]');
+  const expiryYearSel  = document.querySelector('[name="idExpiryYear"]');
+
+  daySelectors.forEach(sel => {
+    for (let i = 1; i <= 31; i++) {
+      const opt = document.createElement('option');
+      opt.value = i; opt.textContent = String(i).padStart(2, '0');
+      sel.appendChild(opt);
+    }
+  });
+
+  const months = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  monthSelectors.forEach(sel => {
+    months.forEach((m, idx) => {
+      const opt = document.createElement('option');
+      opt.value = idx + 1; opt.textContent = m;
+      sel.appendChild(opt);
+    });
+  });
+
+  const curYear = new Date().getFullYear();
+  if (dobYearSel) {
+    for (let y = curYear; y >= curYear - 100; y--) {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y;
+      dobYearSel.appendChild(opt);
+    }
+  }
+  if (expiryYearSel) {
+    for (let y = curYear - 5; y <= curYear + 25; y++) {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y;
+      expiryYearSel.appendChild(opt);
+    }
+  }
+
+  // Working Since year dropdown
+  const wsSel = document.querySelector('[name="workingSince"]');
+  if (wsSel) {
+    for (let y = curYear; y >= curYear - 50; y--) {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y;
+      wsSel.appendChild(opt);
+    }
+  }
+}
+
+function calculateLiveAge() {
+  const day = document.querySelector('[name="dobDay"]')?.value;
+  const mon = document.querySelector('[name="dobMonth"]')?.value;
+  const yr  = document.querySelector('[name="dobYear"]')?.value;
+  const ageInput = document.querySelector('[name="age"]');
+  if (!day || !mon || !yr) { if (ageInput) ageInput.value = ''; return; }
+  const birth = new Date(parseInt(yr), parseInt(mon) - 1, parseInt(day));
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  if (today.getMonth() < birth.getMonth() ||
+     (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
+  if (ageInput) ageInput.value = age >= 0 ? age : 0;
+}
+['dobDay','dobMonth','dobYear'].forEach(name => {
+  const el = document.querySelector(`[name="${name}"]`);
+  if (el) el.addEventListener('change', calculateLiveAge);
+});
+
+// ── Load branches from BranchRegistry ────────────────────
+async function loadBranches() {
+  try {
+    const data = await sbFetch('BranchRegistry?select=branch_id,branch_name&order=branch_name');
+    const sel = document.getElementById('baseId');
+    if (!sel || !data) return;
+    // keep the default "– Select –" option
+    data.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.branch_id;
+      opt.textContent = b.branch_name || b.branch_id;
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    // Silently fail — branches will fall back to empty list; form still works
+    console.warn('Branch load failed:', e.message);
+  }
+}
+
 // ── CRUD Operations ───────────────────────────────────────
+async function loadAllRecords() {
+  try {
+    const data = await sbFetch('ClientMasterRecords?order=client_id.asc');
+    allRecords = data || [];
+  } catch (e) {
+    allRecords = [];
+  }
+}
+
 async function loadRecord(clientId) {
   try {
-    const data = await sbFetch(`ClientMasterRecords?client_id=eq.${clientId}&limit=1`);
-    if (data && data.length) {
-      currentRecord = data[0];
+    // Reload full list for Prev/Next navigation
+    await loadAllRecords();
+    const idx = allRecords.findIndex(r => r.client_id === clientId);
+    if (idx >= 0) {
+      currentIndex = idx;
+      currentRecord = allRecords[idx];
       populateForm(currentRecord);
       setMode('view');
       showToast(`Loaded: ${currentRecord.client_name || clientId}`, 'success');
+      updateRecentsList(currentRecord);
     } else {
-      showToast('No record found.', 'error');
+      // Try direct fetch if not in cache
+      const data = await sbFetch(`ClientMasterRecords?client_id=eq.${encodeURIComponent(clientId)}&limit=1`);
+      if (data && data.length) {
+        currentRecord = data[0];
+        currentIndex = -1;
+        populateForm(currentRecord);
+        setMode('view');
+        showToast(`Loaded: ${currentRecord.client_name || clientId}`, 'success');
+        updateRecentsList(currentRecord);
+      } else {
+        showToast('No record found for that Client ID.', 'error');
+      }
     }
   } catch (e) {
     showToast(`Error: ${e.message}`, 'error');
   }
 }
 
+// ── Recent activity sidebar ───────────────────────────────
+const recentIds = [];
+function updateRecentsList(rec) {
+  if (!rec?.client_id) return;
+  const exists = recentIds.indexOf(rec.client_id);
+  if (exists >= 0) recentIds.splice(exists, 1);
+  recentIds.unshift(rec.client_id);
+  if (recentIds.length > 2) recentIds.length = 2;
+  ['recent1','recent2'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = recentIds[i] || '';
+    el.style.display = recentIds[i] ? '' : 'none';
+    if (recentIds[i]) {
+      el.onclick = (e) => { e.preventDefault(); loadRecord(recentIds[i]); };
+    }
+  });
+}
+
 async function saveRecord() {
   const payload = collectForm();
-  
-  if (!payload.first_name) { 
-    showToast('First Name is required.', 'error'); 
-    return; 
+
+  if (!payload.first_name) {
+    showToast('First Name is required.', 'error');
+    return;
   }
 
+  // Computed fields are never stored
   delete payload.total_income;
   delete payload.total_expenses;
   delete payload.net_savings;
 
+  // Remove nulls/empty to avoid overwriting with blanks
   Object.keys(payload).forEach(key => {
     if (payload[key] === '' || payload[key] === null || payload[key] === undefined) {
       delete payload[key];
@@ -317,128 +505,45 @@ async function saveRecord() {
     if (mode === 'add') {
       delete payload.client_id;
       delete payload.application_id;
-
-      showToast('Creating new client...', 'info');
+      showToast('Creating new client…');
       const data = await sbFetch('ClientMasterRecords', {
         method: 'POST',
         body: JSON.stringify(payload),
         prefer: 'return=representation'
       });
-      
       currentRecord = Array.isArray(data) ? data[0] : data;
+      if (currentRecord) {
+        await loadAllRecords();
+        currentIndex = allRecords.findIndex(r => r.client_id === currentRecord.client_id);
+        updateRecentsList(currentRecord);
+      }
       showToast('Client saved successfully.', 'success');
     } else {
-      if (!currentRecord || !currentRecord.client_id) {
-        showToast('Update failed: Missing base record context tracking ID.', 'error');
+      if (!currentRecord?.client_id) {
+        showToast('Cannot update: no record loaded.', 'error');
         return;
       }
-
       const updatePayload = { ...payload };
-      delete updatePayload.client_id; 
-
-      showToast('Updating client details...', 'info');
+      delete updatePayload.client_id;
+      showToast('Updating client…');
       await sbFetch(`ClientMasterRecords?client_id=eq.${encodeURIComponent(currentRecord.client_id)}`, {
         method: 'PATCH',
         body: JSON.stringify(updatePayload),
         prefer: 'return=representation'
       });
-      
       currentRecord = { ...currentRecord, ...payload };
+      // Sync in allRecords array
+      if (currentIndex >= 0) allRecords[currentIndex] = currentRecord;
       showToast('Client updated successfully.', 'success');
     }
-
     populateForm(currentRecord);
     setMode('view');
   } catch (e) {
-    console.error('Database Operation Error:', e);
+    console.error('Save error:', e);
     showToast(`Save failed: ${e.message}`, 'error');
   }
 }
-// ── Personal Info Layout Builders & Business Rules ─────────────────
 
-function initPersonalDropdowns() {
-  const daySelectors   = document.querySelectorAll('[name="dobDay"], [name="idExpiryDay"]');
-  const monthSelectors = document.querySelectorAll('[name="dobMonth"], [name="idExpiryMonth"]');
-  const dobYearSel     = document.querySelector('[name="dobYear"]');
-  const expiryYearSel  = document.querySelector('[name="idExpiryYear"]');
-
-  // Populate Days (1-31)
-  daySelectors.forEach(sel => {
-    if (!sel) return;
-    for (let i = 1; i <= 31; i++) {
-      const opt = document.createElement('option');
-      opt.value = i; opt.textContent = String(i).padStart(2, '0');
-      sel.appendChild(opt);
-    }
-  });
-
-  // Populate Months
-  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  monthSelectors.forEach(sel => {
-    if (!sel) return;
-    months.forEach((m, idx) => {
-      const opt = document.createElement('option');
-      opt.value = idx + 1; opt.textContent = m;
-      sel.appendChild(opt);
-    });
-  });
-
-  // Populate DOB Years (Retrograde generation from present down to 100 years past)
-  if (dobYearSel) {
-    const currentYear = new Date().getFullYear();
-    for (let y = currentYear; y >= currentYear - 100; y--) {
-      const opt = document.createElement('option');
-      opt.value = y; opt.textContent = y;
-      dobYearSel.appendChild(opt);
-    }
-  }
-
-  // Populate ID Expiry Years (Forward mapping up to 25 years into future context)
-  if (expiryYearSel) {
-    const currentYear = new Date().getFullYear();
-    for (let y = currentYear - 5; y <= currentYear + 25; y++) {
-      const opt = document.createElement('option');
-      opt.value = y; opt.textContent = y;
-      expiryYearSel.appendChild(opt);
-    }
-  }
-}
-
-// Live Chronological Mathematical Engine for Age Values
-function calculateLiveAge() {
-  const day = document.querySelector('[name="dobDay"]').value;
-  const mon = document.querySelector('[name="dobMonth"]').value;
-  const yr  = document.querySelector('[name="dobYear"]').value;
-  const ageInput = document.querySelector('[name="age"]');
-
-  if (!day || !mon || !yr) {
-    if (ageInput) ageInput.value = '';
-    return;
-  }
-
-  const birthDate = new Date(parseInt(yr), parseInt(mon) - 1, parseInt(day));
-  const today = new Date();
-  
-  let structuralAge = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff  = today.getMonth() - birthDate.getMonth();
-  
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    structuralAge--;
-  }
-
-  if (ageInput) {
-    ageInput.value = structuralAge >= 0 ? structuralAge : 0;
-  }
-}
-
-// Bind calculations to execute whenever date parameters are altered
-['dobDay', 'dobMonth', 'dobYear'].forEach(name => {
-  const el = document.querySelector(`[name="${name}"]`);
-  if (el) el.addEventListener('change', calculateLiveAge);
-});
-
-// Run dropdown generation routines within the application initialization setup block
-initPersonalDropdowns();
 // ── Toolbar Button Events ─────────────────────────────────
 btnView.addEventListener('click', async () => {
   const cid = document.getElementById('clientId').value.trim();
@@ -449,70 +554,90 @@ btnView.addEventListener('click', async () => {
 btnAdd.addEventListener('click', () => {
   clearForm();
   currentRecord = null;
+  currentIndex = -1;
   setMode('add');
-  document.getElementById('clientId').focus();
-  showToast('Form cleared. Type the data, then click Save.');
+  document.querySelector('[name="firstName"]')?.focus();
+  showToast('Form ready. Fill in the details then click Save.');
 });
 
 btnEdit.addEventListener('click', () => {
-  if (!currentRecord) { showToast('Please load a record first before trying to edit.', 'error'); return; }
+  if (!currentRecord) { showToast('Load a record first before editing.', 'error'); return; }
   setMode('edit');
-  showToast('Form unlocked. Make your changes then click Save.');
+  showToast('Form unlocked. Make your changes then Save.');
 });
 
 btnSave.addEventListener('click', saveRecord);
 
 btnCancel.addEventListener('click', () => {
-  clearForm();
-  currentRecord = null;
-  setMode('view');
-  showToast('Record closed and selected data cleared.');
+  if (currentRecord) {
+    populateForm(currentRecord);
+    setMode('view');
+    showToast('Changes discarded.');
+  } else {
+    clearForm();
+    setMode('view');
+    showToast('Cancelled.');
+  }
 });
 
+// Close (X in window header) — clear and reset
 btnClose.addEventListener('click', () => {
   clearForm();
   currentRecord = null;
+  currentIndex = -1;
   setMode('view');
-  showToast('Current record closed.');
+  showToast('Record closed.');
 });
 
 btnPrev.addEventListener('click', () => {
-  if (currentIndex > 0) { currentIndex--; populateForm(allRecords[currentIndex]); }
+  if (currentIndex > 0) {
+    currentIndex--;
+    currentRecord = allRecords[currentIndex];
+    populateForm(currentRecord);
+    updateNavArrows();
+  }
 });
 btnNext.addEventListener('click', () => {
-  if (currentIndex < allRecords.length - 1) { currentIndex++; populateForm(allRecords[currentIndex]); }
+  if (currentIndex < allRecords.length - 1) {
+    currentIndex++;
+    currentRecord = allRecords[currentIndex];
+    populateForm(currentRecord);
+    updateNavArrows();
+  }
 });
 
-const lookupBtns = document.querySelectorAll('.identity-bar .lookup-btn');
+// Lookup by Client ID
+document.getElementById('lookupClientId')?.addEventListener('click', async () => {
+  const cid = document.getElementById('clientId').value.trim();
+  if (!cid) { showToast('Enter a Client ID.', 'error'); return; }
+  await loadRecord(cid);
+});
 
-if (lookupBtns[0]) {
-  lookupBtns[0].addEventListener('click', async () => {
-    const cid = document.getElementById('clientId').value.trim();
-    if (!cid) { showToast('Enter a Client ID.', 'error'); return; }
-    await loadRecord(cid);
-  });
-}
-
-if (lookupBtns[1]) {
-  lookupBtns[1].addEventListener('click', async () => {
-    const aid = document.getElementById('applicationId').value.trim();
-    if (!aid) { showToast('Enter an Application ID.', 'error'); return; }
-    try {
-      const data = await sbFetch(`ClientMasterRecords?application_id=eq.${aid}&limit=1`);
-      if (data && data.length) {
-        currentRecord = data[0];
-        populateForm(currentRecord);
-        setMode('view');
-        showToast(`Loaded: ${currentRecord.client_name || aid}`, 'success');
-      } else {
-        showToast('No record found for that Application ID.', 'error');
-      }
-    } catch (e) {
-      showToast(`Error: ${e.message}`, 'error');
+// Lookup by Application ID
+document.getElementById('lookupAppId')?.addEventListener('click', async () => {
+  const aid = document.getElementById('applicationId').value.trim();
+  if (!aid) { showToast('Enter an Application ID.', 'error'); return; }
+  try {
+    const data = await sbFetch(`ClientMasterRecords?application_id=eq.${encodeURIComponent(aid)}&limit=1`);
+    if (data && data.length) {
+      await loadRecord(data[0].client_id);
+    } else {
+      showToast('No record found for that Application ID.', 'error');
     }
-  });
-}
+  } catch (e) {
+    showToast(`Error: ${e.message}`, 'error');
+  }
+});
 
 // ── Init ─────────────────────────────────────────────────
+initPersonalDropdowns();
+loadBranches();
+loadAllRecords();
 setMode('view');
 setFormEnabled(false);
+
+// Hide recents initially
+['recent1','recent2'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'none';
+});
