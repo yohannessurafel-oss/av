@@ -1,4 +1,4 @@
-/* ── Global Stylesheet Standards ────────────────────────── */
+/* ── Core Global Reset & Variables ──────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
   font-family: 'Segoe UI', -apple-system, Arial, sans-serif;
@@ -6,8 +6,7 @@
 }
 
 body {
-  margin: 0;
-  padding: 0;
+  margin: 0; padding: 0;
   background-color: #f0f4f8;
   color: #061d3a;
 }
@@ -19,8 +18,7 @@ body {
 }
 
 .main-content {
-  flex: 1;
-  padding: 10px;
+  flex: 1; padding: 10px;
   overflow-y: auto;
 }
 
@@ -38,7 +36,7 @@ body {
   font-weight: bold;
 }
 
-/* ── Verification & Identity Search Blocks ───────────────── */
+/* ── Identity Context Bar ───────────────────────────────── */
 .identity-bar {
   background: #eef4fb;
   border-bottom: 1px solid #b8d0eb;
@@ -51,10 +49,7 @@ body {
   gap: 8px;
 }
 
-.search-group label {
-  font-weight: bold;
-}
-
+.search-group label { font-weight: bold; }
 .search-group input {
   height: 22px;
   border: 1px solid #95b3d7;
@@ -72,7 +67,7 @@ body {
   font-weight: bold;
 }
 
-/* ── Core Functional Tabs Configuration ─────────────────── */
+/* ── Interface Form Tabs ────────────────────────────────── */
 .tabs-container {
   display: flex;
   background: #ddeaf7;
@@ -96,150 +91,68 @@ body {
   margin-bottom: -1px;
 }
 
-/* ── Tab Interface Workspaces ───────────────────────────── */
-.tab-panels {
-  padding: 15px;
-  min-height: 320px;
-}
-
-.tab-panel {
-  display: none;
-}
-
-.tab-panel.active {
-  display: block;
-}
+.tab-panels { padding: 15px; min-height: 320px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
 
 .section-header {
-  font-size: 12px;
-  font-weight: bold;
-  color: #0d3460;
+  font-size: 12px; font-weight: bold; color: #0d3460;
   border-bottom: 2px solid #e69c24;
-  padding-bottom: 4px;
-  margin-bottom: 12px;
+  padding-bottom: 4px; margin-bottom: 12px;
 }
 
-/* ── Data Input Control Fields Row Elements ─────────────── */
-.form-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.form-row {
-  display: flex;
-  gap: 20px;
-}
-
-.form-field {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.form-field.dummy-spacer {
-  visibility: hidden;
-}
-
-.form-field label {
-  font-weight: 600;
-  color: #444;
-}
-
+/* ── Input Components Layout Form Grid ───────────────────── */
+.form-grid { display: flex; flex-direction: column; gap: 10px; }
+.form-row { display: flex; gap: 20px; }
+.form-field { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.form-field label { font-weight: 600; color: #444; }
 .form-field input, .form-field select {
-  height: 22px;
-  border: 1px solid #bcbcbc;
-  padding: 2px 6px;
-  border-radius: 2px;
+  height: 22px; border: 1px solid #bcbcbc;
+  padding: 2px 6px; border-radius: 2px;
 }
-
 .form-field input:focus, .form-field select:focus {
-  border-color: #0d3460;
-  outline: none;
+  border-color: #0d3460; outline: none;
 }
-
-.req {
-  color: #d9534f;
+.form-field input:disabled, .form-field select:disabled {
+  background-color: #f5f5f5; color: #888;
 }
+.req { color: #d9534f; }
 
-/* ── Amortization Table Data Grid View ──────────────────── */
-.table-scroll-wrapper {
-  overflow-x: auto;
-  border: 1px solid #cfcfcf;
+/* ── Amortization Repayment Grid Matrix ─────────────────── */
+.table-scroll-wrapper { overflow-x: auto; border: 1px solid #cfcfcf; }
+.schedule-table { width: 100%; border-collapse: collapse; text-align: left; }
+.schedule-table th { background: #0d3460; color: white; padding: 6px 8px; }
+.schedule-table td { padding: 6px 8px; border-bottom: 1px solid #e1e1e1; }
+.schedule-table tr:nth-child(even) { background: #f9fbfd; }
+.placeholder-text { text-align: center; color: #777; font-style: italic; padding: 20px !important; }
+
+/* ── Control Action Toolbar Column ──────────────────────── */
+.toolbar { width: 85px; background: #ddeaf7; border-left: 1px solid #95b3d7; padding: 10px 6px; }
+.action-btns { display: flex; flex-direction: column; gap: 6px; }
+.action-btn { width: 100%; height: 24px; background: #ffffff; border: 1px solid #95b3d7; cursor: pointer; font-weight: bold; }
+.action-btn:disabled { background: #e0e0e0; color: #aaaaaa; cursor: not-allowed; }
+.action-btn.primary { background: #e69c24; border-color: #b87a10; color: #ffffff; }
+
+/* ── Confirmation Window Modal Overlay (Rule 7 Style) ───── */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(6, 29, 58, 0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10000; visibility: hidden; opacity: 0;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
 }
+.modal-overlay.active { visibility: visible; opacity: 1; }
+.modal-window { background: #ffffff; border: 1px solid #95b3d7; border-radius: 4px; width: 380px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); overflow: hidden; }
+.modal-body { padding: 15px; }
+.warning-text { color: #c62828; font-weight: 600; margin-bottom: 12px; }
+.confirm-summary-table { width: 100%; border-collapse: collapse; }
+.confirm-summary-table td { padding: 6px 4px; border-bottom: 1px solid #eef4fb; }
+.modal-footer { background: #eef4fb; padding: 8px 12px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #b8d0eb; }
+.modal-btn { height: 24px; padding: 0 14px; border: 1px solid #95b3d7; font-weight: bold; cursor: pointer; background: #ffffff; }
+.modal-btn.primary { background: #e69c24; border-color: #b87a10; color: #ffffff; }
 
-.schedule-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.schedule-table th {
-  background: #0d3460;
-  color: white;
-  padding: 6px 8px;
-  font-weight: 600;
-}
-
-.schedule-table td {
-  padding: 6px 8px;
-  border-bottom: 1px solid #e1e1e1;
-}
-
-.schedule-table tr:nth-child(even) {
-  background: #f9fbfd;
-}
-
-.placeholder-text {
-  text-align: center;
-  color: #777;
-  font-style: italic;
-  padding: 20px !important;
-}
-
-/* ── Action Toolbar Block Layout ────────────────────────── */
-.toolbar {
-  width: 85px;
-  background: #ddeaf7;
-  border-left: 1px solid #95b3d7;
-  padding: 10px 6px;
-}
-
-.action-btns {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.action-btn {
-  width: 100%;
-  height: 24px;
-  background: #ffffff;
-  border: 1px solid #95b3d7;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.action-btn.primary {
-  background: #e69c24;
-  border-color: #b87a10;
-  color: #ffffff;
-}
-
-/* ── Informational Feedback Toast Alerts ────────────────── */
-.toast {
-  position: fixed;
-  bottom: 15px;
-  right: 15px;
-  background: #333333;
-  color: #ffffff;
-  padding: 8px 15px;
-  border-radius: 3px;
-  display: none;
-  z-index: 9999;
-}
-
+/* ── Status Toast Notifications ────────────────────────── */
+.toast { position: fixed; bottom: 15px; right: 15px; background: #333; color: #fff; padding: 8px 15px; border-radius: 3px; display: none; z-index: 9999; }
 .toast.show { display: block; }
 .toast.success { background: #2e7d32; }
 .toast.error { background: #c62828; }
