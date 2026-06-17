@@ -19,9 +19,9 @@
 
       <div class="identity-bar">
         <div class="search-group">
-          <label for="searchAppId">Application ID:</label>
-          <input type="text" id="searchAppId" placeholder="e.g. AP-20260015"/>
-          <button type="button" class="lookup-btn" id="btnLookup">🔍 Find</button>
+          <label for="fAccountId">Account ID:</label>
+          <input type="text" id="fAccountId" placeholder="e.g. ACC-20260015"/>
+          <button type="button" class="lookup-btn" id="btnView">🔍 View</button>
         </div>
       </div>
 
@@ -39,57 +39,66 @@
             <div class="form-row">
               <div class="form-field">
                 <label>Customer Full Name <span class="req">*</span></label>
-                <input type="text" name="customerName" id="fCustomerName" placeholder="Auto-populated context"/>
+                <input type="text" id="fCustomerName" placeholder="Enter Client Name"/>
               </div>
               <div class="form-field">
                 <label>Principal Amount Disbursed <span class="req">*</span></label>
-                <input type="number" name="amountDisbursed" id="fAmountDisbursed" step="0.01"/>
+                <input type="number" id="fAmountDisbursed" step="0.01" placeholder="0.00"/>
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-field">
                 <label>Disbursement Value Date</label>
-                <input type="date" name="disbursementDate" id="fDisbursementDate"/>
+                <input type="date" id="fDisbursementDate"/>
               </div>
               <div class="form-field">
-                <label>Payment Settlement Mode</label>
-                <select name="paymentMode" id="fPaymentMode">
-                  <option>Bank Transfer</option>
-                  <option>Cheque Processing</option>
-                  <option>Cash Vault Handout</option>
+                <label>Mode Of Disbursement (Rule 4)</label>
+                <select id="fPaymentMode">
+                  <option value="">-- Select Mode --</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Cheque Processing">Cheque Processing</option>
+                  <option value="Cash Vault Handout">Cash Vault Handout</option>
                 </select>
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-field">
+                <label>Account Type (Rule 5)</label>
+                <select id="fAccountType">
+                  <option value="">-- Select Type --</option>
+                  <option value="Individual Loan">Individual Loan Account</option>
+                  <option value="Group Loan">Group Loan Account</option>
+                  <option value="Commercial Credit">Commercial Credit Line</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Contra Account ID <span class="req">*</span> (Rule 6)</label>
+                <input type="text" id="fContraAccountId" placeholder="e.g. GL-100204"/>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-field">
                 <label>Cheque / Reference Number</label>
-                <input type="text" name="chequeNo" id="fChequeNo"/>
+                <input type="text" id="fChequeNo" placeholder="Optional"/>
               </div>
               <div class="form-field">
                 <label>Settlement Bank Name</label>
-                <input type="text" name="bankName" id="fBankName"/>
+                <input type="text" id="fBankName" placeholder="Optional"/>
               </div>
             </div>
 
             <div class="form-row">
-              <div class="form-field">
-                <label>Disbursement Account Number</label>
-                <input type="text" name="accountNumber" id="fAccountNumber"/>
-              </div>
               <div class="form-field">
                 <label>Annual Interest Rate (%)</label>
-                <input type="number" name="interestRate" id="fInterestRate" step="0.01" value="12.00"/>
+                <input type="number" id="fInterestRate" step="0.01" value="12.00"/>
               </div>
-            </div>
-
-            <div class="form-row">
               <div class="form-field">
                 <label>Loan Tenor (In Months)</label>
-                <input type="number" name="tenorMonths" id="fTenorMonths" value="12"/>
+                <input type="number" id="fTenorMonths" value="12"/>
               </div>
-              <div class="form-field dummy-spacer"></div>
             </div>
 
           </div>
@@ -123,7 +132,6 @@
 
   <aside class="toolbar">
     <div class="action-btns">
-      <button type="button" class="action-btn" id="btnView">View</button>
       <button type="button" class="action-btn" id="btnAdd">Add</button>
       <button type="button" class="action-btn" id="btnEdit">Edit</button>
       <button type="button" class="action-btn" id="btnClose">Close</button>
@@ -131,6 +139,39 @@
       <button type="button" class="action-btn" id="btnCancel">Cancel</button>
     </div>
   </aside>
+</div>
+
+<div id="disbursementModal" class="modal-overlay">
+  <div class="modal-window">
+    <div class="modal-header">
+      <span>Confirm Loan Disbursement Ledger Entry</span>
+    </div>
+    <div class="modal-body">
+      <p class="warning-text">⚠️ Please verify transaction variables before posting to the general ledger:</p>
+      <table class="confirm-summary-table">
+        <tr>
+          <td><strong>Account ID:</strong></td>
+          <td><span id="mdAccountId">—</span></td>
+        </tr>
+        <tr>
+          <td><strong>Mode Of Disbursement:</strong></td>
+          <td><span id="mdPaymentMode">—</span></td>
+        </tr>
+        <tr>
+          <td><strong>Account Type:</strong></td>
+          <td><span id="mdAccountType">—</span></td>
+        </tr>
+        <tr>
+          <td><strong>Contra Account ID:</strong></td>
+          <td><span id="mdContraAccountId">—</span></td>
+        </tr>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="modal-btn" id="btnConfirmCancel">Abort</button>
+      <button type="button" class="modal-btn primary" id="btnConfirmCommit">Post Disbursement</button>
+    </div>
+  </div>
 </div>
 
 <div id="toast" class="toast">Transaction Alert Banner</div>
