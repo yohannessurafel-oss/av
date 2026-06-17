@@ -544,20 +544,45 @@ document.getElementById('btnGlobalEdit').addEventListener('click', () => {
 
 /* SAVE ──────────────────────────────────────────────────── */
 document.getElementById('btnGlobalSave').addEventListener('click', async () => {
-  // FIX 12a: was collectFormData() — undefined function; correct name is collectForm()
   const payload = collectForm();
-
-  // FIX 12b: run the existing validateLoanApp() before touching the network
   if (!validateLoanApp()) return;
+
+  const appId      = payload[COL.application_id];
+  const branchId   = payload[COL.branch_id];
+  const groupId    = payload[COL.group_id];
+  const subGroupId = payload[COL.sub_group_id];
+  const appDate    = payload[COL.app_date];
+  const appStatus  = payload[COL.app_status] || 'DataEntry';
 
   try {
     toast('Processing…', 'info');
 
-    // FIX 12c: was checking `mode` (undefined) — must use `currentMode`
     if (currentMode === 'add') {
+
+      // ── STEP 1: Insert parent row into loanapplications ──────────────
+      // loanmasterrecords.application_id is a FK → loanapplications(application_id)
+      // so the parent record MUST exist before the child insert.
+      const parentPayload = {
+        application_id:     appId,
+        application_date:   appDate || new Date().toISOString().split('T')[0],
+        branch_id:          branchId   || null,
+        group_id:           groupId    || null,
+        sub_group_id:       subGroupId || null,
+        application_status: appStatus,
+      };
+
+      // Use upsert (POST with Prefer: resolution=merge-duplicates) so that
+      // re-saving after a partial failure doesn't throw a duplicate PK error.
+      await sbFetch('loanapplications', {
+        method: 'POST',
+        body:   JSON.stringify(parentPayload),
+        headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' }
+      });
+
+      // ── STEP 2: Insert child row into loanmasterrecords ──────────────
       const responseData = await sbFetch(TABLE_LOANS, {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body:   JSON.stringify(payload),
         prefer: 'return=representation'
       });
       currentRecord = Array.isArray(responseData) ? responseData[0] : responseData;
@@ -567,17 +592,25 @@ document.getElementById('btnGlobalSave').addEventListener('click', async () => {
       const currentAppId = currentRecord[COL.application_id];
       if (!currentAppId) throw new Error('No active record identifier to modify.');
 
-      // FIX 12d: PATCH must not send application_id in body (it's the PK/filter key)
+      // On edit — only loanmasterrecords needs updating (parent row already exists)
       const updatePayload = { ...payload };
-      delete updatePayload[COL.application_id];
+      delete updatePayload[COL.application_id]; // never send PK in PATCH body
+
+      // Also sync the status back to loanapplications
+      await sbFetch(
+        `loanapplications?application_id=eq.${encodeURIComponent(currentAppId)}`, {
+        method: 'PATCH',
+        body:   JSON.stringify({ application_status: appStatus }),
+        prefer: 'return=minimal'
+      });
 
       const responseData = await sbFetch(
         `${TABLE_LOANS}?${COL.application_id}=eq.${encodeURIComponent(currentAppId)}`, {
         method: 'PATCH',
-        body: JSON.stringify(updatePayload),
+        body:   JSON.stringify(updatePayload),
         prefer: 'return=representation'
       });
-      currentRecord = Array.isArray(responseData) ? responseData[0] : (currentRecord);
+      currentRecord = Array.isArray(responseData) ? responseData[0] : currentRecord;
       toast('✔ Record successfully updated.', 'success');
     }
 
