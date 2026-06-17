@@ -140,33 +140,43 @@ document.querySelectorAll('.sub-tab').forEach(tab => {
 
 
 /* ── Branch Dropdown ───────────────────────────────────── */
+// Module-level branch cache — not stored on DOM element
+let _branchCache = [];
+
 async function loadBranches() {
   const sel = document.getElementById('loanBranchId');
   if (!sel) return;
   try {
-    // FIX 7: table is branchregistry (snake_case), columns are branch_id/branch_name
     const rows = await sbFetch(TABLE_BRANCHES + '?select=branch_id,branch_name&order=branch_id');
-    sel.innerHTML = '<option value="">--</option>';
-    (rows || []).forEach(r => {
+    _branchCache = rows || [];
+    sel.innerHTML = '<option value="">-- Select Branch --</option>';
+    _branchCache.forEach(r => {
       const o = document.createElement('option');
       o.value = r.branch_id;
-      o.textContent = r.branch_id;
-      sel._branchData = rows; // cache for name lookup
+      o.textContent = r.branch_id + (r.branch_name ? ' — ' + r.branch_name : '');
       sel.appendChild(o);
     });
-  } catch {
-    sel.innerHTML = '<option value="1001">1001</option>';
+  } catch (e) {
+    console.warn('Branch load failed:', e.message);
+    sel.innerHTML = '<option value="">-- Select Branch --</option>';
   }
 }
 
 document.getElementById('loanBranchId')?.addEventListener('change', function () {
   const nameEl = document.getElementById('loanBranchName');
-  const chosen = (this._branchData || []).find(b => b.branch_id === this.value);
-  nameEl.value = chosen ? chosen.branch_name : '';
-  // Step 2: only enable Add when a valid branch is selected
-  const addBtn = document.getElementById('btnGlobalAdd');
-  if (addBtn) addBtn.disabled = !this.value || currentMode === 'add' || currentMode === 'edit';
+  const chosen = _branchCache.find(b => b.branch_id === this.value);
+  nameEl.value = chosen ? (chosen.branch_name || '') : '';
+  // Enable/disable Add based on branch selection
+  updateAddButtonState();
 });
+
+function updateAddButtonState() {
+  const addBtn = document.getElementById('btnGlobalAdd');
+  const branchSel = document.getElementById('loanBranchId');
+  if (addBtn) {
+    addBtn.disabled = !branchSel?.value || currentMode === 'add' || currentMode === 'edit';
+  }
+}
 
 /* ── Client Name Auto-Fill ─────────────────────────────── */
 document.getElementById('fClientId')?.addEventListener('blur', async function () {
@@ -249,6 +259,9 @@ function setMode(mode) {
   const sb = document.getElementById('statusBar');
   if (sb) sb.textContent =
     `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}${currentRecord ? ` — ${currentRecord[COL.application_id] || ''}` : ''}`;
+
+  // Re-evaluate Add button based on branch selection
+  updateAddButtonState();
 }
 
 /* ── Form Fill (Record → DOM) ──────────────────────────── */
@@ -538,13 +551,15 @@ document.getElementById('btnGlobalAdd').addEventListener('click', () => {
     branchSel?.focus();
     return;
   }
+  const savedBranchId   = branchSel.value;
+  const savedBranchName = document.getElementById('loanBranchName')?.value || '';
   currentRecord = null;
   clearLoanAppForm();
-  // Keep the selected branch after clear
-  if (branchSel.value) {
+  // Restore branch selection after clearLoanAppForm resets the form
+  if (savedBranchId) {
+    branchSel.value = savedBranchId;
     const nameEl = document.getElementById('loanBranchName');
-    const chosen = (branchSel._branchData || []).find(b => b.branch_id === branchSel.value);
-    if (nameEl) nameEl.value = chosen ? chosen.branch_name : '';
+    if (nameEl) nameEl.value = savedBranchName;
   }
   setMode('add');
   // Step 3: focus moves to Client ID
