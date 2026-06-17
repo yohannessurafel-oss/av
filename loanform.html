@@ -130,7 +130,7 @@
             </div>
             <div class="form-row"><label>Officer ID</label><div class="input-group width-full"><input type="text" id="fOfficerId"/><span class="search-btn">🔍</span></div></div>
             <div class="form-row"><label>Loan Amount (ETB) <span class="req">*</span></label><input type="number" id="fLoanAmount" class="text-right width-full" min="0"/></div>
-            <div class="form-row"><label>Term (Months) <span class="req">*</span></label><input type="number" id="fTerm" value="12" class="text-right width-full" min="1"/></div>
+            <div class="form-row"><label>Term (Months) <span class="req">*</span></label><input type="number" id="fTerm" value="12" class="text-right width-full" min="1" title="Press Tab after entering term to proceed to Disbursement Date"/></div>
             <div class="form-row"><label>Commission Rate (%)</label><input type="number" id="fCommissionRate" class="text-right width-full" step="0.01"/></div>
             <div class="form-row"><label>Effective Rate (%)</label><input type="number" id="fEffectiveRate" class="text-right width-full" step="0.01"/></div>
             <div class="form-row"><label>Spread</label><input type="text" id="fSpread" class="width-full"/></div>
@@ -148,7 +148,7 @@
             <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" id="fCurrencyId" value="ETB" class="font-bold width-full"/></div>
             <div class="form-row"><label class="shifted-label">Interest Rate (%) <span class="req">*</span></label><input type="number" id="fInterestRate" class="text-right width-full" step="0.01"/></div>
             <div class="form-row"><label class="shifted-label">Tax Rate (%)</label><input type="number" id="fTaxRate" class="text-right width-full" step="0.01"/></div>
-            <div class="form-row"><label class="shifted-label">Disbursement Date</label><input type="date" id="fDisbursementDate" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Disbursement Date</label><select id="fDisbursementDate" class="width-full"><option value="">-- Select Date --</option></select></div>
             <div class="form-row"><label class="shifted-label">Application Status</label>
               <input type="text" id="fApplicationStatus" value="DataEntry" readonly class="width-full status-badge"/>
             </div>
