@@ -366,3 +366,21 @@ body {
 .toast.show { opacity: 1; }
 .toast.success { background: var(--success); }
 .toast.error   { background: var(--error); }
+
+/* ─── Date Dropdowns ─────────────────────────────────────── */
+.date-dropdowns {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+.date-dropdowns .inline-sel {
+  flex: 1;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 3px;
+  font-size: 11px;
+  background: var(--input-bg);
+  outline: none;
+}
+.date-dropdowns .inline-sel:focus { border-color: var(--navy); }
