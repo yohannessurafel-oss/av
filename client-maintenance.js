@@ -506,6 +506,10 @@ async function saveRecord() {
       delete payload.client_id;
       delete payload.application_id;
       showToast('Creating new client…');
+       payload.client_id = "CLI-" + Math.floor(100000 + Math.random() * 900000);
+
+  delete payload.application_id;
+  showToast('Creating new client…');
       const data = await sbFetch('ClientMasterRecords', {
         method: 'POST',
         body: JSON.stringify(payload),
