@@ -173,7 +173,7 @@ document.getElementById('btnAdd').addEventListener('click', () => {
 // STEP 7: CLICK SAVE — Validate inputs and show verification confirmation screen modal overlay
 document.getElementById('btnSave').addEventListener('click', () => {
   const accId   = document.getElementById('fAccountId').value.trim();
-  const modeDis = document.getElementById('fPaymentMode').value;           // STEP 4: Select Mode of Disbursement
+ const modeDis = document.getElementById('fPaymentMode').value;           // STEP 4: Select Mode of Disbursement
   const accType = document.getElementById('fAccountType').value;           // STEP 5: Select Account Type
   const contra  = document.getElementById('fContraAccountId').value.trim(); // STEP 6: Enter Contra Account ID
   const cName   = document.getElementById('fCustomerName').value.trim();
