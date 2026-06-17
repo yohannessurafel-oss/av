@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Loan Disbursement — Africa Village Microfinance</title>
+  <link rel="stylesheet" href="disbursement.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="app-shell">
+  <main class="main-content">
+    <div class="form-window">
+      
+      <div class="window-header">
+        <span class="window-title">Loan Disbursement & Amortization Ledger</span>
+      </div>
+
+      <div class="identity-bar">
+        <div class="search-group">
+          <label for="searchAppId">Application ID:</label>
+          <input type="text" id="searchAppId" placeholder="e.g. AP-20260015"/>
+          <button type="button" class="lookup-btn" id="btnLookup">🔍 Find</button>
+        </div>
+      </div>
+
+      <div class="tabs-container">
+        <button type="button" class="tab active" data-tab="details">Disbursement Information</button>
+        <button type="button" class="tab" data-tab="schedule">Amortization Payment Schedule</button>
+      </div>
+
+      <div class="tab-panels">
+        
+        <div id="tab-details" class="tab-panel active">
+          <div class="section-header">Transaction Variables</div>
+          <div class="form-grid">
+            
+            <div class="form-row">
+              <div class="form-field">
+                <label>Customer Full Name <span class="req">*</span></label>
+                <input type="text" name="customerName" id="fCustomerName" placeholder="Auto-populated context"/>
+              </div>
+              <div class="form-field">
+                <label>Principal Amount Disbursed <span class="req">*</span></label>
+                <input type="number" name="amountDisbursed" id="fAmountDisbursed" step="0.01"/>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-field">
+                <label>Disbursement Value Date</label>
+                <input type="date" name="disbursementDate" id="fDisbursementDate"/>
+              </div>
+              <div class="form-field">
+                <label>Payment Settlement Mode</label>
+                <select name="paymentMode" id="fPaymentMode">
+                  <option>Bank Transfer</option>
+                  <option>Cheque Processing</option>
+                  <option>Cash Vault Handout</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-field">
+                <label>Cheque / Reference Number</label>
+                <input type="text" name="chequeNo" id="fChequeNo"/>
+              </div>
+              <div class="form-field">
+                <label>Settlement Bank Name</label>
+                <input type="text" name="bankName" id="fBankName"/>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-field">
+                <label>Disbursement Account Number</label>
+                <input type="text" name="accountNumber" id="fAccountNumber"/>
+              </div>
+              <div class="form-field">
+                <label>Annual Interest Rate (%)</label>
+                <input type="number" name="interestRate" id="fInterestRate" step="0.01" value="12.00"/>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-field">
+                <label>Loan Tenor (In Months)</label>
+                <input type="number" name="tenorMonths" id="fTenorMonths" value="12"/>
+              </div>
+              <div class="form-field dummy-spacer"></div>
+            </div>
+
+          </div>
+        </div>
+
+        <div id="tab-schedule" class="tab-panel">
+          <div class="section-header">Generated Repayment Plan Matrix</div>
+          <div class="table-scroll-wrapper">
+            <table class="schedule-table" id="repaymentGrid">
+              <thead>
+                <tr>
+                  <th>Instalment #</th>
+                  <th>Payment Date</th>
+                  <th>Beginning Principal</th>
+                  <th>Principal Paid</th>
+                  <th>Interest Component</th>
+                  <th>Total Due Payment</th>
+                  <th>Ending Principal Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="7" class="placeholder-text">Enter transaction parameters and click save to calculate amortization profile layout.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div></div></main>
+
+  <aside class="toolbar">
+    <div class="action-btns">
+      <button type="button" class="action-btn" id="btnView">View</button>
+      <button type="button" class="action-btn" id="btnAdd">Add</button>
+      <button type="button" class="action-btn" id="btnEdit">Edit</button>
+      <button type="button" class="action-btn" id="btnClose">Close</button>
+      <button type="button" class="action-btn primary" id="btnSave">Save</button>
+      <button type="button" class="action-btn" id="btnCancel">Cancel</button>
+    </div>
+  </aside>
+</div>
+
+<div id="toast" class="toast">Transaction Alert Banner</div>
+
+<script src="disbursement.js"></script>
+</body>
+</html>
