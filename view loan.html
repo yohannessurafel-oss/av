@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Loan Application System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="window-container">
+    <div class="title-bar">
+        <span>Loan Application</span>
+        <div class="window-controls"><span>_</span><span>❑</span><span>X</span></div>
+    </div>
+
+    <div class="workspace">
+        <div class="main-panel">
+            <div class="menu-bar">
+                <select><option>DataEntry</option></select>
+            </div>
+
+            <form id="loanForm" class="form-container">
+                <div class="form-section row-grid">
+                    <label>Branch ID</label>
+                    <div class="input-with-lookup">
+                        <input type="text" id="branch_id" value="002">
+                        <input type="text" id="branch_name" readonly>
+                    </div>
+
+                    <label>Group ID</label>
+                    <input type="text" id="group_id">
+
+                    <label>Sub Group ID</label>
+                    <input type="text" id="sub_group_id">
+
+                    <label>Application ID</label>
+                    <div class="input-with-lookup">
+                        <input type="text" id="application_id" value="0020000001">
+                        <span class="date-container">Date <input type="text" id="application_date" readonly></span>
+                    </div>
+                </div>
+
+                <hr class="divider">
+
+                <div class="form-section grid-2col">
+                    <div>
+                        <div class="form-group">
+                            <label>Client Branch ID</label>
+                            <input type="text" id="client_branch_id" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Client ID</label>
+                            <div class="input-with-lookup">
+                                <input type="text" id="client_id" readonly>
+                                <input type="text" id="client_name" readonly>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Product ID</label>
+                            <div class="input-with-lookup">
+                                <input type="text" id="product_id" readonly>
+                                <input type="text" id="product_name_title" readonly>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Repayment AccountID</label>
+                            <input type="text" id="main_repayment_account_id" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Donor ID</label>
+                            <input type="text" id="donor_id" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Loan Purpose</label>
+                            <input type="text" id="loan_purpose" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Officer ID</label>
+                            <input type="text" id="officer_id" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Loan Amount</label>
+                            <input type="text" id="loan_amount" class="text-right" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Term</label>
+                            <div class="inline-inputs">
+                                <input type="text" id="term_months" readonly> <span>(Month(S))</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Commission Rate</label>
+                            <input type="text" id="commission_rate" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Effective Rate</label>
+                            <input type="text" id="effective_rate" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Spread</label>
+                            <input type="text" id="spread" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>File Number</label>
+                            <input type="text" id="file_number" readonly>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="form-group margin-spacer"></div>
+                        <div class="form-group">
+                            <label>Line Of Business</label>
+                            <input type="text" id="line_of_business" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Currency ID</label>
+                            <input type="text" id="currency_id" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Interest Rate</label>
+                            <input type="text" id="interest_rate" class="text-right" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Tax Rate</label>
+                            <input type="text" id="tax_rate" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Disbursement Date</label>
+                            <input type="text" id="disbursement_date" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Application Status</label>
+                            <input type="text" id="application_status" readonly>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <div class="data-table-container">
+                <table id="clientsGrid">
+                    <thead>
+                        <tr><th>Apply</th><th>Client ID</th><th>Client Name</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="3" class="no-records">No records to display.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="status-bar">BR.Net Web Banking</div>
+        </div>
+
+        <div class="action-sidebar">
+            <button type="button">More Info</button>
+            <button type="button" id="btnView" class="active-btn">View</button>
+            <button type="button">Add</button>
+            <button type="button">Edit</button>
+            <button type="button">Delete</button>
+            <button type="button">Save</button>
+            <button type="button">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
