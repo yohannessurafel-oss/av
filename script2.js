@@ -143,12 +143,41 @@ document.querySelectorAll('.sub-tab').forEach(tab => {
 // Module-level branch cache
 let _branchCache = [];
 
-async function loadBranches() {
-  const sel = document.getElementById('loanBranchId');
-  if (!sel) return;
+// FIX 18: Branch ID is now driven by the same live Supabase-backed dropdown
+// across every module that carries a Branch ID field, not just Loan Application.
+// Each entry maps a module's <select> id to its read-only branch-name <input> id.
+const BRANCH_SELECTS = [
+  { selectId: 'loanBranchId',        nameId: 'loanBranchName'        }, // Loan Application
+  { selectId: 'groupBranchId',       nameId: 'groupBranchName'       }, // Group Loan Projection / Center Loan Application
+  { selectId: 'appraisalBranchId',   nameId: 'appraisalBranchName'   }, // Loan Risk Underwriting
+  { selectId: 'sanctionBranchId',    nameId: 'sanctionBranchName'    }, // Credit Sanctioning & Disbursal Directive
+  { selectId: 'collateralBranchId',  nameId: 'collateralBranchName'  }, // Collateral Maintenance Registry
+  { selectId: 'tellerBranchId',      nameId: 'tellerBranchName'      }, // Teller Maintenance
+  { selectId: 'payoffBranchId',      nameId: 'payoffBranchName'      }, // Account Pay-off Settlement
+];
 
-  sel.innerHTML = '<option value="">Loading branches…</option>';
-  sel.disabled = true;
+// Populate a single branch <select> from the shared _branchCache.
+function populateBranchSelect(selectId, preserveValue) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const keep = preserveValue ? sel.value : '';
+  sel.innerHTML = '<option value="">-- Select Branch --</option>';
+  _branchCache.forEach(r => {
+    const o = document.createElement('option');
+    o.value       = r.branch_id;
+    o.textContent = r.branch_id + (r.branch_name ? ' — ' + r.branch_name : '');
+    sel.appendChild(o);
+  });
+  sel.disabled = false;
+  if (keep) sel.value = keep;
+}
+
+async function loadBranches() {
+  // Show a loading state on every branch select while we fetch.
+  BRANCH_SELECTS.forEach(({ selectId }) => {
+    const sel = document.getElementById(selectId);
+    if (sel) { sel.innerHTML = '<option value="">Loading branches…</option>'; sel.disabled = true; }
+  });
 
   try {
     // Use raw fetch so we can see the exact response on failure
@@ -167,8 +196,10 @@ async function loadBranches() {
       const errText = await res.text();
       console.error('branchregistry fetch failed:', res.status, errText);
       toast(`Branch list error ${res.status}: ${errText.slice(0, 120)}`, 'error');
-      sel.innerHTML = '<option value="">-- Load failed --</option>';
-      sel.disabled = false;
+      BRANCH_SELECTS.forEach(({ selectId }) => {
+        const sel = document.getElementById(selectId);
+        if (sel) { sel.innerHTML = '<option value="">-- Load failed --</option>'; sel.disabled = false; }
+      });
       return;
     }
 
@@ -177,36 +208,40 @@ async function loadBranches() {
 
     if (!Array.isArray(rows) || rows.length === 0) {
       console.warn('branchregistry returned no rows');
-      sel.innerHTML = '<option value="">-- No branches found --</option>';
-      sel.disabled = false;
+      BRANCH_SELECTS.forEach(({ selectId }) => {
+        const sel = document.getElementById(selectId);
+        if (sel) { sel.innerHTML = '<option value="">-- No branches found --</option>'; sel.disabled = false; }
+      });
       return;
     }
 
     _branchCache = rows;
-    sel.innerHTML = '<option value="">-- Select Branch --</option>';
-    rows.forEach(r => {
-      const o = document.createElement('option');
-      o.value       = r.branch_id;
-      o.textContent = r.branch_id + (r.branch_name ? ' — ' + r.branch_name : '');
-      sel.appendChild(o);
-    });
-    sel.disabled = false;
-    console.log(`Loaded ${rows.length} branches OK`);
+    // FIX 18: populate every module's Branch ID select from the same cache —
+    // same data manipulation pattern as the Loan Application module.
+    BRANCH_SELECTS.forEach(({ selectId }) => populateBranchSelect(selectId, true));
+    console.log(`Loaded ${rows.length} branches OK across ${BRANCH_SELECTS.length} modules`);
 
   } catch (e) {
     console.error('loadBranches exception:', e);
     toast('Could not load branch list. Check console for details.', 'error');
-    sel.innerHTML = '<option value="">-- Select Branch --</option>';
-    sel.disabled = false;
+    BRANCH_SELECTS.forEach(({ selectId }) => {
+      const sel = document.getElementById(selectId);
+      if (sel) { sel.innerHTML = '<option value="">-- Select Branch --</option>'; sel.disabled = false; }
+    });
   }
 }
 
-document.getElementById('loanBranchId')?.addEventListener('change', function () {
-  const nameEl = document.getElementById('loanBranchName');
-  const chosen = _branchCache.find(b => b.branch_id === this.value);
-  nameEl.value = chosen ? (chosen.branch_name || '') : '';
-  // Enable/disable Add based on branch selection
-  updateAddButtonState();
+// FIX 18: one shared change handler wires every module's Branch ID select to
+// its adjacent read-only Branch Name field — identical logic to the original
+// Loan Application Branch ID behavior, just applied module-wide.
+BRANCH_SELECTS.forEach(({ selectId, nameId }) => {
+  document.getElementById(selectId)?.addEventListener('change', function () {
+    const nameEl = document.getElementById(nameId);
+    const chosen = _branchCache.find(b => b.branch_id === this.value);
+    if (nameEl) nameEl.value = chosen ? (chosen.branch_name || '') : '';
+    // Loan Application's Branch ID gates the Add button, same as before.
+    if (selectId === 'loanBranchId') updateAddButtonState();
+  });
 });
 
 function updateAddButtonState() {
@@ -319,8 +354,9 @@ function setMode(mode) {
   const isEdit = mode === 'edit' || mode === 'add';
 
   getActiveFormInputs().forEach(el => {
-    // Never disable: elements with data-always-enabled or id="loanBranchId"
-    if (el.dataset.alwaysEnabled !== undefined || el.id === 'loanBranchId') {
+    // Never disable: elements with data-always-enabled, or any Branch ID select
+    // (Loan Application's Branch ID rule now applies module-wide).
+    if (el.dataset.alwaysEnabled !== undefined || BRANCH_SELECTS.some(b => b.selectId === el.id)) {
       el.disabled = false;
       return;
     }
@@ -330,9 +366,11 @@ function setMode(mode) {
 
   // Always keep readonly inputs truly readonly (never disabled)
   document.querySelectorAll('input[readonly]').forEach(el => el.disabled = false);
-  // Always keep branch select enabled
-  const branchSel = document.getElementById('loanBranchId');
-  if (branchSel) branchSel.disabled = false;
+  // Always keep every module's Branch ID select enabled
+  BRANCH_SELECTS.forEach(({ selectId }) => {
+    const sel = document.getElementById(selectId);
+    if (sel) sel.disabled = false;
+  });
 
   const btnSave   = document.getElementById('btnGlobalSave');
   const btnEdit   = document.getElementById('btnGlobalEdit');
@@ -903,9 +941,11 @@ if (_printBtn) _printBtn.addEventListener('click', () => window.print());
 async function init() {
   setMode('view');
   await Promise.all([loadBranches(), loadProducts()]);
-  // Ensure branch select stays enabled after setMode
-  const branchSel = document.getElementById('loanBranchId');
-  if (branchSel) branchSel.disabled = false;
+  // Ensure every Branch ID select stays enabled after setMode
+  BRANCH_SELECTS.forEach(({ selectId }) => {
+    const sel = document.getElementById(selectId);
+    if (sel) sel.disabled = false;
+  });
   // Default application date
   const dateEl = document.getElementById('fDate');
   if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
