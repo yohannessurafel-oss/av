@@ -130,3 +130,52 @@ async function init() {
   await loadBranches();
 }
 init();
+
+
+
+
+async function commitGroupSave(payload) {
+  try {
+    toast('Processing…', 'info');
+
+    // 1. Save to parent table (loanapplications)
+    const parentPayload = {
+      application_id:     payload[COL.application_id],
+      application_date:   payload[COL.app_date],
+      branch_id:          payload[COL.branch_id],
+      group_id:           payload[COL.group_id],
+      sub_group_id:       payload[COL.sub_group_id],
+      application_status: payload[COL.app_status],
+    };
+
+    await sbFetch(TABLE_APPS, {
+      method: 'POST',
+      body:   JSON.stringify(parentPayload),
+      // Updated headers to cleanly support upserts/inserts across Supabase tables
+      headers: { 'Prefer': 'resolution=merge-duplicates' }, 
+      prefer: 'return=minimal'
+    });
+
+    // 2. Clear out local UI properties (prefixed with '_') before sending to loanmasterrecords
+    const childPayload = { ...payload };
+    Object.keys(childPayload).forEach(k => { if (k.startsWith('_')) delete childPayload[k]; });
+
+    const responseData = await sbFetch(TABLE_LOANS, {
+      method: 'POST',
+      body:   JSON.stringify(childPayload),
+      prefer: 'return=representation'
+    });
+
+    currentRecord = Array.isArray(responseData) ? responseData[0] : childPayload;
+
+    // Append to UI ledger grid and reset view
+    addGridRow(payload);
+    setMode('view');
+    toast('✔ Group loan application saved successfully.', 'success');
+    showGroupSaveOkDialog(payload);
+
+  } catch (e) {
+    console.error('commitGroupSave error:', e);
+    toast(`Save failed: ${e.message}`, 'error');
+  }
+}
