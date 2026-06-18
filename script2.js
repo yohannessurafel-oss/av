@@ -679,6 +679,9 @@ document.getElementById('btnGlobalView').addEventListener('click', async () => {
 
 /* ADD ──────────────────────────────────────────────────── */
 document.getElementById('btnGlobalAdd').addEventListener('click', () => {
+  // FIX 20: Add was running Loan Application's own logic against whichever
+  // module happened to be on screen. Scope it like View already is.
+  if (currentModule !== 'loan-app') { toast('Add records: switch to Loan Application module.', 'warning'); return; }
   // Step 2: Branch ID must be selected before proceeding
   const branchSel = document.getElementById('loanBranchId');
   if (!branchSel || !branchSel.value) {
@@ -704,6 +707,8 @@ document.getElementById('btnGlobalAdd').addEventListener('click', () => {
 
 /* EDIT ─────────────────────────────────────────────────── */
 document.getElementById('btnGlobalEdit').addEventListener('click', () => {
+  // FIX 20: scope Edit to the Loan Application module, same as View/Add.
+  if (currentModule !== 'loan-app') { toast('Edit records: switch to Loan Application module.', 'warning'); return; }
   // FIX 11: was calling setWorkspaceMode (removed) and alert() — use setMode + toast
   if (!currentRecord) { toast('Load a record first before editing.', 'warning'); return; }
   setMode('edit');
@@ -712,6 +717,14 @@ document.getElementById('btnGlobalEdit').addEventListener('click', () => {
 
 /* SAVE ──────────────────────────────────────────────────── */
 document.getElementById('btnGlobalSave').addEventListener('click', async () => {
+  // FIX 20: Save was unconditionally validating Loan Application fields
+  // (fApplicationId, fClientId, etc.) even while a different module, like
+  // Group Loan Projection, was active — producing a misleading "Application
+  // ID is required" error for a field that module doesn't have. Scope it.
+  if (currentModule !== 'loan-app') {
+    toast('Saving is not yet enabled for this module — switch to Loan Application to save.', 'warning');
+    return;
+  }
   const payload = collectForm();
   if (!validateLoanApp()) return;
 
@@ -956,10 +969,13 @@ async function init() {
 init();
 
 /* ── Disbursement Date Select Population (Step 13) ──────── */
-// Populates fDisbursementDate select with the next 24 monthly dates
+// Populates a Disbursement Date select with the next 24 monthly dates
 // from today, plus any existing date from a loaded record.
-function populateDisbursementDates(existingDate) {
-  const sel = document.getElementById('fDisbursementDate');
+// FIX 19: now accepts a target select id so the same date-generation logic
+// can drive Disbursement Date fields in other modules (e.g. Group Loan
+// Projection), not just the Loan Application module's fDisbursementDate.
+function populateDisbursementDates(existingDate, selectId = 'fDisbursementDate') {
+  const sel = document.getElementById(selectId);
   if (!sel) return;
 
   const today = new Date();
@@ -997,6 +1013,9 @@ document.getElementById('fTerm')?.addEventListener('blur', () => {
 
 // Initial population on page load
 populateDisbursementDates(null);
+// FIX 19: Group Loan Projection's Disbursement Date select gets the same
+// live monthly date options as Loan Application's, instead of sitting empty.
+populateDisbursementDates(null, 'groupDisbursementDate');
 
 /* ── Patch: fillForm disbursement date awareness ─────────── */
 // Override the disbursement date fill to ensure the option exists in the select
