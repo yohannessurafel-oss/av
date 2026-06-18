@@ -151,7 +151,9 @@ const BRANCH_SELECTS = [
   { selectId: 'groupBranchId',       nameId: 'groupBranchName'       }, // Group Loan Projection / Center Loan Application
   { selectId: 'appraisalBranchId',   nameId: 'appraisalBranchName'   }, // Loan Risk Underwriting
   { selectId: 'sanctionBranchId',    nameId: 'sanctionBranchName'    }, // Credit Sanctioning & Disbursal Directive
+  { selectId: 'maintBranchId',       nameId: 'maintBranchName'       }, // Loan Account Maintenance
   { selectId: 'collateralBranchId',  nameId: 'collateralBranchName'  }, // Collateral Maintenance Registry
+  { selectId: 'guarantorBranchId',   nameId: 'guarantorBranchName'   }, // Guarantor Asset Registry
   { selectId: 'tellerBranchId',      nameId: 'tellerBranchName'      }, // Teller Maintenance
   { selectId: 'payoffBranchId',      nameId: 'payoffBranchName'      }, // Account Pay-off Settlement
 ];
