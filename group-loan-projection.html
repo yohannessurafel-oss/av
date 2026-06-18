@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>AVMF — 02 group-loan-projection</title>
-<link rel="stylesheet" href="style2.css"/>
+<link rel="stylesheet" href="../style2.css"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -72,44 +72,44 @@
         <form class="module-form grid-two-column" autocomplete="off">
           <div class="sub-column">
             <div class="form-row"><label>Branch ID</label><select id="groupBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select><input type="text" id="groupBranchName" class="width-remaining" placeholder="Branch name" readonly/></div>
-            <div class="form-row"><label>Center ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Scheme ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Disbursement Date</label><select id="groupDisbursementDate" class="width-full"><option value="">-- Select Date --</option></select></div>
-            <div class="form-row"><label>Mode Of Disbursement</label><select class="width-full"><option>Transfer</option><option>Cash</option></select></div>
-            <div class="form-row"><label>File Number</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>Fund ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Loan Purpose</label><select class="width-full"><option>--Select--</option></select></div>
+            <div class="form-row"><label>Center ID</label><div class="input-group width-full"><input type="text" id="groupCenterId"/><span class="search-btn">🔍</span></div></div>
+            <div class="form-row"><label>Scheme ID</label><div class="input-group width-full"><input type="text" id="groupSchemeId"/><span class="search-btn">🔍</span></div></div>
+            <div class="form-row"><label>Disbursement Date</label><input type="date" id="groupDisbursementDate" class="width-full"/></div>
+            <div class="form-row"><label>Mode Of Disbursement</label><select id="groupModeOfDisbursement" class="width-full"><option value="">--Select--</option><option>Transfer</option><option>Cash</option></select></div>
+            <div class="form-row"><label>File Number</label><input type="text" id="groupFileNumber" class="width-full"/></div>
+            <div class="form-row"><label>Fund ID</label><div class="input-group width-full"><input type="text" id="groupFundId"/><span class="search-btn">🔍</span></div></div>
+            <div class="form-row"><label>Loan Purpose</label><input type="text" id="groupLoanPurpose" class="width-full" placeholder="e.g. Working Capital"/></div>
             <div class="section-divider"></div>
-            <div class="form-row"><label>Client ID</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>Repayment Acc ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Loan Amount (ETB)</label><input type="number" class="text-right width-full"/></div>
-            <div class="form-row"><label>Loan Level</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>Term</label><input type="number" class="text-right width-full"/></div>
-            <div class="form-row"><label>Interest Rate (%)</label><input type="number" class="text-right width-full" step="0.01"/></div>
-            <div class="form-row"><label>Loan Period</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label>Client ID</label><input type="text" id="groupClientId" class="width-full"/></div>
+            <div class="form-row"><label>Repayment Acc ID</label><div class="input-group width-full"><input type="text" id="groupRepaymentAccId"/><span class="search-btn">🔍</span></div></div>
+            <div class="form-row"><label>Loan Amount (ETB)</label><input type="number" id="groupLoanAmount" class="text-right width-full"/></div>
+            <div class="form-row"><label>Loan Level</label><input type="text" id="groupLoanLevel" class="width-full"/></div>
+            <div class="form-row"><label>Term</label><input type="number" id="groupTerm" class="text-right width-full"/></div>
+            <div class="form-row"><label>Interest Rate (%)</label><input type="number" id="groupInterestRate" class="text-right width-full" step="0.01"/></div>
+            <div class="form-row"><label>Loan Period</label><input type="text" id="groupLoanPeriod" class="width-full"/></div>
           </div>
           <div class="sub-column">
-            <div class="form-row"><label class="shifted-label">Advance Type</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Credit Officer</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Product ID</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Line Of Business</label><select class="width-full"><option>--Select--</option></select></div>
+            <div class="form-row"><label class="shifted-label">Advance Type</label><input type="text" id="groupAdvanceType" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Credit Officer</label><input type="text" id="groupCreditOfficer" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Product ID</label><input type="text" id="groupProductId" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" id="groupCurrencyId" class="width-full" value="ETB"/></div>
+            <div class="form-row"><label class="shifted-label">Line Of Business</label><input type="text" id="groupLineOfBusiness" class="width-full" placeholder="e.g. Retail Trade"/></div>
             <div class="form-spacer" style="height:90px;"></div>
-            <div class="form-row"><label class="shifted-label">Loan Cycle</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Group Class</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Repayment Term</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Grace Period</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Loan Cycle</label><input type="text" id="groupLoanCycle" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Group Class</label><input type="text" id="groupGroupClass" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Repayment Term</label><input type="text" id="groupRepaymentTerm" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Grace Period</label><input type="text" id="groupGracePeriod" class="width-full"/></div>
           </div>
         </form>
         <div class="action-row-container">
-          <button type="button" class="action-btn-inline">Alter</button>
-          <button type="button" class="action-btn-inline">Update</button>
-          <button type="button" class="action-btn-inline">Clear</button>
+          <button type="button" id="btnGroupAlter" class="action-btn-inline">Alter</button>
+          <button type="button" id="btnGroupUpdate" class="action-btn-inline">Update</button>
+          <button type="button" id="btnGroupClear" class="action-btn-inline">Clear</button>
         </div>
         <div class="grid-container" style="height:80px;">
           <table class="ledger-grid">
             <thead><tr><th>Group ID</th><th>Client ID</th><th>Name</th><th>Loan Cycle</th><th>Loan Level</th><th>Loan Amount</th><th>Term</th><th>Loan Period</th><th>Repayment Term</th><th>Frequency</th><th>Interest Rate</th><th>Penalty Rate</th><th>Total Savings</th></tr></thead>
-            <tbody><tr><td colspan="13" class="text-center gray-text italic">No records to display.</td></tr></tbody>
+            <tbody id="groupLoanGridBody"><tr id="groupLoanGridEmptyRow"><td colspan="13" class="text-center gray-text italic">No records to display.</td></tr></tbody>
           </table>
         </div>
         <div class="sub-footer-token" id="statusBar">Status: Ready</div>
@@ -134,6 +134,6 @@
 
 <div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
 
-<script src="group-loan-projection.js"></script>
+<script src="02-group-loan-projection.js"></script>
 </body>
 </html>
