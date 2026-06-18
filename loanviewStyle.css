@@ -1,0 +1,29 @@
+* { box-sizing: border-box; font-family: Arial, sans-serif; font-size: 11px; }
+body { background-color: #3a6ea5; margin: 20px; }
+.window-container { background-color: #d4d0c8; border: 2px solid #fff; width: 950px; margin: 0 auto; }
+.title-bar { background: linear-gradient(90deg, #0054e3, #73a5f7); color: white; padding: 4px 8px; display: flex; justify-content: space-between; font-weight: bold; }
+.workspace { display: flex; padding: 5px; gap: 5px; }
+.main-panel { flex: 1; background-color: #f0f4f9; border: 1px solid #999; display: flex; flex-direction: column; }
+.menu-bar { background-color: #d4d0c8; padding: 4px; border-bottom: 1px solid #999; }
+.form-container { padding: 10px; }
+.row-grid { display: grid; grid-template-columns: 90px 250px 90px 250px; gap: 6px 10px; align-items: center; }
+.grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.form-group { display: flex; margin-bottom: 4px; align-items: center; }
+.form-group label { width: 110px; color: #000080; font-weight: bold; }
+.form-group input { flex: 1; padding: 2px; border: 1px solid #7a96df; height: 20px; background-color: #fff; }
+.form-group input[readonly] { background-color: #f4f4f4; color: #333; }
+.input-with-lookup { display: flex; gap: 2px; flex: 1; }
+.input-with-lookup input:first-child { width: 80px; }
+.date-container { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; }
+.divider { border: none; border-top: 1px solid #999; margin: 10px 0; }
+.text-right { text-align: right; }
+.margin-spacer { height: 24px; }
+.action-sidebar { width: 100px; display: flex; flex-direction: column; gap: 3px; background-color: #d4d0c8; padding-top: 20px; }
+.action-sidebar button { padding: 6px 0; background: #e1e1e1; border: 1px solid #777; cursor: pointer; }
+.action-sidebar button.active-btn { border: 2px solid #000; font-weight: bold; }
+.data-table-container { margin: 10px; background: white; border: 1px solid #999; min-height: 80px; }
+table { width: 100%; border-collapse: collapse; }
+th { background-color: #ebf2fc; color: #555; text-align: left; padding: 4px; border-bottom: 1px solid #ccc; }
+td { padding: 4px; }
+.no-records { padding: 10px; color: #666; }
+.status-bar { background-color: #d4d0c8; padding: 3px 5px; border-top: 1px solid #999; }
