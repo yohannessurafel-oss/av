@@ -1,564 +1,1043 @@
-/* ═══════════════════════════════════════════════════════
-   CBS Loan Ledger System — Core Engine
-   Matches PDF spec: loan_ledger_sample.pdf
-   Views: Account Statement + Internal Accounting Ledger
-═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   Africa Village Microfinance — Credit Lifecycle System
+   script2.js  v2.0
+   Supabase CRUD · Toast Notifications · Live Calculations
+═══════════════════════════════════════════════════════════ */
 
-// ─── 1. Supabase Connection ────────────────────────────
-const SUPABASE_URL = 'https://oxzthrubidohuwwhxsrk.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+'use strict';
 
-// ─── 2. Date default ──────────────────────────────────
-document.getElementById('start_date').valueAsDate = new Date();
+/* ── Supabase Config ───────────────────────────────────── */
+const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-// ─── 3. Formatters ────────────────────────────────────
+// FIX 8/16: DB table names are snake_case — define once at top scope
+const TABLE_LOANS    = 'loanmasterrecords';
+const TABLE_BRANCHES = 'branchregistry';
+const TABLE_CLIENTS  = 'ClientMasterRecords'; // no surrounding quotes — PostgREST handles case via quoting internally
 
-/**
- * Financial currency formatter.
- * - Zero / null / empty → returns dash "-"
- * - Negative with brackets → (1,234.56) style
- * - Positive → 1,234.56
- */
-function fmtCurrency(val, brackets = true) {
-    if (val === null || val === undefined || val === '' || val === 0) return '-';
-    const abs = Math.abs(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (val < 0 && brackets) return `(${abs})`;
-    if (val < 0 && !brackets) return `-${abs}`;
-    return abs;
-}
+/* ── State ─────────────────────────────────────────────── */
+// FIX 3: removed duplicate declarations of currentRecord and workspaceMode
+let currentMode   = 'view';  // 'view' | 'add' | 'edit'
+let currentRecord = null;
+let currentModule = 'loan-app';
+let viewModalData = [];
 
-/**
- * Date formatter: 01-Jan-26 style (matches PDF)
- */
-function fmtDate(dateStr) {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr + 'T00:00:00'); // avoid timezone shift
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-');
-}
-
-/**
- * ISO date string from a Date object (YYYY-MM-DD)
- */
-function toISO(d) {
-    return d.toISOString().split('T')[0];
-}
-
-/**
- * Last calendar day of a month from a given date
- */
-function lastDayOfMonth(d) {
-    return new Date(d.getFullYear(), d.getMonth() + 1, 0);
-}
-
-// ─── 4. Update header display ─────────────────────────
-function updateHeaderDisplay() {
-    const acct    = document.getElementById('account_number').value;
-    const borrow  = document.getElementById('borrower_name').value;
-    const product = document.getElementById('product_type').value;
-    const status  = document.getElementById('loan_status').value;
-    const amount  = parseFloat(document.getElementById('loan_amount').value);
-    const rate    = document.getElementById('interest_rate').value;
-    const term    = document.getElementById('loan_term').value;
-    const freq    = document.getElementById('repayment_frequency').value;
-    const startD  = document.getElementById('start_date').value;
-
-    document.getElementById('display-account-number').innerText = acct || '—';
-    document.getElementById('display-borrower').innerText = borrow || '—';
-    document.getElementById('display-product').innerText = product || '—';
-    document.getElementById('display-rate').innerText = `${rate}% p.a.`;
-    document.getElementById('display-term').innerText = `${term} Months (${freq})`;
-    document.getElementById('display-disburse-date').innerText = startD ? fmtDate(startD) : '—';
-    document.getElementById('display-orig-balance').innerText = amount ? fmtCurrency(amount) + ' ETB' : '—';
-    document.getElementById('rpt-acct-no').innerText = acct || '—';
-
-    // Status badge
-    const badge = document.getElementById('display-status');
-    badge.innerText = status.replace('-', ' – ');
-    badge.className = 'status-badge';
-    if (status === 'Active-Performing') badge.classList.add('active');
-    else if (status === 'Active-Watchlist') badge.classList.add('watchlist');
-    else if (status === 'Defaulted') badge.classList.add('defaulted');
-    else badge.classList.add('closed');
-}
-
-// ─── 5. Core Amortization Engine ──────────────────────
-function buildLedgerRows(params) {
-    const {
-        selectedProduct, amount, startDate, annualRate,
-        totalMonths, frequency, gracePeriodDays,
-        flatPenaltyFee, initialAccruedInterest,
-        includeProcessingFee, simulateLatePayment, borrowerName, accountNumber
-    } = params;
-
-    const isoDisburse = toISO(startDate);
-    const rows = [];
-
-    // ── Row 0: Loan Disbursement ──
-    rows.push({
-        row_type:                  'disbursement',
-        product_name:              selectedProduct,
-        account_number:            accountNumber,
-        borrower_name:             borrowerName,
-        post_date:                 isoDisburse,
-        value_date:                isoDisburse,
-        description:               'Loan Disbursement',
-        ref_batch:                 'DSB-B001',
-        principal:                 amount,
-        interest:                  0,
-        charges_penalties:         0,
-        accrued_interest_receivable: initialAccruedInterest,  // (a) from PDF
-        total_paid:                0,
-        accrued_unpaid_interest:   null,
-        running_balance:           amount
-    });
-
-    // ── Row 1 (conditional): Admin / Processing Fee ──
-    // Agri-business only. Shown as charge in Charges/Penalties column.
-    // Running balance stays same (fee doesn't reduce principal).
-    if (includeProcessingFee) {
-        rows.push({
-            row_type:                  'fee',
-            product_name:              selectedProduct,
-            account_number:            accountNumber,
-            borrower_name:             borrowerName,
-            post_date:                 isoDisburse,
-            value_date:                isoDisburse,
-            description:               'Admin / Processing Fee',
-            ref_batch:                 'SYS-FEE01',
-            principal:                 0,
-            interest:                  0,
-            charges_penalties:         1000.00,
-            accrued_interest_receivable: 0,
-            total_paid:                0,
-            accrued_unpaid_interest:   null,
-            running_balance:           amount  // Balance unchanged by fee
-        });
+/* ── HTTP Helper ────────────────────────────────────────── */
+async function sbFetch(path, opts = {}) {
+  // FIX 1: SUPA_URL and SUPA_KEY were never declared — use the correct constants
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type':  'application/json',
+      'Prefer':        opts.prefer || 'return=representation',
+      ...(opts.headers || {})
     }
-
-    // ── Scheduling setup ──
-    let intervals       = totalMonths;
-    let ratePerPeriod   = annualRate / 12;
-    let monthStep       = 1;
-
-    if (frequency === 'yearly') {
-        intervals     = Math.max(1, Math.round(totalMonths / 12));
-        ratePerPeriod = annualRate;
-        monthStep     = 12;
-    }
-
-    // Standard EMI (Equal Monthly Installment)
-    const emi = (amount * ratePerPeriod * Math.pow(1 + ratePerPeriod, intervals))
-              / (Math.pow(1 + ratePerPeriod, intervals) - 1);
-
-    let currentBalance = amount;
-    let calcDate       = new Date(startDate);
-
-    // For the PDF's (c) field: accrued unpaid interest tracker
-    // Initial value is (initialAccruedInterest - 1000) for first installment row
-    const firstUnpaidInterest = initialAccruedInterest - 1000.00;
-
-    for (let i = 1; i <= intervals; i++) {
-        calcDate.setMonth(calcDate.getMonth() + monthStep);
-
-        // Value date = last calendar day of the period
-        const periodEnd    = lastDayOfMonth(calcDate);
-        const isoValueDate = toISO(periodEnd);
-
-        // Interest and principal split
-        let interestComp  = currentBalance * ratePerPeriod;
-        let principalComp = emi - interestComp;
-        currentBalance   -= principalComp;
-
-        // Clean up final period rounding residual
-        if (i === intervals) {
-            principalComp += currentBalance;
-            currentBalance = 0;
-        }
-
-        const refLabel = frequency === 'yearly'
-            ? `YRT-${100 + i}`
-            : `RCPT-0${41 + i}`;
-
-        const descLabel = frequency === 'yearly'
-            ? `Yearly Installment ${i}`
-            : `Monthly Installment ${i}`;
-
-        // ── Late Payment / Penalty Logic (simulated on installment 1) ──
-        if (i === 1 && simulateLatePayment) {
-            const actualPayDate = new Date(periodEnd);
-            actualPayDate.setDate(actualPayDate.getDate() + 15); // 15 days late
-
-            const daysOverdue = Math.round(
-                (actualPayDate - periodEnd) / (1000 * 60 * 60 * 24)
-            );
-
-            if (daysOverdue > gracePeriodDays) {
-                // Penalty posts on the 15th of next month (after due date)
-                const penaltyDate = new Date(
-                    periodEnd.getFullYear(),
-                    periodEnd.getMonth() + 1,
-                    15
-                );
-                const isoPenaltyDate = toISO(penaltyDate);
-
-                // Balance at point of penalty = remaining balance before this installment reduces it
-                const balanceAtPenalty = parseFloat(currentBalance.toFixed(2)) + parseFloat(principalComp.toFixed(2));
-
-                rows.push({
-                    row_type:                  'penalty',
-                    product_name:              selectedProduct,
-                    account_number:            accountNumber,
-                    borrower_name:             borrowerName,
-                    post_date:                 isoPenaltyDate,
-                    value_date:                isoPenaltyDate,
-                    description:               'Late Penalty Fee',
-                    ref_batch:                 'JRNL-102',
-                    principal:                 0,
-                    interest:                  0,
-                    charges_penalties:         flatPenaltyFee,
-                    accrued_interest_receivable: 0,
-                    total_paid:                flatPenaltyFee,   // Penalty collected
-                    accrued_unpaid_interest:   null,
-                    running_balance:           parseFloat(balanceAtPenalty.toFixed(2))
-                });
-            }
-        }
-
-        // ── Regular Installment Row ──
-        rows.push({
-            row_type:                  'installment',
-            product_name:              selectedProduct,
-            account_number:            accountNumber,
-            borrower_name:             borrowerName,
-            post_date:                 isoValueDate,
-            value_date:                isoValueDate,
-            description:               descLabel,
-            ref_batch:                 refLabel,
-            // Principal debit is negative (reduces balance) → shown in brackets
-            principal:                 parseFloat((-principalComp).toFixed(2)),
-            // PDF point (b): first installment interest overridden to -1,000
-            interest:                  i === 1 ? -1000.00 : parseFloat((-interestComp).toFixed(2)),
-            charges_penalties:         0,
-            accrued_interest_receivable: 0,
-            total_paid:                parseFloat(emi.toFixed(2)),
-            // PDF point (c): accrued unpaid interest mapped only on first row
-            accrued_unpaid_interest:   i === 1 ? parseFloat(firstUnpaidInterest.toFixed(2)) : null,
-            running_balance:           parseFloat(Math.max(0, currentBalance).toFixed(2))
-        });
-    }
-
-    return rows;
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `HTTP ${res.status}`);
+  }
+  // FIX: also handle 201 with empty body and return=minimal (no content)
+  const text = await res.text();
+  if (!text || !text.trim()) return null;
+  try { return JSON.parse(text); } catch { return null; }
 }
 
-// ─── 6. KPI Summary ───────────────────────────────────
-function updateKPI(rows) {
-    let totalInterest   = 0;
-    let totalPenalties  = 0;
-    let totalPaid       = 0;
-    let closingBalance  = 0;
-    let origPrincipal   = 0;
+/* ── Column Map (loanmasterrecords — snake_case to match DB) ── */
+// FIX 2: was PascalCase (ApplicationId etc) — DB uses snake_case
+const COL = {
+  application_id:   'application_id',
+  branch_id:        'branch_id',
+  center_id:        'center_id',
+  group_id:         'group_id',
+  sub_group_id:     'sub_group_id',
+  client_id:        'client_id',
+  client_name:      'client_name',
+  product_id:       'product_id',
+  repayment_acc_id: 'main_repayment_account_id',
+  donor_id:         'donor_id',
+  loan_purpose:     'loan_purpose',
+  officer_id:       'credit_officer_id',
+  applied_amount:   'applied_amount',
+  term:             'term_months',
+  interest_rate:    'interest_rate',
+  tax_rate:         'tax_rate',
+  commission_rate:  'commission_rate',
+  effective_rate:   'effective_rate',
+  spread:           'spread',
+  file_number:      'file_number',
+  sales_officer:    'sales_officer',
+  app_date:         'application_date',
+  disbursement_date:'disbursement_date',
+  line_of_business: 'line_of_business',
+  currency_id:      'currency_id',
+  app_status:       'application_status',
+};
 
-    rows.forEach(r => {
-        if (r.row_type === 'disbursement') origPrincipal = r.principal;
-        if (r.interest < 0)          totalInterest  += Math.abs(r.interest);
-        if (r.charges_penalties > 0) totalPenalties += r.charges_penalties;
-        if (r.total_paid > 0)        totalPaid      += r.total_paid;
-        closingBalance = r.running_balance; // Last row wins
-    });
-
-    document.getElementById('kpi-principal').innerText  = fmtCurrency(origPrincipal) + ' ETB';
-    document.getElementById('kpi-interest').innerText   = fmtCurrency(totalInterest) + ' ETB';
-    document.getElementById('kpi-penalties').innerText  = fmtCurrency(totalPenalties) + ' ETB';
-    document.getElementById('kpi-paid').innerText       = fmtCurrency(totalPaid) + ' ETB';
-    document.getElementById('kpi-balance').innerText    = fmtCurrency(closingBalance) + ' ETB';
-    document.getElementById('kpi-bar').style.display    = 'grid';
+/* ── Toast ─────────────────────────────────────────────── */
+const toastEl = document.getElementById('toastNotification');
+let _toastTimer = null;
+function toast(msg, type = '', duration = 3200) {
+  toastEl.textContent = msg;
+  toastEl.className = `toast show ${type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => {
+    toastEl.className = 'toast';
+  }, duration);
 }
 
-// ─── 7. Render: View A — Account Statement ────────────
-function renderStatement(rows) {
-    const tbody = document.getElementById('statement-body');
-    const tfoot = document.getElementById('statement-foot');
-    tbody.innerHTML = '';
-    tfoot.innerHTML = '';
+/* ── System Date ───────────────────────────────────────── */
+(function initDate() {
+  const el = document.getElementById('systemDate');
+  if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+  });
+})();
 
-    let totPrincipal = 0, totInterest = 0, totCharges = 0;
+/* ── Module Navigation ─────────────────────────────────── */
+document.getElementById('globalModuleRouter').addEventListener('click', e => {
+  const li = e.target.closest('li[data-module]');
+  if (!li) return;
+  const mod = li.dataset.module;
 
-    rows.forEach(row => {
-        const tr = document.createElement('tr');
-        if (row.row_type === 'penalty')     tr.classList.add('row-penalty');
-        if (row.row_type === 'disbursement') tr.classList.add('row-disburse');
-        if (row.row_type === 'fee')          tr.classList.add('row-fee');
+  document.querySelectorAll('#globalModuleRouter li').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.module-view').forEach(el => el.classList.remove('active'));
 
-        // Accumulate totals (exclude disbursement principal from sum)
-        if (row.row_type !== 'disbursement') {
-            totPrincipal += (row.principal || 0);
-        }
-        totInterest  += (row.interest || 0);
-        totCharges   += (row.charges_penalties || 0);
+  li.classList.add('active');
+  const target = document.getElementById(`view-${mod}`);
+  if (target) target.classList.add('active');
+  currentModule = mod;
 
-        tr.innerHTML = `
-            <td>${fmtDate(row.post_date)}</td>
-            <td>${fmtDate(row.value_date)}</td>
-            <td><span class="ref-code">${row.ref_batch}</span></td>
-            <td>${row.description}</td>
-            <td class="num-col ${row.principal > 0 ? 'val-positive' : row.principal < 0 ? 'val-negative' : ''}">
-                ${fmtCurrency(row.principal)}
-            </td>
-            <td class="num-col ${row.interest < 0 ? 'val-negative' : ''}">
-                ${fmtCurrency(row.interest)}
-            </td>
-            <td class="num-col penalty-col">
-                ${row.charges_penalties > 0 ? fmtCurrency(row.charges_penalties) : '-'}
-            </td>
-            <td class="num-col val-balance">
-                ${fmtCurrency(row.running_balance, false)}
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-
-    // Footer totals row
-    tfoot.innerHTML = `
-        <tr>
-            <td colspan="4" style="text-align:right; color: var(--slate-mid); font-family: var(--font-ui);">
-                TOTALS
-            </td>
-            <td class="num-col">${fmtCurrency(totPrincipal)}</td>
-            <td class="num-col">${fmtCurrency(totInterest)}</td>
-            <td class="num-col">${totCharges > 0 ? fmtCurrency(totCharges) : '-'}</td>
-            <td class="num-col">—</td>
-        </tr>
-    `;
-}
-
-// ─── 8. Render: View B — Internal Accounting Ledger ───
-function renderLedger(rows) {
-    const tbody = document.getElementById('ledger-body');
-    const tfoot = document.getElementById('ledger-foot');
-    tbody.innerHTML = '';
-    tfoot.innerHTML = '';
-
-    let totPrincipal = 0, totInterest = 0, totCharges = 0, totPaid = 0;
-
-    rows.forEach(row => {
-        const tr = document.createElement('tr');
-        if (row.row_type === 'penalty')      tr.classList.add('row-penalty');
-        if (row.row_type === 'disbursement')  tr.classList.add('row-disburse');
-        if (row.row_type === 'fee')           tr.classList.add('row-fee');
-
-        if (row.row_type !== 'disbursement') totPrincipal += (row.principal || 0);
-        totInterest  += (row.interest || 0);
-        totCharges   += (row.charges_penalties || 0);
-        totPaid      += (row.total_paid || 0);
-
-        tr.innerHTML = `
-            <td>${fmtDate(row.value_date)}</td>
-            <td>${row.description}</td>
-            <td><span class="ref-code">${row.ref_batch}</span></td>
-            <td class="num-col ${row.principal < 0 ? 'val-negative' : row.principal > 0 ? 'val-positive' : ''}">
-                ${fmtCurrency(row.principal)}
-            </td>
-            <td class="num-col ${row.interest < 0 ? 'val-negative' : ''}">
-                ${fmtCurrency(row.interest)}
-            </td>
-            <td class="num-col penalty-col">
-                ${row.charges_penalties > 0 ? fmtCurrency(row.charges_penalties) : '-'}
-            </td>
-            <td class="num-col val-accrual">
-                ${row.accrued_interest_receivable > 0 ? fmtCurrency(row.accrued_interest_receivable, false) : '-'}
-            </td>
-            <td class="num-col val-paid">
-                ${row.total_paid > 0 ? fmtCurrency(row.total_paid, false) : '-'}
-            </td>
-            <td class="num-col" style="color: #b45309;">
-                ${row.accrued_unpaid_interest != null ? fmtCurrency(row.accrued_unpaid_interest, false) : '-'}
-            </td>
-            <td class="num-col val-balance">
-                ${fmtCurrency(row.running_balance, false)}
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-
-    // Footer totals
-    tfoot.innerHTML = `
-        <tr>
-            <td colspan="3" style="text-align:right; color: var(--slate-mid); font-family: var(--font-ui);">
-                TOTALS
-            </td>
-            <td class="num-col">${fmtCurrency(totPrincipal)}</td>
-            <td class="num-col">${fmtCurrency(totInterest)}</td>
-            <td class="num-col">${totCharges > 0 ? fmtCurrency(totCharges) : '-'}</td>
-            <td class="num-col">—</td>
-            <td class="num-col val-paid">${fmtCurrency(totPaid, false)}</td>
-            <td class="num-col">—</td>
-            <td class="num-col">—</td>
-        </tr>
-    `;
-}
-
-// ─── 9. Show / Hide UI States ─────────────────────────
-function showLoading(on) {
-    document.getElementById('loading-state').style.display = on ? 'flex' : 'none';
-    document.getElementById('empty-state').style.display   = 'none';
-    const btn = document.getElementById('generate-btn');
-    if (on) { btn.classList.add('loading'); btn.innerHTML = '<span class="btn-icon">⏳</span> Generating…'; }
-    else    { btn.classList.remove('loading'); btn.innerHTML = '<span class="btn-icon">⚡</span> Generate Ledger'; }
-}
-
-function showReports(rows) {
-    document.getElementById('loading-state').style.display = 'none';
-    document.getElementById('empty-state').style.display   = 'none';
-
-    const stmtPanel   = document.getElementById('tab-account-statement');
-    const ledgerPanel = document.getElementById('tab-internal-ledger');
-    stmtPanel.style.display   = 'flex';
-    ledgerPanel.style.display = 'none';
-    stmtPanel.classList.add('visible');
-    ledgerPanel.classList.remove('visible');
-
-    // Activate the first tab button
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-btn')[0].classList.add('active');
-}
-
-// ─── 10. Tab switching ────────────────────────────────
-document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const target = btn.dataset.tab;
-        if (!target) return;
-
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-
-        document.querySelectorAll('.tab-panel').forEach(panel => {
-            panel.style.display   = 'none';
-            panel.classList.remove('visible');
-        });
-
-        const targetPanel = document.getElementById(`tab-${target}`);
-        if (targetPanel) {
-            targetPanel.style.display = 'flex';
-            targetPanel.classList.add('visible');
-        }
-    });
+  setMode('view');
+  // FIX 4: statusBar id does not exist — correct id is in the active module view
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = `Module: ${li.querySelector('.nav-label').textContent} — Ready`;
 });
 
-// ─── 11. CSV Export ───────────────────────────────────
-let _cachedRows = [];
-
-function exportCSV(view) {
-    if (!_cachedRows.length) { alert('Generate ledger first.'); return; }
-    const headers = view === 'statement'
-        ? ['Post Date','Value Date','Ref/Batch','Description','Principal','Interest','Charges/Penalties','Running Balance']
-        : ['Value Date','Description','Ref#','Principal(Dr)','Interest(Dr)','Penalty(Dr)','Accrued Int Receivable','Total Paid(Cr)','Accrued Unpaid Int','Principal Balance'];
-
-    const rowsCSV = _cachedRows.map(r => {
-        if (view === 'statement') {
-            return [fmtDate(r.post_date), fmtDate(r.value_date), r.ref_batch, r.description,
-                    r.principal, r.interest, r.charges_penalties, r.running_balance].join(',');
-        } else {
-            return [fmtDate(r.value_date), r.description, r.ref_batch, r.principal, r.interest,
-                    r.charges_penalties, r.accrued_interest_receivable, r.total_paid,
-                    r.accrued_unpaid_interest, r.running_balance].join(',');
-        }
-    });
-
-    const csv  = [headers.join(','), ...rowsCSV].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `loan_ledger_${document.getElementById('account_number').value}_${view}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-}
-
-// ─── 12. Fetch and render from Supabase on load ───────
-async function fetchAndRender() {
-    const { data, error } = await db
-        .from('loan_ledger')
-        .select('*')
-        .order('id', { ascending: true });
-
-    if (error || !data || data.length === 0) return;
-
-    _cachedRows = data;
-    updateKPI(data);
-    renderStatement(data);
-    renderLedger(data);
-    showReports(data);
-    updateHeaderDisplay();
-}
-
-// ─── 13. Form Submit Handler ──────────────────────────
-document.getElementById('loan-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    showLoading(true);
-
-    // Extract parameters
-    const params = {
-        selectedProduct:       document.getElementById('product_type').value,
-        accountNumber:         document.getElementById('account_number').value,
-        borrowerName:          document.getElementById('borrower_name').value,
-        amount:                parseFloat(document.getElementById('loan_amount').value),
-        startDate:             new Date(document.getElementById('start_date').value + 'T00:00:00'),
-        annualRate:            parseFloat(document.getElementById('interest_rate').value) / 100,
-        totalMonths:           parseInt(document.getElementById('loan_term').value),
-        frequency:             document.getElementById('repayment_frequency').value,
-        gracePeriodDays:       parseInt(document.getElementById('grace_period').value),
-        flatPenaltyFee:        parseFloat(document.getElementById('flat_penalty').value),
-        initialAccruedInterest: parseFloat(document.getElementById('total_accrued_estimate').value),
-        includeProcessingFee:  document.getElementById('include_processing_fee').checked,
-        simulateLatePayment:   document.getElementById('simulate_late_payment').checked,
-    };
-
-    // Build the rows locally first
-    const rows = buildLedgerRows(params);
-
-    // Update header display
-    updateHeaderDisplay();
-
-    // Wipe existing data
-    const { error: delErr } = await db.from('loan_ledger').delete().neq('id', 0);
-    if (delErr) {
-        alert('Delete failed: ' + delErr.message);
-        showLoading(false);
-        return;
-    }
-
-    // Insert new rows (strip row_type before inserting — it's UI-only)
-    const insertRows = rows.map(r => {
-        const { row_type, ...rest } = r;
-        return rest;
-    });
-
-    const { error: insErr } = await db.from('loan_ledger').insert(insertRows);
-    if (insErr) {
-        alert('Insert failed: ' + insErr.message);
-        showLoading(false);
-        return;
-    }
-
-    // Render
-    _cachedRows = rows;
-    updateKPI(rows);
-    renderStatement(rows);
-    renderLedger(rows);
-
-    showLoading(false);
-    showReports(rows);
+/* ── Sub-Tab Navigation ────────────────────────────────── */
+document.querySelectorAll('.sub-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const container = tab.closest('.module-view');
+    container.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+    container.querySelectorAll('.sub-tab-view').forEach(v => v.classList.remove('active'));
+    tab.classList.add('active');
+    const target = container.querySelector(`#subview-${tab.dataset.target}`);
+    if (target) target.classList.add('active');
+  });
 });
 
-// ─── 14. Live header sync as user types ──────────────
-['account_number','borrower_name','product_type','loan_status',
- 'loan_amount','interest_rate','loan_term','start_date','repayment_frequency']
-    .forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('input', updateHeaderDisplay);
-    });
 
-// ─── 15. Init ─────────────────────────────────────────
-updateHeaderDisplay();
-fetchAndRender();
+
+
+
+
+
+
+// FIX 5: setWorkspaceMode() removed — it used '.loan-form-input' selector which
+// matches nothing in the HTML. All mode control goes through setMode() below.
+
+
+/* ── Branch Dropdown ───────────────────────────────────── */
+// Module-level branch cache
+let _branchCache = [];
+
+// FIX 18: Branch ID is now driven by the same live Supabase-backed dropdown
+// across every module that carries a Branch ID field, not just Loan Application.
+// Each entry maps a module's <select> id to its read-only branch-name <input> id.
+const BRANCH_SELECTS = [
+  { selectId: 'loanBranchId',        nameId: 'loanBranchName'        }, // Loan Application
+  { selectId: 'groupBranchId',       nameId: 'groupBranchName'       }, // Group Loan Projection / Center Loan Application
+  { selectId: 'appraisalBranchId',   nameId: 'appraisalBranchName'   }, // Loan Risk Underwriting
+  { selectId: 'sanctionBranchId',    nameId: 'sanctionBranchName'    }, // Credit Sanctioning & Disbursal Directive
+  { selectId: 'maintBranchId',       nameId: 'maintBranchName'       }, // Loan Account Maintenance
+  { selectId: 'collateralBranchId',  nameId: 'collateralBranchName'  }, // Collateral Maintenance Registry
+  { selectId: 'guarantorBranchId',   nameId: 'guarantorBranchName'   }, // Guarantor Asset Registry
+  { selectId: 'tellerBranchId',      nameId: 'tellerBranchName'      }, // Teller Maintenance
+  { selectId: 'payoffBranchId',      nameId: 'payoffBranchName'      }, // Account Pay-off Settlement
+];
+
+// Populate a single branch <select> from the shared _branchCache.
+function populateBranchSelect(selectId, preserveValue) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const keep = preserveValue ? sel.value : '';
+  sel.innerHTML = '<option value="">-- Select Branch --</option>';
+  _branchCache.forEach(r => {
+    const o = document.createElement('option');
+    o.value       = r.branch_id;
+    o.textContent = r.branch_id + (r.branch_name ? ' — ' + r.branch_name : '');
+    sel.appendChild(o);
+  });
+  sel.disabled = false;
+  if (keep) sel.value = keep;
+}
+
+async function loadBranches() {
+  // Show a loading state on every branch select while we fetch.
+  BRANCH_SELECTS.forEach(({ selectId }) => {
+    const sel = document.getElementById(selectId);
+    if (sel) { sel.innerHTML = '<option value="">Loading branches…</option>'; sel.disabled = true; }
+  });
+
+  try {
+    // Use raw fetch so we can see the exact response on failure
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/branchregistry?select=branch_id,branch_name&order=branch_id`,
+      {
+        headers: {
+          'apikey':        SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Accept':        'application/json'
+        }
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('branchregistry fetch failed:', res.status, errText);
+      toast(`Branch list error ${res.status}: ${errText.slice(0, 120)}`, 'error');
+      BRANCH_SELECTS.forEach(({ selectId }) => {
+        const sel = document.getElementById(selectId);
+        if (sel) { sel.innerHTML = '<option value="">-- Load failed --</option>'; sel.disabled = false; }
+      });
+      return;
+    }
+
+    const rows = await res.json();
+    console.log('branchregistry rows:', rows);   // visible in browser console
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      console.warn('branchregistry returned no rows');
+      BRANCH_SELECTS.forEach(({ selectId }) => {
+        const sel = document.getElementById(selectId);
+        if (sel) { sel.innerHTML = '<option value="">-- No branches found --</option>'; sel.disabled = false; }
+      });
+      return;
+    }
+
+    _branchCache = rows;
+    // FIX 18: populate every module's Branch ID select from the same cache —
+    // same data manipulation pattern as the Loan Application module.
+    BRANCH_SELECTS.forEach(({ selectId }) => populateBranchSelect(selectId, true));
+    console.log(`Loaded ${rows.length} branches OK across ${BRANCH_SELECTS.length} modules`);
+
+  } catch (e) {
+    console.error('loadBranches exception:', e);
+    toast('Could not load branch list. Check console for details.', 'error');
+    BRANCH_SELECTS.forEach(({ selectId }) => {
+      const sel = document.getElementById(selectId);
+      if (sel) { sel.innerHTML = '<option value="">-- Select Branch --</option>'; sel.disabled = false; }
+    });
+  }
+}
+
+// FIX 18: one shared change handler wires every module's Branch ID select to
+// its adjacent read-only Branch Name field — identical logic to the original
+// Loan Application Branch ID behavior, just applied module-wide.
+BRANCH_SELECTS.forEach(({ selectId, nameId }) => {
+  document.getElementById(selectId)?.addEventListener('change', function () {
+    const nameEl = document.getElementById(nameId);
+    const chosen = _branchCache.find(b => b.branch_id === this.value);
+    if (nameEl) nameEl.value = chosen ? (chosen.branch_name || '') : '';
+    // Loan Application's Branch ID gates the Add button, same as before.
+    if (selectId === 'loanBranchId') updateAddButtonState();
+  });
+});
+
+function updateAddButtonState() {
+  const addBtn = document.getElementById('btnGlobalAdd');
+  const branchSel = document.getElementById('loanBranchId');
+  if (addBtn) {
+    addBtn.disabled = !branchSel?.value || currentMode === 'add' || currentMode === 'edit';
+  }
+}
+
+/* ── Product Dropdown ─────────────────────────────────── */
+let _productCache = [];
+
+async function loadProducts() {
+  const sel = document.getElementById('fProductId');
+  if (!sel) return;
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/lendingproductparametermatrix?select=product_code_id,product_name_title,base_interest_rate&order=product_code_id`,
+      {
+        headers: {
+          'apikey':        SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Accept':        'application/json'
+        }
+      }
+    );
+    if (!res.ok) { console.error('Product load failed:', res.status); return; }
+    const rows = await res.json();
+    _productCache = rows || [];
+    sel.innerHTML = '<option value="">-- Select Product --</option>';
+    _productCache.forEach(r => {
+      const o = document.createElement('option');
+      o.value = r.product_code_id;
+      o.textContent = r.product_code_id + (r.product_name_title ? ' — ' + r.product_name_title : '');
+      o.dataset.rate = r.base_interest_rate || '';
+      sel.appendChild(o);
+    });
+    console.log(`Loaded ${_productCache.length} products OK`);
+  } catch (e) {
+    console.error('loadProducts exception:', e);
+  }
+}
+
+// Auto-fill Interest Rate when product is selected
+document.getElementById('fProductId')?.addEventListener('change', function () {
+  const chosen = _productCache.find(p => p.product_code_id === this.value);
+  if (chosen && chosen.base_interest_rate) {
+    const rateEl = document.getElementById('fInterestRate');
+    if (rateEl && !rateEl.value) {
+      rateEl.value = chosen.base_interest_rate;
+      calcLoanSummary();
+    }
+  }
+});
+
+/* ── Client Name Auto-Fill ─────────────────────────────── */
+document.getElementById('fClientId')?.addEventListener('blur', async function () {
+  const val = this.value.trim();
+  const nameEl = document.getElementById('fClientName');
+  if (!val) { nameEl.value = ''; return; }
+  try {
+    const rows = await sbFetch(`${TABLE_CLIENTS}?client_id=eq.${encodeURIComponent(val)}&select=client_name&limit=1`);
+    nameEl.value = (rows && rows[0]) ? (rows[0].client_name || '') : '';
+    if (!nameEl.value) toast('Client ID not found in registry.', 'warning');
+  } catch { nameEl.value = ''; }
+});
+
+/* ── Live Loan Summary Calculator ──────────────────────── */
+function calcLoanSummary() {
+  const P  = parseFloat(document.getElementById('fLoanAmount')?.value) || 0;
+  const r  = (parseFloat(document.getElementById('fInterestRate')?.value) || 0) / 100 / 12;
+  const n  = parseInt(document.getElementById('fTerm')?.value) || 0;
+
+  let installment = 0, totalRepay = 0, totalInterest = 0;
+  if (P > 0 && n > 0) {
+    if (r === 0) {
+      installment = P / n;
+    } else {
+      installment = P * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+    }
+    totalRepay    = installment * n;
+    totalInterest = totalRepay - P;
+  }
+
+  const annualRate = parseFloat(document.getElementById('fInterestRate')?.value) || 0;
+  const EAR = r > 0 ? ((Math.pow(1 + r, 12) - 1) * 100) : annualRate;
+
+  const fmt = v => 'ETB ' + v.toLocaleString('en-ET', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  document.getElementById('lscInstallment').textContent = fmt(installment);
+  document.getElementById('lscTotal').textContent       = fmt(totalRepay);
+  document.getElementById('lscInterest').textContent    = fmt(totalInterest);
+  document.getElementById('lscEAR').textContent         = EAR.toFixed(2) + '%';
+}
+
+['fLoanAmount','fInterestRate','fTerm'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', calcLoanSummary);
+});
+calcLoanSummary();
+
+/* ── Form Mode Control ─────────────────────────────────── */
+function getActiveFormInputs() {
+  const view = document.querySelector('.module-view.active');
+  return view ? view.querySelectorAll('input:not([readonly]), select, textarea') : [];
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  const isEdit = mode === 'edit' || mode === 'add';
+
+  getActiveFormInputs().forEach(el => {
+    // Never disable: elements with data-always-enabled, or any Branch ID select
+    // (Loan Application's Branch ID rule now applies module-wide).
+    if (el.dataset.alwaysEnabled !== undefined || BRANCH_SELECTS.some(b => b.selectId === el.id)) {
+      el.disabled = false;
+      return;
+    }
+    if (el.dataset.alwaysRo !== undefined) return;
+    el.disabled = !isEdit;
+  });
+
+  // Always keep readonly inputs truly readonly (never disabled)
+  document.querySelectorAll('input[readonly]').forEach(el => el.disabled = false);
+  // Always keep every module's Branch ID select enabled
+  BRANCH_SELECTS.forEach(({ selectId }) => {
+    const sel = document.getElementById(selectId);
+    if (sel) sel.disabled = false;
+  });
+
+  const btnSave   = document.getElementById('btnGlobalSave');
+  const btnEdit   = document.getElementById('btnGlobalEdit');
+  const btnAdd    = document.getElementById('btnGlobalAdd');
+  const btnCancel = document.getElementById('btnGlobalCancel');
+  const btnClose  = document.getElementById('btnGlobalClose');
+  // FIX 6: btnGlobalDelete and btnGlobalPrint don't exist in HTML — guarded with ?.
+  const btnDelete = document.getElementById('btnGlobalDelete');
+
+  if (btnSave)   btnSave.disabled   = !isEdit;
+  if (btnCancel) btnCancel.disabled = !isEdit;
+  if (btnAdd)    btnAdd.disabled    = isEdit;
+  if (btnEdit)   btnEdit.disabled   = isEdit || !currentRecord;
+  if (btnDelete) btnDelete.disabled = !currentRecord || isEdit;
+  if (btnClose)  btnClose.disabled  = isEdit;
+
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent =
+    `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}${currentRecord ? ` — ${currentRecord[COL.application_id] || ''}` : ''}`;
+
+  // Re-evaluate Add button based on branch selection
+  updateAddButtonState();
+}
+
+/* ── Form Fill (Record → DOM) ──────────────────────────── */
+function fillForm(rec) {
+  if (!rec) return;
+  const set = (id, key) => {
+    const el = document.getElementById(id);
+    if (el) el.value = rec[key] ?? '';
+  };
+  set('loanBranchId',       COL.branch_id);
+  set('fGroupId',           COL.group_id);
+  set('fSubGroupId',        COL.sub_group_id);
+  set('fApplicationId',     COL.application_id);
+  set('fClientId',          COL.client_id);
+  set('fClientName',        COL.client_name);
+  // fProductId is now a <select> — set value directly
+  const prodSel = document.getElementById('fProductId');
+  if (prodSel) prodSel.value = rec[COL.product_id] ?? '';
+  set('fRepaymentAccId',    COL.repayment_acc_id);
+  set('fDonorId',           COL.donor_id);
+  set('fLoanPurpose',       COL.loan_purpose);
+  set('fOfficerId',         COL.officer_id);
+  set('fLoanAmount',        COL.applied_amount);
+  set('fTerm',              COL.term);
+  set('fCommissionRate',    COL.commission_rate);
+  set('fEffectiveRate',     COL.effective_rate);
+  set('fSpread',            COL.spread);
+  set('fFileNumber',        COL.file_number);
+  set('fSalesOfficer',      COL.sales_officer);
+  set('fDate',              COL.app_date);
+  set('fLineOfBusiness',    COL.line_of_business);
+  set('fCurrencyId',        COL.currency_id);
+  set('fInterestRate',      COL.interest_rate);
+  set('fTaxRate',           COL.tax_rate);
+  set('fDisbursementDate',  COL.disbursement_date);
+  set('fApplicationStatus', COL.app_status);
+
+  // Branch name fill
+  const branchSel = document.getElementById('loanBranchId');
+  if (branchSel) branchSel.dispatchEvent(new Event('change'));
+
+  calcLoanSummary();
+}
+
+/* ── Form Collect (DOM → payload) ─────────────────────── */
+function collectForm() {
+  const g = id => {
+    const el = document.getElementById(id);
+    return el ? (el.value.trim() || null) : null;
+  };
+  return {
+    [COL.branch_id]:        g('loanBranchId'),
+    [COL.group_id]:         g('fGroupId'),
+    [COL.sub_group_id]:     g('fSubGroupId'),
+    [COL.application_id]:   g('fApplicationId'),
+    [COL.client_id]:        g('fClientId'),
+    [COL.client_name]:      g('fClientName'),
+    [COL.product_id]:       g('fProductId'),
+    [COL.repayment_acc_id]: g('fRepaymentAccId'),
+    [COL.donor_id]:         g('fDonorId'),
+    [COL.loan_purpose]:     g('fLoanPurpose'),
+    [COL.officer_id]:       g('fOfficerId'),
+    [COL.applied_amount]:   g('fLoanAmount')     ? Number(g('fLoanAmount'))     : null,
+    [COL.term]:             g('fTerm')           ? Number(g('fTerm'))           : null,
+    [COL.interest_rate]:    g('fInterestRate')   ? Number(g('fInterestRate'))   : null,
+    [COL.tax_rate]:         g('fTaxRate')        ? Number(g('fTaxRate'))        : null,
+    [COL.commission_rate]:  g('fCommissionRate') ? Number(g('fCommissionRate')) : null,
+    [COL.effective_rate]:   g('fEffectiveRate')  ? Number(g('fEffectiveRate'))  : null,
+    [COL.spread]:           g('fSpread'),
+    [COL.file_number]:      g('fFileNumber'),
+    [COL.sales_officer]:    g('fSalesOfficer'),
+    [COL.app_date]:         g('fDate'),
+    [COL.disbursement_date]:g('fDisbursementDate'),
+    [COL.line_of_business]: g('fLineOfBusiness'),
+    [COL.currency_id]:      g('fCurrencyId') || 'ETB',
+    [COL.app_status]:       g('fApplicationStatus') || 'DataEntry',
+  };
+}
+
+/* ── Clear Module 1 Form ───────────────────────────────── */
+function clearLoanAppForm() {
+  const ids = [
+    'fGroupId','fSubGroupId','fApplicationId','fClientId','fClientName',
+    'fProductId','fRepaymentAccId','fDonorId','fOfficerId','fLoanAmount',
+    'fTerm','fCommissionRate','fEffectiveRate','fSpread','fFileNumber',
+    'fSalesOfficer','fDate','fDisbursementDate','fInterestRate','fTaxRate'
+  ];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const st = document.getElementById('fApplicationStatus');
+  if (st) st.value = 'DataEntry';
+  const cy = document.getElementById('fCurrencyId');
+  if (cy) cy.value = 'ETB';
+  document.querySelector('#tblClientResults tbody').innerHTML =
+    '<tr><td colspan="5" class="text-center gray-text italic">No records to display.</td></tr>';
+  calcLoanSummary();
+}
+
+/* ── Validation ────────────────────────────────────────── */
+function validateLoanApp() {
+  const required = [
+    { id: 'fApplicationId',  label: 'Application ID' },
+    { id: 'fClientId',       label: 'Client ID' },
+    { id: 'fProductId',      label: 'Product ID' },
+    { id: 'fRepaymentAccId', label: 'Repayment Account ID' },
+    { id: 'fLoanAmount',     label: 'Loan Amount' },
+    { id: 'fTerm',           label: 'Term (Months)' },
+    { id: 'fInterestRate',   label: 'Interest Rate' },
+  ];
+  for (const { id, label } of required) {
+    const el = document.getElementById(id);
+    if (!el || !el.value.trim()) {
+      toast(`⚠ ${label} is required.`, 'error');
+      el?.focus();
+      return false;
+    }
+  }
+  const amt = parseFloat(document.getElementById('fLoanAmount').value);
+  if (isNaN(amt) || amt <= 0) { toast('⚠ Loan Amount must be greater than 0.', 'error'); return false; }
+  const rate = parseFloat(document.getElementById('fInterestRate').value);
+  if (isNaN(rate) || rate <= 0) { toast('⚠ Interest Rate must be greater than 0.', 'error'); return false; }
+  return true;
+}
+
+/* ── View Modal ────────────────────────────────────────── */
+function buildViewModal(rows) {
+  viewModalData = rows || [];
+  const fmt = v => v != null ? Number(v).toLocaleString('en-ET', { minimumFractionDigits: 2 }) : '—';
+  const statusColor = { DataEntry:'#ddeaf7', Approved:'#d4edda', Rejected:'#fde8e8', Disbursed:'#fff3cd', Closed:'#e2e3e5' };
+
+  const rowsHtml = viewModalData.length
+    ? viewModalData.map(r => `
+        <tr data-appid="${r[COL.application_id]}" style="cursor:pointer;" class="modal-result-row">
+          <td style="padding:4px 8px;font-weight:700;color:#0d3460;border-bottom:1px solid #cde0f0;">${r[COL.application_id] || '—'}</td>
+          <td style="padding:4px 8px;border-bottom:1px solid #cde0f0;">${r[COL.client_id] || '—'}</td>
+          <td style="padding:4px 8px;border-bottom:1px solid #cde0f0;">${r[COL.client_name] || '—'}</td>
+          <td style="padding:4px 8px;border-bottom:1px solid #cde0f0;">${r[COL.branch_id] || '—'}</td>
+          <td style="padding:4px 8px;border-bottom:1px solid #cde0f0;">
+            <span style="background:${statusColor[r[COL.app_status]] || '#eef4fb'};padding:1px 7px;border-radius:10px;font-weight:700;">${r[COL.app_status] || '—'}</span>
+          </td>
+          <td style="padding:4px 8px;text-align:right;border-bottom:1px solid #cde0f0;">ETB ${fmt(r[COL.applied_amount])}</td>
+        </tr>`).join('')
+    : '<tr><td colspan="6" style="text-align:center;padding:14px;color:#667788;font-style:italic;">No records found.</td></tr>';
+
+  const modal = document.getElementById('viewModal');
+  modal.innerHTML = `
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">🔍 Loan Application Records — Select to Load</span>
+        <button class="modal-close-btn" id="modalCloseBtn">✕</button>
+      </div>
+      <div class="modal-search-bar">
+        <input type="text" id="modalSearchInput" placeholder="Search by Application ID, Client ID or Name…" style="flex:1;"/>
+        <button id="modalSearchBtn">Search</button>
+        <span style="color:#667788;font-size:10px;margin-left:6px;">${viewModalData.length} record(s)</span>
+      </div>
+      <div class="modal-body">
+        <div style="overflow:auto;max-height:340px;">
+          <table class="ledger-grid" id="modalTable">
+            <thead>
+              <tr>
+                <th>Application ID</th><th>Client ID</th><th>Client Name</th>
+                <th>Branch</th><th>Status</th><th class="text-right">Amount (ETB)</th>
+              </tr>
+            </thead>
+            <tbody id="modalTableBody">${rowsHtml}</tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn" id="modalCancelBtn">Cancel</button>
+        <button class="modal-btn primary" id="modalSelectBtn">Select Record</button>
+      </div>
+    </div>`;
+
+  modal.style.display = 'flex';
+  let selectedAppId = null;
+
+  // Row selection
+  modal.querySelectorAll('.modal-result-row').forEach(row => {
+    row.addEventListener('click', () => {
+      modal.querySelectorAll('.modal-result-row').forEach(r => r.classList.remove('selected-row'));
+      row.classList.add('selected-row');
+      selectedAppId = row.dataset.appid;
+    });
+    row.addEventListener('dblclick', () => {
+      selectedAppId = row.dataset.appid;
+      loadSelectedRecord(selectedAppId);
+    });
+  });
+
+  // Close
+  const closeModal = () => { modal.style.display = 'none'; };
+  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+  document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+  // Select button
+  document.getElementById('modalSelectBtn').addEventListener('click', () => {
+    if (!selectedAppId) { toast('Select a record first.', 'warning'); return; }
+    loadSelectedRecord(selectedAppId);
+  });
+
+  // Search filter
+  const filterTable = (q) => {
+    const lower = q.toLowerCase();
+    modal.querySelectorAll('.modal-result-row').forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(lower) ? '' : 'none';
+    });
+  };
+  document.getElementById('modalSearchBtn').addEventListener('click', () => {
+    filterTable(document.getElementById('modalSearchInput').value.trim());
+  });
+  document.getElementById('modalSearchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') filterTable(e.target.value.trim());
+  });
+
+  function loadSelectedRecord(appId) {
+    const rec = viewModalData.find(r => r[COL.application_id] === appId);
+    if (rec) {
+      currentRecord = rec;
+      fillForm(rec);
+      setMode('view');
+      closeModal();
+      toast(`✔ Loaded: ${rec[COL.application_id]} — ${rec[COL.client_name] || ''}`, 'success');
+    }
+  }
+}
+
+/* ── Installment Schedule Generator ───────────────────── */
+function generateSchedule(principal, annualRate, termMonths, startDate) {
+  const tbody = document.querySelector('#installmentScheduleTable tbody');
+  if (!tbody) return;
+  if (!principal || !annualRate || !termMonths) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center gray-text italic">Enter loan details to generate schedule.</td></tr>';
+    return;
+  }
+
+  const r = annualRate / 100 / 12;
+  const n = termMonths;
+  const emi = r === 0 ? principal / n : principal * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+  const fmt = v => v.toLocaleString('en-ET', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  let balance = principal;
+  let html = '';
+  const base = startDate ? new Date(startDate) : new Date();
+
+  for (let i = 1; i <= n; i++) {
+    const dueDate = new Date(base);
+    dueDate.setMonth(dueDate.getMonth() + i);
+    const interest  = balance * r;
+    const principalPmt = emi - interest;
+    balance = Math.max(balance - principalPmt, 0);
+    html += `<tr>
+      <td style="text-align:center;">${i}</td>
+      <td>${dueDate.toLocaleDateString('en-ET')}</td>
+      <td style="text-align:right;">ETB ${fmt(emi)}</td>
+      <td style="text-align:right;">ETB ${fmt(principalPmt)}</td>
+      <td style="text-align:right;">ETB ${fmt(interest)}</td>
+      <td style="text-align:right;">ETB ${fmt(balance)}</td>
+    </tr>`;
+  }
+  tbody.innerHTML = html;
+}
+
+/* ══ TOOLBAR BUTTON HANDLERS ════════════════════════════ */
+
+/* VIEW ─────────────────────────────────────────────────── */
+document.getElementById('btnGlobalView').addEventListener('click', async () => {
+  // FIX 9: removed malformed inner block with undefined selectedRecord reference
+  if (currentModule !== 'loan-app') { toast('View records: switch to Loan Application module.', 'warning'); return; }
+  try {
+    toast('Loading records…');
+    const rows = await sbFetch(
+      `${TABLE_LOANS}?select=*&order=${COL.application_id}.desc&limit=200`
+    );
+    buildViewModal(rows);
+  } catch (e) {
+    toast(`Error loading records: ${e.message}`, 'error');
+  }
+});
+
+/* ADD ──────────────────────────────────────────────────── */
+document.getElementById('btnGlobalAdd').addEventListener('click', () => {
+  // FIX 20: Add was running Loan Application's own logic against whichever
+  // module happened to be on screen. Scope it like View already is.
+  if (currentModule !== 'loan-app') { toast('Add records: switch to Loan Application module.', 'warning'); return; }
+  // Step 2: Branch ID must be selected before proceeding
+  const branchSel = document.getElementById('loanBranchId');
+  if (!branchSel || !branchSel.value) {
+    toast('⚠ Select a Branch ID first before adding a new loan application.', 'warning');
+    branchSel?.focus();
+    return;
+  }
+  const savedBranchId   = branchSel.value;
+  const savedBranchName = document.getElementById('loanBranchName')?.value || '';
+  currentRecord = null;
+  clearLoanAppForm();
+  // Restore branch selection after clearLoanAppForm resets the form
+  if (savedBranchId) {
+    branchSel.value = savedBranchId;
+    const nameEl = document.getElementById('loanBranchName');
+    if (nameEl) nameEl.value = savedBranchName;
+  }
+  setMode('add');
+  // Step 3: focus moves to Client ID
+  document.getElementById('fClientId')?.focus();
+  toast('Branch selected. Enter Client ID, Product ID and loan details, then Save.');
+});
+
+/* EDIT ─────────────────────────────────────────────────── */
+document.getElementById('btnGlobalEdit').addEventListener('click', () => {
+  // FIX 20: scope Edit to the Loan Application module, same as View/Add.
+  if (currentModule !== 'loan-app') { toast('Edit records: switch to Loan Application module.', 'warning'); return; }
+  // FIX 11: was calling setWorkspaceMode (removed) and alert() — use setMode + toast
+  if (!currentRecord) { toast('Load a record first before editing.', 'warning'); return; }
+  setMode('edit');
+  toast('Editing — make your changes then Save.');
+});
+
+/* SAVE ──────────────────────────────────────────────────── */
+document.getElementById('btnGlobalSave').addEventListener('click', async () => {
+  // FIX 20: Save was unconditionally validating Loan Application fields
+  // (fApplicationId, fClientId, etc.) even while a different module, like
+  // Group Loan Projection, was active — producing a misleading "Application
+  // ID is required" error for a field that module doesn't have. Scope it.
+  if (currentModule !== 'loan-app') {
+    toast('Saving is not yet enabled for this module — switch to Loan Application to save.', 'warning');
+    return;
+  }
+  const payload = collectForm();
+  if (!validateLoanApp()) return;
+
+  // Steps 14-15: Show confirmation dialog before committing to DB
+  showSaveConfirmation(payload, async () => {
+    await commitSave(payload);
+  });
+});
+
+/* ── Confirmation Dialog (Steps 14-15) ─────────────────── */
+function showSaveConfirmation(payload, onConfirm) {
+  const fmt = v => v != null && v !== '' ? v : '—';
+  const fmtAmt = v => v != null ? 'ETB ' + Number(v).toLocaleString('en-ET', { minimumFractionDigits: 2 }) : '—';
+  const action = currentMode === 'add' ? 'Create New' : 'Update';
+
+  // Remove any existing confirmation overlay
+  document.getElementById('saveConfirmOverlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'saveConfirmOverlay';
+  overlay.style.cssText = `
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    background:rgba(10,20,40,0.55);z-index:9000;
+    display:flex;align-items:center;justify-content:center;`;
+
+  overlay.innerHTML = `
+    <div style="
+      background:#fff;border-radius:6px;
+      box-shadow:0 8px 32px rgba(0,0,0,0.28);
+      width:480px;max-width:96vw;font-family:'Segoe UI',Inter,sans-serif;font-size:13px;overflow:hidden;">
+      <!-- Header -->
+      <div style="background:#0A291A;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:15px;">💾</span>
+        <span style="font-weight:700;letter-spacing:.03em;">Confirm Loan Application — ${action}</span>
+      </div>
+      <!-- Summary -->
+      <div style="padding:14px 16px 4px;color:#1a2a35;">
+        <div style="background:#f4f7f9;border:1px solid #ccd3da;border-radius:4px;padding:10px 14px;margin-bottom:10px;">
+          <table style="width:100%;border-collapse:collapse;line-height:1.9;">
+            <tr><td style="color:#6b7f8b;width:52%;">Application ID</td><td style="font-weight:700;color:#0A291A;">${fmt(payload['application_id'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Branch</td><td>${fmt(payload['branch_id'])} ${document.getElementById('loanBranchName')?.value ? '— ' + document.getElementById('loanBranchName').value : ''}</td></tr>
+            <tr><td style="color:#6b7f8b;">Client ID</td><td>${fmt(payload['client_id'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Client Name</td><td>${fmt(payload['client_name'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Product ID</td><td>${fmt(payload['product_id'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Repayment Account</td><td>${fmt(payload['main_repayment_account_id'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Loan Purpose</td><td>${fmt(payload['loan_purpose'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Line of Business</td><td>${fmt(payload['line_of_business'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Officer ID</td><td>${fmt(payload['credit_officer_id'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Loan Amount</td><td style="font-weight:700;">${fmtAmt(payload['applied_amount'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Term</td><td>${fmt(payload['term_months'])} months</td></tr>
+            <tr><td style="color:#6b7f8b;">Interest Rate</td><td>${fmt(payload['interest_rate'])}%</td></tr>
+            <tr><td style="color:#6b7f8b;">Disbursement Date</td><td>${fmt(payload['disbursement_date'])}</td></tr>
+            <tr><td style="color:#6b7f8b;">Application Status</td><td><span style="background:#ddeaf7;padding:1px 8px;border-radius:10px;font-weight:700;">${fmt(payload['application_status'])}</span></td></tr>
+          </table>
+        </div>
+        <p style="color:#6b7f8b;font-size:11px;margin:0 0 12px;">
+          Click <strong>Yes</strong> to confirm and save this loan application record.
+        </p>
+      </div>
+      <!-- Footer buttons (Step 15: Yes then OK) -->
+      <div style="padding:0 16px 14px;display:flex;justify-content:flex-end;gap:8px;">
+        <button id="confirmNo"  style="padding:6px 20px;border:1px solid #ccd3da;background:#fff;border-radius:4px;font-size:13px;cursor:pointer;">No</button>
+        <button id="confirmYes" style="padding:6px 20px;background:#F5A623;border:1px solid #e09615;color:#0A291A;border-radius:4px;font-size:13px;font-weight:700;cursor:pointer;">Yes</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('confirmNo').addEventListener('click', () => {
+    overlay.remove();
+    toast('Save cancelled.');
+  });
+
+  document.getElementById('confirmYes').addEventListener('click', async () => {
+    overlay.remove();
+    await onConfirm();
+    // Step 15b: "OK" acknowledgement after successful save
+    showSaveOkDialog();
+  });
+
+  // Click outside to cancel
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+function showSaveOkDialog() {
+  document.getElementById('saveOkOverlay')?.remove();
+  if (!currentRecord) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'saveOkOverlay';
+  overlay.style.cssText = `
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    background:rgba(10,20,40,0.45);z-index:9100;
+    display:flex;align-items:center;justify-content:center;`;
+  overlay.innerHTML = `
+    <div style="
+      background:#fff;border-radius:6px;
+      box-shadow:0 8px 32px rgba(0,0,0,0.22);
+      width:340px;text-align:center;font-family:'Segoe UI',Inter,sans-serif;font-size:13px;overflow:hidden;">
+      <div style="background:#27ae60;color:#fff;padding:10px 16px;font-weight:700;">✔ Application Saved Successfully</div>
+      <div style="padding:20px 16px 10px;">
+        <div style="font-size:22px;margin-bottom:8px;">✅</div>
+        <p style="color:#1a2a35;margin:0 0 4px;">Loan Application <strong>${currentRecord['application_id'] || ''}</strong></p>
+        <p style="color:#6b7f8b;margin:0 0 16px;font-size:11px;">has been saved with status <strong>DataEntry</strong>.</p>
+        <button id="saveOkBtn" style="padding:7px 30px;background:#0A291A;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:700;cursor:pointer;">OK</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('saveOkBtn').addEventListener('click', () => overlay.remove());
+  // Auto-dismiss after 8 seconds
+  setTimeout(() => overlay?.remove(), 8000);
+}
+
+async function commitSave(payload) {
+  const appId      = payload[COL.application_id];
+  const branchId   = payload[COL.branch_id];
+  const groupId    = payload[COL.group_id];
+  const subGroupId = payload[COL.sub_group_id];
+  const appDate    = payload[COL.app_date];
+  const appStatus  = payload[COL.app_status] || 'DataEntry';
+
+  try {
+    toast('Processing…', 'info');
+
+    if (currentMode === 'add') {
+      // Insert parent row into loanapplications first (FK dependency)
+      const parentPayload = {
+        application_id:     appId,
+        application_date:   appDate || new Date().toISOString().split('T')[0],
+        branch_id:          branchId   || null,
+        group_id:           groupId    || null,
+        sub_group_id:       subGroupId || null,
+        application_status: appStatus,
+      };
+      await sbFetch('loanapplications', {
+        method: 'POST',
+        body:   JSON.stringify(parentPayload),
+        prefer: 'resolution=merge-duplicates,return=minimal'
+      });
+
+      // Insert child row into loanmasterrecords
+      const responseData = await sbFetch(TABLE_LOANS, {
+        method: 'POST',
+        body:   JSON.stringify(payload),
+        prefer: 'return=representation'
+      });
+      currentRecord = Array.isArray(responseData) ? responseData[0] : responseData;
+
+    } else if (currentMode === 'edit') {
+      const currentAppId = currentRecord[COL.application_id];
+      if (!currentAppId) throw new Error('No active record identifier to modify.');
+
+      const updatePayload = { ...payload };
+      delete updatePayload[COL.application_id];
+
+      await sbFetch(
+        `loanapplications?application_id=eq.${encodeURIComponent(currentAppId)}`, {
+        method: 'PATCH',
+        body:   JSON.stringify({ application_status: appStatus }),
+        prefer: 'return=minimal'
+      });
+
+      const responseData = await sbFetch(
+        `${TABLE_LOANS}?${COL.application_id}=eq.${encodeURIComponent(currentAppId)}`, {
+        method: 'PATCH',
+        body:   JSON.stringify(updatePayload),
+        prefer: 'return=representation'
+      });
+      currentRecord = Array.isArray(responseData) ? responseData[0] : currentRecord;
+    }
+
+    if (currentRecord) fillForm(currentRecord);
+    setMode('view');
+    toast('✔ Loan application record saved.', 'success');
+
+  } catch (error) {
+    console.error('Save error:', error);
+    toast(`Save failed: ${error.message}`, 'error');
+  }
+}
+
+// CLOSE
+document.getElementById('btnGlobalClose').addEventListener('click', () => {
+  // FIX 13: was calling setWorkspaceMode + clearFormFields (both undefined/removed)
+  currentRecord = null;
+  clearLoanAppForm();
+  setMode('view');
+  toast('Record closed.');
+});
+
+
+/* DELETE ────────────────────────────────────────────────── */
+// FIX 14: btnGlobalDelete doesn't exist in HTML — guard with if block
+const _delBtn = document.getElementById('btnGlobalDelete');
+if (_delBtn) {
+  _delBtn.addEventListener('click', async () => {
+    if (!currentRecord) { toast('No record loaded.', 'warning'); return; }
+    const appId = currentRecord[COL.application_id];
+    if (!appId) { toast('Cannot delete — no Application ID.', 'error'); return; }
+    if (!window.confirm(`Delete loan record ${appId}?\nThis action cannot be undone.`)) return;
+    try {
+      toast('Deleting…');
+      await sbFetch(`${TABLE_LOANS}?${COL.application_id}=eq.${encodeURIComponent(appId)}`, {
+        method: 'DELETE', prefer: 'return=minimal'
+      });
+      toast(`✔ Record ${appId} deleted.`, 'success');
+      currentRecord = null;
+      clearLoanAppForm();
+      setMode('view');
+    } catch (e) {
+      toast(`Delete failed: ${e.message}`, 'error');
+    }
+  });
+}
+
+/* CANCEL ────────────────────────────────────────────────── */
+document.getElementById('btnGlobalCancel').addEventListener('click', () => {
+  if (currentRecord) fillForm(currentRecord);
+  else clearLoanAppForm();
+  setMode('view');
+  toast('Changes discarded.');
+});
+
+/* PRINT ─────────────────────────────────────────────────── */
+// FIX 15: btnGlobalPrint doesn't exist in HTML — guard with if block
+const _printBtn = document.getElementById('btnGlobalPrint');
+if (_printBtn) _printBtn.addEventListener('click', () => window.print());
+
+/* ── Init ──────────────────────────────────────────────── */
+async function init() {
+  setMode('view');
+  await Promise.all([loadBranches(), loadProducts()]);
+  // Ensure every Branch ID select stays enabled after setMode
+  BRANCH_SELECTS.forEach(({ selectId }) => {
+    const sel = document.getElementById(selectId);
+    if (sel) sel.disabled = false;
+  });
+  // Default application date
+  const dateEl = document.getElementById('fDate');
+  if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
+}
+
+init();
+
+/* ── Disbursement Date Select Population (Step 13) ──────── */
+// Populates a Disbursement Date select with the next 24 monthly dates
+// from today, plus any existing date from a loaded record.
+// FIX 19: now accepts a target select id so the same date-generation logic
+// can drive Disbursement Date fields in other modules (e.g. Group Loan
+// Projection), not just the Loan Application module's fDisbursementDate.
+function populateDisbursementDates(existingDate, selectId = 'fDisbursementDate') {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+
+  const today = new Date();
+  const dates = [];
+
+  // Generate next 24 months of 1st-of-month disbursement dates
+  for (let i = 0; i <= 24; i++) {
+    const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+    dates.push(d.toISOString().split('T')[0]);
+  }
+
+  // Also include any specific date from the loaded record
+  if (existingDate && !dates.includes(existingDate)) {
+    dates.unshift(existingDate);
+  }
+
+  sel.innerHTML = '<option value="">-- Select Date --</option>';
+  dates.forEach(dateStr => {
+    const opt = document.createElement('option');
+    opt.value = dateStr;
+    const d = new Date(dateStr + 'T00:00:00');
+    opt.textContent = d.toLocaleDateString('en-ET', { year: 'numeric', month: 'long', day: 'numeric' });
+    if (dateStr === existingDate) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// Re-populate when Term field is tabbed out (Step 12 → Step 13 transition)
+document.getElementById('fTerm')?.addEventListener('blur', () => {
+  const existing = document.getElementById('fDisbursementDate')?.value;
+  populateDisbursementDates(existing || null);
+  // Focus disbursement date after tab
+  setTimeout(() => document.getElementById('fDisbursementDate')?.focus(), 50);
+});
+
+// Initial population on page load
+populateDisbursementDates(null);
+// FIX 19: Group Loan Projection's Disbursement Date select gets the same
+// live monthly date options as Loan Application's, instead of sitting empty.
+populateDisbursementDates(null, 'groupDisbursementDate');
+
+/* ── Patch: fillForm disbursement date awareness ─────────── */
+// Override the disbursement date fill to ensure the option exists in the select
+const _origFillForm = fillForm;
+// Re-wrap fillForm so that when a record is loaded, disbursement date
+// is first added to the select, then selected.
+window._patchedFillDisbDate = function(rec) {
+  if (!rec) return;
+  const disbDate = rec[COL.disbursement_date] || null;
+  populateDisbursementDates(disbDate);
+  const sel = document.getElementById('fDisbursementDate');
+  if (sel && disbDate) sel.value = disbDate;
+};
+
+// Intercept fillForm calls to also populate disbursement dates
+const _fillFormOriginal = fillForm;
+function fillForm(rec) {
+  _fillFormOriginal(rec);
+  if (rec) {
+    const disbDate = rec[COL.disbursement_date] || null;
+    populateDisbursementDates(disbDate);
+    const sel = document.getElementById('fDisbursementDate');
+    if (sel && disbDate) sel.value = disbDate;
+  }
+}
