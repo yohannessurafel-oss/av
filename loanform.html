@@ -180,7 +180,7 @@
         <div class="context-badge-bar"><span class="badge-icon">👥</span>Center Loan Application — Collective Batch Projection Setup</div>
         <form class="module-form grid-two-column" autocomplete="off">
           <div class="sub-column">
-            <div class="form-row"><label>Branch ID</label><div class="input-group width-small"><input type="text" value="1001"/><span class="search-btn">🔍</span></div><input type="text" class="width-remaining" value="HEAD OFFICE" readonly/></div>
+            <div class="form-row"><label>Branch ID</label><select id="groupBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select><input type="text" id="groupBranchName" class="width-remaining" placeholder="Branch name" readonly/></div>
             <div class="form-row"><label>Center ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
             <div class="form-row"><label>Scheme ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
             <div class="form-row"><label>Disbursement Date</label><select class="width-full"><option>--Select--</option></select></div>
@@ -230,7 +230,7 @@
         <div class="context-badge-bar"><span class="badge-icon">🔎</span>Loan Risk Underwriting — Technical Analysis &amp; Appraisal Sheet</div>
         <form class="module-form grid-two-column" autocomplete="off">
           <div class="sub-column">
-            <div class="form-row"><label>Branch ID</label><div class="input-group width-small"><input type="text" value="1001"/><span class="search-btn">🔍</span></div><input type="text" class="width-remaining" value="HEAD OFFICE" readonly/></div>
+            <div class="form-row"><label>Branch ID</label><select id="appraisalBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select><input type="text" id="appraisalBranchName" class="width-remaining" placeholder="Branch name" readonly/></div>
             <div class="form-row"><label>Workflow Type ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
             <div class="form-row"><label>Application ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
             <div class="card-header-banner">Recommendation Details</div>
@@ -272,7 +272,7 @@
         <div class="context-badge-bar"><span class="badge-icon">✅</span>Administrative Board — Credit Sanctioning &amp; Disbursal Directives</div>
         <form class="module-form grid-two-column" autocomplete="off">
           <div class="sub-column">
-            <div class="form-row"><label>Branch ID</label><div class="input-group width-small"><input type="text" value="1001"/><span class="search-btn">🔍</span></div><input type="text" class="width-remaining" value="HEAD OFFICE" readonly/></div>
+            <div class="form-row"><label>Branch ID</label><select id="sanctionBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select><input type="text" id="sanctionBranchName" class="width-remaining" placeholder="Branch name" readonly/></div>
             <div class="form-row"><label>Workflow Type ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
             <div class="form-row"><label>Application ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
             <div class="form-row"><label>Approved Amount (ETB)</label><input type="number" class="text-right width-full"/></div>
@@ -388,7 +388,7 @@
         <div class="context-badge-bar"><span class="badge-icon">🏠</span>Collateral Maintenance Registry — Risk Mitigation Evaluation</div>
         <form class="module-form grid-two-column" autocomplete="off">
           <div class="sub-column">
-            <div class="form-row"><label>Branch ID</label><div class="input-group width-small"><input type="text" value="1016"/><span class="search-btn">🔍</span></div><input type="text" class="width-remaining" value="BEKOJI" readonly/></div>
+            <div class="form-row"><label>Branch ID</label><select id="collateralBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select><input type="text" id="collateralBranchName" class="width-remaining" placeholder="Branch name" readonly/></div>
             <div class="form-row"><label>Collateral ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
             <div class="form-row"><label>Description</label><input type="text" class="width-full"/></div>
             <div class="form-row"><label>Collateral Type</label><select class="width-full"><option>--Select--</option><option>Land</option><option>Building</option><option>Vehicle</option><option>Equipment</option><option>Inventory</option></select></div>
@@ -473,7 +473,7 @@
         <form class="module-form" autocomplete="off">
           <div class="grid-two-column">
             <div class="sub-column">
-              <div class="form-row"><label>Branch ID</label><div class="input-group width-small"><input type="text" value="306"/><span class="search-btn">🔍</span></div><input type="text" class="width-remaining" value="Addis Ababa" readonly/></div>
+              <div class="form-row"><label>Branch ID</label><select id="tellerBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select><input type="text" id="tellerBranchName" class="width-remaining" placeholder="Branch name" readonly/></div>
               <div class="form-row"><label>Till ID</label><div class="input-group width-small"><input type="text" value="1"/><span class="search-btn">🔍</span></div><input type="text" class="width-remaining" value="VAULT" readonly/></div>
             </div>
             <div class="sub-column">
@@ -515,7 +515,7 @@
         <form class="module-form" autocomplete="off">
           <div class="grid-two-column">
             <div class="sub-column">
-              <div class="form-row"><label>Branch ID</label><div class="input-group width-small"><input type="text" value="1001"/><span class="search-btn">🔍</span></div><input type="text" class="width-remaining" value="HEAD OFFICE" readonly/></div>
+              <div class="form-row"><label>Branch ID</label><select id="payoffBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select><input type="text" id="payoffBranchName" class="width-remaining" placeholder="Branch name" readonly/></div>
               <div class="form-row"><label>Client ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
               <div class="form-row"><label>Account ID</label><div class="input-group width-full"><input type="text" id="payoffAccNoTarget"/><span class="search-btn">🔍</span></div></div>
             </div>
