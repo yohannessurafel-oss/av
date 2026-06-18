@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AVMF — 02 group-loan-projection</title>
+<link rel="stylesheet" href="../style2.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="window-container">
+
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <svg class="header-logo-svg" viewBox="0 0 100 100">
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
+        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
+        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
+        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
+        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+      </svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance</span>
+        <span class="title-sub">02 — Center Loan Application</span>
+      </div>
+    </div>
+    <div class="title-meta">
+      <span id="systemDate" class="title-date"></span>
+      <span class="title-user">👤 Loan Officer</span>
+    </div>
+    <div class="window-controls">
+      <span title="Minimize">─</span>
+      <span title="Maximize">▢</span>
+      <span title="Close" class="wc-close">✕</span>
+    </div>
+  </div>
+
+  <div class="workspace">
+
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-header-icon">⚙</span>
+        Credit Lifecycle Operations
+      </div>
+      <ul class="nav-menu">
+        <li><span class="nav-num">01</span><a href="01-loan-application.html" class="nav-label">Loan Application</a></li>
+        <li class="active"><span class="nav-num">02</span><span class="nav-label">Group Loan Projection</span></li>
+        <li><span class="nav-num">03</span><a href="03-loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
+        <li><span class="nav-num">04</span><a href="04-credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
+        <li><span class="nav-num">05</span><a href="05-loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
+        <li><span class="nav-num">06</span><a href="06-collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
+        <li><span class="nav-num">07</span><a href="07-guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
+        <li><span class="nav-num">08</span><a href="08-teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
+        <li><span class="nav-num">09</span><a href="09-settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
+      </ul>
+      <div class="sidebar-footer-brand">
+        <svg viewBox="0 0 100 100" width="28" height="28">
+          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
+        </svg>
+        <span>AVMF CBS v2.0</span>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="module-view active" id="view-module-02">
+        <div class="context-badge-bar">
+          <span class="badge-icon">👥</span>
+          Center Loan Application — Collective Batch Projection Setup
+        </div>
+        <form class="module-form grid-two-column" autocomplete="off">
+          <div class="sub-column">
+            <div class="form-row"><label>Branch ID</label><select id="groupBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select><input type="text" id="groupBranchName" class="width-remaining" placeholder="Branch name" readonly/></div>
+            <div class="form-row"><label>Center ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
+            <div class="form-row"><label>Scheme ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
+            <div class="form-row"><label>Disbursement Date</label><select id="groupDisbursementDate" class="width-full"><option value="">-- Select Date --</option></select></div>
+            <div class="form-row"><label>Mode Of Disbursement</label><select class="width-full"><option>Transfer</option><option>Cash</option></select></div>
+            <div class="form-row"><label>File Number</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label>Fund ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
+            <div class="form-row"><label>Loan Purpose</label><select class="width-full"><option>--Select--</option></select></div>
+            <div class="section-divider"></div>
+            <div class="form-row"><label>Client ID</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label>Repayment Acc ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
+            <div class="form-row"><label>Loan Amount (ETB)</label><input type="number" class="text-right width-full"/></div>
+            <div class="form-row"><label>Loan Level</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label>Term</label><input type="number" class="text-right width-full"/></div>
+            <div class="form-row"><label>Interest Rate (%)</label><input type="number" class="text-right width-full" step="0.01"/></div>
+            <div class="form-row"><label>Loan Period</label><input type="text" class="width-full"/></div>
+          </div>
+          <div class="sub-column">
+            <div class="form-row"><label class="shifted-label">Advance Type</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Credit Officer</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Product ID</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Line Of Business</label><select class="width-full"><option>--Select--</option></select></div>
+            <div class="form-spacer" style="height:90px;"></div>
+            <div class="form-row"><label class="shifted-label">Loan Cycle</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Group Class</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Repayment Term</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Grace Period</label><input type="text" class="width-full"/></div>
+          </div>
+        </form>
+        <div class="action-row-container">
+          <button type="button" class="action-btn-inline">Alter</button>
+          <button type="button" class="action-btn-inline">Update</button>
+          <button type="button" class="action-btn-inline">Clear</button>
+        </div>
+        <div class="grid-container" style="height:80px;">
+          <table class="ledger-grid">
+            <thead><tr><th>Group ID</th><th>Client ID</th><th>Name</th><th>Loan Cycle</th><th>Loan Level</th><th>Loan Amount</th><th>Term</th><th>Loan Period</th><th>Repayment Term</th><th>Frequency</th><th>Interest Rate</th><th>Penalty Rate</th><th>Total Savings</th></tr></thead>
+            <tbody><tr><td colspan="13" class="text-center gray-text italic">No records to display.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="sub-footer-token" id="statusBar">Status: Ready</div>
+      </div>
+    </div>
+
+    <div class="action-sidebar">
+      <button id="btnGlobalView"   class="action-btn">🔍 View</button>
+      <button id="btnGlobalAdd"    class="action-btn">➕ Add</button>
+      <button id="btnGlobalEdit"   class="action-btn">✏️ Edit</button>
+      <button id="btnGlobalClose"  class="action-btn">✕ Close</button>
+      <div class="sidebar-spacer"></div>
+      <button id="btnGlobalSave"   class="action-btn" disabled>💾 Save</button>
+      <button id="btnGlobalCancel" class="action-btn" disabled>🚫 Cancel</button>
+      <button id="btnGlobalDelete" class="action-btn" style="background:linear-gradient(to bottom,#f8d0d0,#f0a0a0);border-color:#c06060;color:#7a0000;" disabled>🗑 Delete</button>
+      <button id="btnGlobalPrint"  class="action-btn">🖨 Print</button>
+      <div class="sidebar-footer">AVMF CBS v2.0</div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
+
+<script src="02-group-loan-projection.js"></script>
+</body>
+</html>
