@@ -4,177 +4,217 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Loan Disbursement — Africa Village Microfinance</title>
-  <link rel="stylesheet" href="disbursement.css"/>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="client-maintenance.css"/>
+  <link rel="stylesheet" href="disbursement2.css"/>
 </head>
 <body>
 
 <div class="app-shell">
+
+  <!-- Left Sidebar — identical to client-maintenance -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">AV</div>
+      <span>Africa Village<br><small>Microfinance</small></span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-group">
+        <label>Data Entry</label>
+        <a href="client-maintenance.html" class="nav-item">Client Maintenance</a>
+        <a href="loanform.html" class="nav-item">Loan Application</a>
+        <a href="disbursement.html" class="nav-item active">Loan Disbursement</a>
+      </div>
+      <div class="nav-group">
+        <label>View</label>
+        <a href="#" class="nav-item">Client List</a>
+        <a href="#" class="nav-item">Reports</a>
+      </div>
+      <div class="nav-group">
+        <label>Recent</label>
+        <a href="#" class="nav-item recent" id="recent1"></a>
+        <a href="#" class="nav-item recent" id="recent2"></a>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
   <main class="main-content">
     <div class="form-window">
-      
-      <div class="window-header">
-        <span class="window-title">Loan Disbursement & Amortization Ledger</span>
-      </div>
 
-      <div class="identity-bar">
-        <div class="search-group">
-          <label for="fAccountId">Account ID:</label>
-          <input type="text" id="fAccountId" placeholder="e.g. ACC-20260015"/>
-          <button type="button" class="lookup-btn" id="btnView">🔍 View</button>
+      <!-- Window Header -->
+      <div class="window-header">
+        <span class="window-title">Loan Disbursement &amp; Amortization Ledger</span>
+        <div class="window-controls">
+          <button class="wc-btn" title="Minimize">–</button>
+          <button class="wc-btn" title="Maximize">□</button>
+          <button class="wc-btn red" title="Close" onclick="window.location='client-maintenance.html'">✕</button>
         </div>
       </div>
 
-      <div class="tabs-container">
-        <button type="button" class="tab active" data-tab="details">Disbursement Information</button>
-        <button type="button" class="tab" data-tab="schedule">Amortization Payment Schedule</button>
+      <!-- Identity / Search Bar -->
+      <div class="identity-bar">
+        <div class="id-row">
+          <div class="id-field">
+            <label>Account ID</label>
+            <div class="id-input-wrap">
+              <input type="text" id="fAccountId" class="id-input" placeholder="e.g. ACC-20260015"/>
+              <button class="lookup-btn" id="btnView" title="Fetch Record">🔍</button>
+            </div>
+          </div>
+          <div class="id-field">
+            <label>Customer Name</label>
+            <input type="text" id="fCustomerName" class="id-input wide" readonly placeholder="Auto-populated"/>
+          </div>
+        </div>
       </div>
 
+      <!-- Tabs -->
+      <div class="tab-bar">
+        <button class="tab active" data-tab="details">Disbursement Information</button>
+        <button class="tab" data-tab="schedule">Amortization Schedule</button>
+      </div>
+
+      <!-- Tab Panels -->
       <div class="tab-panels">
-        
+
+        <!-- DISBURSEMENT DETAILS TAB -->
         <div id="tab-details" class="tab-panel active">
           <div class="section-header">Transaction Variables</div>
           <div class="form-grid">
-            
+
             <div class="form-row">
               <div class="form-field">
-                <label>Customer Full Name <span class="req">*</span></label>
-                <input type="text" id="fCustomerName" placeholder="Enter Client Name"/>
+                <label>Principal Amount (ETB) <span class="req">*</span></label>
+                <input type="number" id="fAmountDisbursed" step="0.01" placeholder="0.00"/>
               </div>
               <div class="form-field">
-                <label>Principal Amount Disbursed <span class="req">*</span></label>
-                <input type="number" id="fAmountDisbursed" step="0.01" placeholder="0.00"/>
+                <label>Disbursement Value Date</label>
+                <input type="date" id="fDisbursementDate"/>
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-field">
-                <label>Disbursement Value Date</label>
-                <input type="date" id="fDisbursementDate"/>
-              </div>
-              <div class="form-field">
-                <label>Mode Of Disbursement (Rule 4)</label>
+                <label>Mode of Disbursement <span class="req">*</span></label>
                 <select id="fPaymentMode">
-                  <option value="">-- Select Mode --</option>
+                  <option value="">– Select Mode –</option>
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Cheque Processing">Cheque Processing</option>
                   <option value="Cash Vault Handout">Cash Vault Handout</option>
                 </select>
               </div>
-            </div>
-
-            <div class="form-row">
               <div class="form-field">
-                <label>Account Type (Rule 5)</label>
+                <label>Account Type <span class="req">*</span></label>
                 <select id="fAccountType">
-                  <option value="">-- Select Type --</option>
+                  <option value="">– Select Type –</option>
                   <option value="Individual Loan">Individual Loan Account</option>
                   <option value="Group Loan">Group Loan Account</option>
                   <option value="Commercial Credit">Commercial Credit Line</option>
                 </select>
               </div>
-              <div class="form-field">
-                <label>Contra Account ID <span class="req">*</span> (Rule 6)</label>
-                <input type="text" id="fContraAccountId" placeholder="e.g. GL-100204"/>
-              </div>
             </div>
 
             <div class="form-row">
               <div class="form-field">
-                <label>Cheque / Reference Number</label>
+                <label>Contra Account ID <span class="req">*</span></label>
+                <input type="text" id="fContraAccountId" placeholder="e.g. GL-100204"/>
+              </div>
+              <div class="form-field">
+                <label>Cheque / Reference No</label>
                 <input type="text" id="fChequeNo" placeholder="Optional"/>
               </div>
+            </div>
+
+            <div class="form-row">
               <div class="form-field">
                 <label>Settlement Bank Name</label>
                 <input type="text" id="fBankName" placeholder="Optional"/>
               </div>
-            </div>
-
-            <div class="form-row">
               <div class="form-field">
                 <label>Annual Interest Rate (%)</label>
                 <input type="number" id="fInterestRate" step="0.01" value="12.00"/>
               </div>
+            </div>
+
+            <div class="form-row">
               <div class="form-field">
-                <label>Loan Tenor (In Months)</label>
+                <label>Loan Tenor (Months)</label>
                 <input type="number" id="fTenorMonths" value="12"/>
+              </div>
+              <div class="form-field">
+                <!-- spacer -->
               </div>
             </div>
 
           </div>
         </div>
 
+        <!-- AMORTIZATION SCHEDULE TAB -->
         <div id="tab-schedule" class="tab-panel">
           <div class="section-header">Generated Repayment Plan Matrix</div>
-          <div class="table-scroll-wrapper">
-            <table class="schedule-table" id="repaymentGrid">
+          <div class="disb-table-wrap">
+            <table class="disb-schedule-table" id="repaymentGrid">
               <thead>
                 <tr>
-                  <th>Instalment #</th>
+                  <th>#</th>
                   <th>Payment Date</th>
-                  <th>Beginning Principal</th>
+                  <th>Opening Balance</th>
                   <th>Principal Paid</th>
-                  <th>Interest Component</th>
-                  <th>Total Due Payment</th>
-                  <th>Ending Principal Balance</th>
+                  <th>Interest</th>
+                  <th>Total Due</th>
+                  <th>Closing Balance</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td colspan="7" class="placeholder-text">Enter transaction parameters and click save to calculate amortization profile layout.</td>
+                  <td colspan="7" class="disb-placeholder">Save disbursement details to generate amortization schedule.</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
 
-      </div></div></main>
+      </div><!-- /tab-panels -->
+    </div><!-- /form-window -->
+  </main>
 
+  <!-- Right Toolbar -->
   <aside class="toolbar">
     <div class="action-btns">
-      <button type="button" class="action-btn" id="btnAdd">Add</button>
-      <button type="button" class="action-btn" id="btnEdit">Edit</button>
-      <button type="button" class="action-btn" id="btnClose">Close</button>
-      <button type="button" class="action-btn primary" id="btnSave">Save</button>
-      <button type="button" class="action-btn" id="btnCancel">Cancel</button>
+      <button class="action-btn" id="btnAdd">Add</button>
+      <button class="action-btn" id="btnEdit">Edit</button>
+      <button class="action-btn" id="btnClose">Close</button>
+      <button class="action-btn primary" id="btnSave">Save</button>
+      <button class="action-btn" id="btnCancel">Cancel</button>
     </div>
   </aside>
-</div>
 
-<div id="disbursementModal" class="modal-overlay">
-  <div class="modal-window">
-    <div class="modal-header">
-      <span>Confirm Loan Disbursement Ledger Entry</span>
+</div><!-- /app-shell -->
+
+<!-- Confirmation Modal -->
+<div id="disbursementModal" class="disb-modal-overlay">
+  <div class="disb-modal-window">
+    <div class="window-header" style="border-radius:0;">
+      <span class="window-title">Confirm Loan Disbursement</span>
     </div>
-    <div class="modal-body">
-      <p class="warning-text">⚠️ Please verify transaction variables before posting to the general ledger:</p>
-      <table class="confirm-summary-table">
-        <tr>
-          <td><strong>Account ID:</strong></td>
-          <td><span id="mdAccountId">—</span></td>
-        </tr>
-        <tr>
-          <td><strong>Mode Of Disbursement:</strong></td>
-          <td><span id="mdPaymentMode">—</span></td>
-        </tr>
-        <tr>
-          <td><strong>Account Type:</strong></td>
-          <td><span id="mdAccountType">—</span></td>
-        </tr>
-        <tr>
-          <td><strong>Contra Account ID:</strong></td>
-          <td><span id="mdContraAccountId">—</span></td>
-        </tr>
+    <div class="disb-modal-body">
+      <p class="disb-warning">⚠️ Verify all variables before posting to the general ledger:</p>
+      <table class="disb-confirm-table">
+        <tr><td><strong>Account ID:</strong></td><td><span id="mdAccountId">—</span></td></tr>
+        <tr><td><strong>Mode of Disbursement:</strong></td><td><span id="mdPaymentMode">—</span></td></tr>
+        <tr><td><strong>Account Type:</strong></td><td><span id="mdAccountType">—</span></td></tr>
+        <tr><td><strong>Contra Account ID:</strong></td><td><span id="mdContraAccountId">—</span></td></tr>
       </table>
     </div>
-    <div class="modal-footer">
-      <button type="button" class="modal-btn" id="btnConfirmCancel">Abort</button>
-      <button type="button" class="modal-btn primary" id="btnConfirmCommit">Post Disbursement</button>
+    <div class="disb-modal-footer">
+      <button class="action-btn" id="btnConfirmCancel" style="width:auto;padding:0 16px;">Abort</button>
+      <button class="action-btn primary" id="btnConfirmCommit" style="width:auto;padding:0 16px;">Post Disbursement</button>
     </div>
   </div>
 </div>
 
-<div id="toast" class="toast">Transaction Alert Banner</div>
+<!-- Toast -->
+<div id="toast" class="toast"></div>
 
 <script src="disbursement.js"></script>
 </body>
