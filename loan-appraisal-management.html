@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF loan-appraisal-management</title>
+<title>AVMF — 03 Loan Appraisal Management</title>
 <link rel="stylesheet" href="style2.css"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -45,16 +45,15 @@
         Credit Lifecycle Operations
       </div>
       <ul class="nav-menu">
-        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan application</a></li>
-          <li><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
-        <li><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
+        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
+        <li><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
+        <li class="active"><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
         <li><span class="nav-num">04</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
-        <li class="active"><span class="nav-num">05</span><a href="credit-sanction-console.html" class="nav-label">Loan Account Maintenance</span></li>
+        <li><span class="nav-num">05</span><a href="loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
         <li><span class="nav-num">06</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
         <li><span class="nav-num">07</span><a href="guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
         <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
         <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
-        </li>
       </ul>
       <div class="sidebar-footer-brand">
         <svg viewBox="0 0 100 100" width="28" height="28">
@@ -65,46 +64,72 @@
     </div>
 
     <div class="main-content">
-      <div class="module-view active" id="view-module-03">
+      <div class="module-view active" id="view-appraisal">
         <div class="context-badge-bar">
-          <span class="badge-icon">🔎</span>
-          Loan Risk Underwriting — Technical Analysis &amp; Appraisal Sheet
+          <span class="badge-icon">📝</span>
+          Risk Underwriting — Loan Appraisal &amp; Credit Risk Assessment
         </div>
+
         <form class="module-form grid-two-column" autocomplete="off">
           <div class="sub-column">
-            <div class="form-row"><label>Branch ID</label><select id="appraisalBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select><input type="text" id="appraisalBranchName" class="width-remaining" placeholder="Branch name" readonly/></div>
-            <div class="form-row"><label>Workflow Type ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Application ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
-            <div class="card-header-banner">Recommendation Details</div>
-            <div class="form-row"><label>Create New Account</label><input type="checkbox"/></div>
-            <div class="form-row"><label>Existing Account ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label></label><span class="italic gray-text small-note">Applied / Recommended</span></div>
-            <div class="form-row"><label>Loan Amount</label><input type="text" class="width-medium" placeholder="Applied"/><input type="text" class="width-medium" placeholder="Recommended"/></div>
-            <div class="form-row"><label>Term</label><input type="text" class="width-medium"/><input type="text" class="width-medium"/></div>
-            <div class="form-row"><label>Repayment Freq</label><input type="text" class="width-medium"/><select class="width-medium"><option>Yearly</option><option>Monthly</option></select></div>
-            <div class="form-row"><label>Repayment Term</label><input type="text" class="width-medium"/><input type="text" class="width-medium"/></div>
-            <div class="form-row"><label>Marking Rate</label><input type="text" class="width-medium" placeholder="()"/><select style="width:40px;"><option>+</option><option>-</option></select><input type="text" style="width:80px;"/></div>
-            <div class="form-row"><label>Interest Rate</label><input type="text" class="width-medium"/><input type="text" class="width-medium"/></div>
-            <div class="form-row"><label>Account Class</label><input type="text" class="width-medium"/><select class="width-medium"><option>--Select--</option></select></div>
-            <div class="form-row"><label>Remarks</label><input type="text" class="width-full"/></div>
-            <div class="card-header-banner">Client Profile Matrix</div>
-            <div class="form-row"><label>Client ID</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>Mailing Address</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>City</label><input type="text" class="width-medium"/><label style="width:55px;">Phone</label><input type="text" class="width-medium"/></div>
-            <div class="form-row"><label>Product ID</label><input type="text" class="width-medium"/><label style="width:55px;">Currency</label><input type="text" class="width-medium"/></div>
-            <div class="form-row"><label>Collateral Value</label><input type="text" class="width-medium"/><label style="width:55px;">Guarantors</label><input type="text" class="width-medium"/></div>
-            <div class="form-row"><label>Calc. Method</label><input type="text" class="width-medium"/><label style="width:55px;">Status</label><input type="text" class="width-medium"/></div>
-            <div class="form-row"><label>Appraised By</label><input type="text" class="width-medium"/><label style="width:55px;">Appraised On</label><input type="text" class="width-medium"/></div>
+            <div class="form-row">
+              <label>Branch ID</label>
+              <select id="apprBranchId" class="width-full" style="max-width:220px;" data-always-enabled="1"></select>
+              <input type="text" id="apprBranchName" class="width-remaining" placeholder="Branch name" readonly/>
+            </div>
+            <div class="form-row"><label>Application ID <span class="req">*</span></label><div class="input-group width-full"><input type="text" id="apprApplicationId"/><span class="search-btn">🔍</span></div></div>
+            <div class="form-row"><label>Client ID</label><input type="text" id="apprClientId" class="width-full" readonly placeholder="Auto-filled"/></div>
+            <div class="form-row"><label>Client Name</label><input type="text" id="apprClientName" class="width-full" readonly placeholder="Auto-filled"/></div>
+            <div class="section-divider"></div>
+            <div class="form-row"><label>Applied Amount (ETB)</label><input type="number" id="apprAppliedAmount" class="text-right width-full" readonly/></div>
+            <div class="form-row"><label>Recommended Amount (ETB)</label><input type="number" id="apprRecommendedAmount" class="text-right width-full"/></div>
+            <div class="form-row"><label>Appraisal Date</label><input type="date" id="apprDate" class="width-full"/></div>
+            <div class="form-row"><label>Appraisal Officer</label><div class="input-group width-full"><input type="text" id="apprOfficerId"/><span class="search-btn">🔍</span></div></div>
+            <div class="form-row"><label>Appraisal Method</label>
+              <select id="apprMethod" class="width-full">
+                <option>Field Visit</option><option>Desk Appraisal</option><option>Committee Review</option>
+              </select>
+            </div>
+            <div class="card-header-banner">Income &amp; Repayment Capacity</div>
+            <div class="form-row"><label>Monthly Net Income (ETB)</label><input type="number" id="apprNetIncome" class="text-right width-full" step="0.01"/></div>
+            <div class="form-row"><label>Existing Obligations (ETB)</label><input type="number" id="apprObligations" class="text-right width-full" step="0.01"/></div>
+            <div class="form-row"><label>Disposable Income (ETB)</label><input type="number" id="apprDisposable" class="text-right width-full" readonly/></div>
+            <div class="form-row"><label>Debt-Service Ratio (%)</label><input type="number" id="apprDSR" class="text-right width-full" readonly/></div>
           </div>
           <div class="sub-column">
-            <div class="form-row"><label class="shifted-label">Reference No.</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Application Date</label><input type="text" class="width-full"/></div>
-            <div class="form-spacer" style="height:150px;"></div>
-            <div class="form-row"><label class="shifted-label">Interest Rate Type</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Base Rate</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Loan Type</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Risk Rating</label>
+              <select id="apprRiskRating" class="width-full">
+                <option>-- Select --</option>
+                <option>AAA — Minimal Risk</option>
+                <option>AA — Low Risk</option>
+                <option>A — Satisfactory</option>
+                <option>BBB — Moderate Risk</option>
+                <option>BB — Elevated Risk</option>
+                <option>B — High Risk</option>
+                <option>CCC — Speculative</option>
+              </select>
+            </div>
+            <div class="form-row"><label class="shifted-label">Credit Score</label><input type="number" id="apprCreditScore" class="text-right width-full" min="0" max="1000"/></div>
+            <div class="form-row"><label class="shifted-label">Collateral Coverage (%)</label><input type="number" id="apprCollateralCoverage" class="text-right width-full" step="0.1"/></div>
+            <div class="form-row"><label class="shifted-label">Loan-to-Value (%)</label><input type="number" id="apprLTV" class="text-right width-full" step="0.1" readonly/></div>
+            <div class="form-spacer" style="height:16px;"></div>
+            <div class="form-row"><label class="shifted-label">Appraisal Outcome</label>
+              <select id="apprOutcome" class="width-full">
+                <option>-- Pending --</option>
+                <option>Recommended for Approval</option>
+                <option>Recommended with Conditions</option>
+                <option>Referred to Committee</option>
+                <option>Declined</option>
+              </select>
+            </div>
+            <div class="form-row"><label class="shifted-label">Conditions (if any)</label><textarea id="apprConditions" style="flex:1;min-height:60px;border:1px solid var(--border);padding:4px 6px;resize:vertical;"></textarea></div>
+            <div class="form-row"><label class="shifted-label">Remarks</label><textarea id="apprRemarks" style="flex:1;min-height:50px;border:1px solid var(--border);padding:4px 6px;resize:vertical;"></textarea></div>
+            <div class="form-row"><label class="shifted-label">Appraisal Status</label>
+              <input type="text" id="apprStatus" value="Pending" readonly class="width-full status-badge"/>
+            </div>
           </div>
         </form>
+
         <div class="sub-footer-token" id="statusBar">Status: Ready</div>
       </div>
     </div>
@@ -127,6 +152,10 @@
 
 <div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
 
-<script src="loan-appraisal-management.js"></script>
+<script>
+  const sdEl = document.getElementById('systemDate');
+  if (sdEl) sdEl.textContent = new Date().toLocaleDateString('en-ET', { weekday:'short', year:'numeric', month:'short', day:'numeric' });
+  // Placeholder: replace with loan-appraisal-management.js when ready
+</script>
 </body>
 </html>
