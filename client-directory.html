@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AVMF — 00 Client Master Registry</title>
+<link rel="stylesheet" href="style2.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="window-container">
+
+  <!-- ══ Title Bar ══════════════════════════════════════ -->
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <svg class="header-logo-svg" viewBox="0 0 100 100">
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
+        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
+        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
+        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
+        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+      </svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance</span>
+        <span class="title-sub">00 — Client Master Registry</span>
+      </div>
+    </div>
+    <div class="title-meta">
+      <span id="systemDate" class="title-date"></span>
+      <span class="title-user">👤 Desk Officer</span>
+    </div>
+    <div class="window-controls">
+      <span title="Minimize">─</span>
+      <span title="Maximize">▢</span>
+      <span title="Close" class="wc-close">✕</span>
+    </div>
+  </div>
+
+  <!-- ══ Workspace ══════════════════════════════════════ -->
+  <div class="workspace">
+
+    <!-- ── Left Navigation Sidebar ─────────────────────── -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-header-icon">⚙</span>
+        System Operations
+      </div>
+      <ul class="nav-menu">
+        <li class="active"><span class="nav-num">00</span><a href="client-directory.html" class="nav-label">Client Master Registry</a></li>
+        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
+        <li><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
+        <li><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
+        <li><span class="nav-num">04</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
+        <li><span class="nav-num">05</span><a href="loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
+        <li><span class="nav-num">06</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
+      </ul>
+      <div class="sidebar-footer-brand">
+        <svg viewBox="0 0 100 100" width="28" height="28">
+          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
+        </svg>
+        <span>AVMF CBS v2.0</span>
+      </div>
+    </div>
+
+    <!-- ── Main Content Canvas ─────────────────────────── -->
+    <div class="main-content" style="display: flex; flex-direction: column;">
+      
+      <div class="context-badge-bar">
+        <span class="badge-icon">👥</span>
+        Data View — Central Client Database
+      </div>
+
+      <!-- Search Toolbar -->
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); padding: 8px; border-radius: 3px; display: flex; gap: 10px; align-items: center; margin-bottom: 8px; flex-shrink: 0;">
+        <label style="font-weight: 700; color: var(--navy-800); font-size: 11px;">Search Records:</label>
+        <div class="input-group" style="flex: 1; max-width: 400px;">
+          <input type="text" id="searchClientInput" placeholder="Filter by ID, Name, or Phone..." style="width: 100%;"/>
+          <span class="search-btn" id="btnSearch">🔍</span>
+        </div>
+        <span style="color: var(--text-muted); font-size: 10px; font-style: italic;" id="recordCount">0 records found</span>
+      </div>
+
+      <!-- Data Grid -->
+      <div class="grid-container" style="flex: 1; overflow-y: auto;">
+        <table class="ledger-grid" id="tblClients">
+          <thead>
+            <tr>
+              <th style="width: 120px;">Client ID</th>
+              <th>Full Name</th>
+              <th>Client Type</th>
+              <th>Gender</th>
+              <th>Mobile No.</th>
+              <th>Status</th>
+              <th>Open Date</th>
+            </tr>
+          </thead>
+          <tbody id="clientTableBody">
+            <tr><td colspan="7" class="text-center gray-text italic" style="padding: 20px;">Initializing database connection...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="sub-footer-token" id="statusBar">Status: Synchronized</div>
+    </div><!-- /main-content -->
+
+    <!-- ── Right Action Sidebar ─────────────────────────── -->
+    <div class="action-sidebar">
+      <div class="action-sidebar-header">ACTIONS</div>
+      <button id="btnRefresh" class="action-btn">🔄 Refresh</button>
+      <button id="btnAddClient" class="action-btn">➕ New Client</button>
+      <button id="btnEditClient" class="action-btn" disabled>✏️ Edit</button>
+      <div class="sidebar-spacer"></div>
+      <button id="btnGlobalPrint" class="action-btn">🖨 Print List</button>
+      <div class="sidebar-footer">AVMF CBS v2.0</div>
+    </div>
+
+  </div><!-- /workspace -->
+</div><!-- /window-container -->
+
+<div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
+
+<script src="config.js"></script>
+<script src="client-directory.js"></script>
+</body>
+</html>
