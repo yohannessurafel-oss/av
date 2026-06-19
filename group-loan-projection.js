@@ -1,428 +1,172 @@
-/* ═══════════════════════════════════════════════════════════
-   Africa Village Microfinance — Group Loan Projection
-   group-loan-projection.js  v2.2
-═══════════════════════════════════════════════════════════ */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AVMF — 09 settlement-early-payoff</title>
+<link rel="stylesheet" href="style2.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
 
-'use strict';
+<div class="window-container">
 
-const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
-
-const TABLE_LOANS   = 'loanmasterrecords';
-const TABLE_APPS    = 'loanapplications';
-const TABLE_CLIENTS = 'ClientMasterRecords';
-
-const COL = {
-  application_id:    'application_id',
-  branch_id:          'branch_id',
-  group_id:           'group_id',
-  sub_group_id:       'sub_group_id',
-  client_id:          'client_id',
-  client_name:        'client_name',
-  product_id:         'product_id',
-  repayment_acc_id:   'main_repayment_account_id',
-  donor_id:           'donor_id',
-  loan_purpose:       'loan_purpose',
-  officer_id:         'credit_officer_id',
-  applied_amount:     'applied_amount',
-  term:               'term_months',
-  interest_rate:      'interest_rate',
-  file_number:        'file_number',
-  app_date:           'application_date',
-  disbursement_date:  'disbursement_date',
-  line_of_business:   'line_of_business',
-  currency_id:        'currency_id',
-  app_status:         'application_status',
-};
-
-const toastEl = document.getElementById('toastNotification');
-let _toastTimer = null;
-function toast(msg, type = '', duration = 3200) {
-  toastEl.textContent = msg;
-  toastEl.className = `toast show ${type}`;
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => { toastEl.className = 'toast'; }, duration);
-}
-
-(function initDate() {
-  const el = document.getElementById('systemDate');
-  if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
-    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
-  });
-})();
-
-async function sbFetch(path, opts = {}) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...opts,
-    headers: {
-      'apikey':        SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      'Content-Type':  'application/json',
-      'Prefer':        opts.prefer || 'return=representation',
-      ...(opts.headers || {})
-    }
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
-  }
-  const text = await res.text();
-  if (!text || !text.trim()) return null;
-  try { return JSON.parse(text); } catch { return null; }
-}
-
-let _branchCache = [];
-
-async function loadBranches() {
-  const sel = document.getElementById('groupBranchId');
-  if (sel) { sel.innerHTML = '<option value="">Loading branches…</option>'; sel.disabled = true; }
-  try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/branchregistry?select=branch_id,branch_name&order=branch_id`,
-      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Accept': 'application/json' } }
-    );
-    if (!res.ok) { toast(`Branch list error ${res.status}`, 'error'); return; }
-    const rows = await res.json();
-    _branchCache = Array.isArray(rows) ? rows : [];
-    const sel2 = document.getElementById('groupBranchId');
-    if (!sel2) return;
-    sel2.innerHTML = '<option value="">-- Select Branch --</option>';
-    _branchCache.forEach(r => {
-      const o = document.createElement('option');
-      o.value = r.branch_id;
-      o.textContent = r.branch_id + (r.branch_name ? ' — ' + r.branch_name : '');
-      sel2.appendChild(o);
-    });
-    sel2.disabled = false;
-  } catch (e) {
-    toast('Could not load branch list.', 'error');
-    const sel2 = document.getElementById('groupBranchId');
-    if (sel2) { sel2.innerHTML = '<option value="">-- Select Branch --</option>'; sel2.disabled = false; }
-  }
-}
-
-document.getElementById('groupBranchId')?.addEventListener('change', function () {
-  const nameEl = document.getElementById('groupBranchName');
-  const chosen = _branchCache.find(b => b.branch_id === this.value);
-  if (nameEl) nameEl.value = chosen ? (chosen.branch_name || '') : '';
-});
-
-/* ── Client Name Auto-Fill — same logic as Loan Application's
-   fClientId blur handler, looking up ClientMasterRecords by client_id ── */
-document.getElementById('groupClientId')?.addEventListener('blur', async function () {
-  const val = this.value.trim();
-  const nameEl = document.getElementById('groupClientName');
-  if (!val) { if (nameEl) nameEl.value = ''; return; }
-  try {
-    const rows = await sbFetch(`${TABLE_CLIENTS}?client_id=eq.${encodeURIComponent(val)}&select=client_name&limit=1`);
-    if (nameEl) nameEl.value = (rows && rows[0]) ? (rows[0].client_name || '') : '';
-    if (nameEl && !nameEl.value) toast('Client ID not found in registry.', 'warning');
-  } catch (e) {
-    if (nameEl) nameEl.value = '';
-  }
-});
-
-let currentMode   = 'view';
-let currentRecord = null;
-
-function setMode(mode) {
-  currentMode = mode;
-  const isEdit = mode === 'edit' || mode === 'add';
-  const view = document.querySelector('.module-view.active');
-  if (view) {
-    view.querySelectorAll('input:not([readonly]), select, textarea').forEach(el => {
-      if (el.dataset.alwaysEnabled !== undefined || el.id === 'groupBranchId') { el.disabled = false; return; }
-      el.disabled = !isEdit;
-    });
-  }
-  document.querySelectorAll('input[readonly]').forEach(el => el.disabled = false);
-  document.getElementById('groupBranchId').disabled = false;
-
-  const btnSave   = document.getElementById('btnGlobalSave');
-  const btnCancel = document.getElementById('btnGlobalCancel');
-  const btnAdd    = document.getElementById('btnGlobalAdd');
-  const btnEdit   = document.getElementById('btnGlobalEdit');
-  const btnClose  = document.getElementById('btnGlobalClose');
-  const btnDelete = document.getElementById('btnGlobalDelete');
-  if (btnSave)   btnSave.disabled   = !isEdit;
-  if (btnCancel) btnCancel.disabled = !isEdit;
-  if (btnAdd)    btnAdd.disabled    = isEdit;
-  if (btnEdit)   btnEdit.disabled   = isEdit;
-  if (btnDelete) btnDelete.disabled = !isEdit;
-  if (btnClose)  btnClose.disabled  = isEdit;
-
-  const sb = document.getElementById('statusBar');
-  if (sb) sb.textContent =
-    `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}${currentRecord ? ` — ${currentRecord[COL.application_id] || ''}` : ''}`;
-}
-
-function clearGroupForm() {
-  const ids = [
-    'groupCenterId','groupSchemeId','groupDisbursementDate','groupModeOfDisbursement',
-    'groupFileNumber','groupFundId','groupLoanPurpose','groupClientId','groupClientName',
-    'groupRepaymentAccId','groupLoanAmount','groupLoanLevel','groupTerm','groupInterestRate',
-    'groupLoanPeriod','groupAdvanceType','groupCreditOfficer','groupProductId',
-    'groupLineOfBusiness','groupLoanCycle','groupGroupClass','groupRepaymentTerm','groupGracePeriod'
-  ];
-  ids.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  const curr = document.getElementById('groupCurrencyId');
-  if (curr) curr.value = 'ETB';
-  currentRecord = null;
-}
-
-/* Only fields with a confirmed matching column in loanmasterrecords are
-   sent to Supabase. Mode Of Disbursement, Loan Level, Loan Period,
-   Advance Type, Loan Cycle, Group Class, Repayment Term and Grace Period
-   don't have a confirmed column yet, so they're captured for the on-screen
-   grid only and are NOT written to the database. */
-function collectForm() {
-  const g  = id => { const el = document.getElementById(id); return el ? (el.value.trim() || null) : null; };
-  const gN = id => { const v = g(id); return v != null ? Number(v) : null; };
-
-  return {
-    [COL.branch_id]:         g('groupBranchId'),
-    [COL.group_id]:          g('groupCenterId'),
-    [COL.sub_group_id]:      g('groupSchemeId'),
-    [COL.client_id]:         g('groupClientId'),
-    [COL.client_name]:       g('groupClientName'),
-    [COL.product_id]:        g('groupProductId'),
-    [COL.repayment_acc_id]:  g('groupRepaymentAccId'),
-    [COL.donor_id]:          g('groupFundId'),
-    [COL.loan_purpose]:      g('groupLoanPurpose'),
-    [COL.officer_id]:        g('groupCreditOfficer'),
-    [COL.applied_amount]:    gN('groupLoanAmount'),
-    [COL.term]:              gN('groupTerm'),
-    [COL.interest_rate]:     gN('groupInterestRate'),
-    [COL.file_number]:       g('groupFileNumber'),
-    [COL.app_date]:          new Date().toISOString().split('T')[0],
-    [COL.disbursement_date]: g('groupDisbursementDate'),
-    [COL.line_of_business]:  g('groupLineOfBusiness'),
-    [COL.currency_id]:       g('groupCurrencyId') || 'ETB',
-    [COL.app_status]:        'DataEntry',
-    _modeOfDisbursement: g('groupModeOfDisbursement'),
-    _loanLevel:          g('groupLoanLevel'),
-    _loanPeriod:         g('groupLoanPeriod'),
-    _advanceType:        g('groupAdvanceType'),
-    _loanCycle:          g('groupLoanCycle'),
-    _groupClass:         g('groupGroupClass'),
-    _repaymentTerm:      g('groupRepaymentTerm'),
-    _gracePeriod:        g('groupGracePeriod'),
-  };
-}
-
-function validateGroupLoan(payload) {
-  const checks = [
-    [payload[COL.branch_id],         'Branch ID is required.'],
-    [payload[COL.group_id],          'Center ID is required.'],
-    [payload[COL.sub_group_id],      'Scheme ID is required.'],
-    [payload[COL.disbursement_date], 'Disbursement Date is required.'],
-    [payload._modeOfDisbursement,    'Mode Of Disbursement is required.'],
-    [payload[COL.loan_purpose],      'Loan Purpose is required.'],
-    [payload[COL.line_of_business],  'Line Of Business is required.'],
-    [payload[COL.client_id],         'Client ID is required.'],
-    [payload[COL.applied_amount],    'Loan Amount is required.'],
-    [payload[COL.term],              'Term is required.'],
-  ];
-  for (const [val, msg] of checks) {
-    if (val === null || val === undefined || val === '') { toast(msg, 'warning'); return false; }
-  }
-  return true;
-}
-
-/* This page has no Application ID field of its own — Center Loan
-   Application identifies each member by Center + Client instead. */
-function generateApplicationId(payload) {
-  const center = (payload[COL.group_id]  || 'GRP').toString().trim().toUpperCase().replace(/\s+/g, '');
-  const client = (payload[COL.client_id] || 'CL').toString().trim().toUpperCase().replace(/\s+/g, '');
-  return `${center}-${client}`;
-}
-
-function showGroupSaveConfirmation(payload, onConfirm) {
-  document.getElementById('saveConfirmOverlay')?.remove();
-
-  const overlay = document.createElement('div');
-  overlay.id = 'saveConfirmOverlay';
-  overlay.style.cssText = `
-    position:fixed;top:0;left:0;width:100%;height:100%;
-    background:rgba(10,20,40,0.55);z-index:9000;
-    display:flex;align-items:center;justify-content:center;`;
-
-  const clientLabel = payload[COL.client_name]
-    ? `${payload[COL.client_id]} (${payload[COL.client_name]})`
-    : payload[COL.client_id];
-
-  overlay.innerHTML = `
-    <div style="
-      background:#fff;border-radius:6px;
-      box-shadow:0 8px 32px rgba(0,0,0,0.28);
-      width:420px;max-width:96vw;font-family:'Segoe UI',Inter,sans-serif;font-size:13px;overflow:hidden;">
-      <div style="background:#1b5199;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:15px;">👥</span>
-        <span style="font-weight:700;letter-spacing:.03em;">Confirm Group Loan Application</span>
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <svg class="header-logo-svg" viewBox="0 0 100 100">
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
+        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
+        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
+        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
+        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+      </svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance</span>
+        <span class="title-sub">09 — Settlement / Early Payoff</span>
       </div>
-      <div style="padding:18px 16px 6px;color:#1a2a35;">
-        <p style="margin:0 0 16px;">Do you wish to create a loan application for client
-          <strong>${clientLabel}</strong> under center
-          <strong>${payload[COL.group_id]}</strong>?</p>
+    </div>
+    <div class="title-meta">
+      <span id="systemDate" class="title-date"></span>
+      <span class="title-user">👤 Loan Officer</span>
+    </div>
+    <div class="window-controls">
+      <span title="Minimize">─</span>
+      <span title="Maximize">▢</span>
+      <span title="Close" class="wc-close">✕</span>
+    </div>
+  </div>
+
+  <div class="workspace">
+
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-header-icon">⚙</span>
+        Credit Lifecycle Operations
       </div>
-      <div style="padding:0 16px 14px;display:flex;justify-content:flex-end;gap:8px;">
-        <button id="groupConfirmNo"  style="padding:6px 20px;border:1px solid #ccd3da;background:#fff;border-radius:4px;font-size:13px;cursor:pointer;">No</button>
-        <button id="groupConfirmYes" style="padding:6px 20px;background:#e69c24;border:1px solid #c07f12;color:#1b3a5c;border-radius:4px;font-size:13px;font-weight:700;cursor:pointer;">Yes</button>
+    <ul class="nav-menu">
+        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan application</a></li>
+          <li><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
+        <li><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
+        <li><span class="nav-num">04</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
+        <li class="active"><span class="nav-num">05</span><a href="credit-sanction-console.html" class="nav-label">Loan Account Maintenance</span></li>
+        <li><span class="nav-num">06</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
+        <li><span class="nav-num">07</span><a href="guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
+        <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
+        <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
+        </li>
+         </ul>
+      <div class="sidebar-footer-brand">
+        <svg viewBox="0 0 100 100" width="28" height="28">
+          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
+        </svg>
+        <span>AVMF CBS v2.0</span>
       </div>
-    </div>`;
+    </div>
 
-  document.body.appendChild(overlay);
-
-  document.getElementById('groupConfirmNo').addEventListener('click', () => {
-    overlay.remove();
-    toast('Save cancelled.');
-  });
-  document.getElementById('groupConfirmYes').addEventListener('click', async () => {
-    overlay.remove();
-    await onConfirm();
-  });
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-}
-
-function showGroupSaveOkDialog(payload) {
-  document.getElementById('saveOkOverlay')?.remove();
-  const overlay = document.createElement('div');
-  overlay.id = 'saveOkOverlay';
-  overlay.style.cssText = `
-    position:fixed;top:0;left:0;width:100%;height:100%;
-    background:rgba(10,20,40,0.45);z-index:9100;
-    display:flex;align-items:center;justify-content:center;`;
-  overlay.innerHTML = `
-    <div style="
-      background:#fff;border-radius:6px;
-      box-shadow:0 8px 32px rgba(0,0,0,0.22);
-      width:340px;text-align:center;font-family:'Segoe UI',Inter,sans-serif;font-size:13px;overflow:hidden;">
-      <div style="background:#27ae60;color:#fff;padding:10px 16px;font-weight:700;">✔ Application Saved Successfully</div>
-      <div style="padding:20px 16px 10px;">
-        <div style="font-size:22px;margin-bottom:8px;">✅</div>
-        <p style="color:#1a2a35;margin:0 0 4px;">Loan application <strong>${payload[COL.application_id]}</strong></p>
-        <p style="color:#6b7f8b;margin:0 0 16px;font-size:11px;">has been saved with status <strong>DataEntry</strong>.</p>
-        <button id="groupSaveOkBtn" style="padding:7px 30px;background:#1b5199;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:700;cursor:pointer;">OK</button>
+    <div class="main-content">
+      <div class="module-view active" id="view-module-09">
+        <div class="context-badge-bar">
+          <span class="badge-icon">📑</span>
+          Account Pay-off Settlement — Historic Installment Inquiry Console
+        </div>
+        <form class="module-form" autocomplete="off">
+          <div class="grid-two-column">
+            <div class="sub-column">
+              <div class="form-row"><label>Branch ID</label><select id="payoffBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select><input type="text" id="payoffBranchName" class="width-remaining" placeholder="Branch name" readonly/></div>
+              <div class="form-row"><label>Client ID</label><div class="input-group width-full"><input type="text" id="payoffClientId"/><span class="search-btn">🔍</span></div></div>
+              <div class="form-row"><label>Client Name</label><input type="text" id="payoffClientName" class="width-full" readonly placeholder="Auto-filled"/></div>
+              <div class="form-row"><label>Account ID</label><div class="input-group width-full"><input type="text" id="payoffAccNoTarget"/><span class="search-btn">🔍</span></div></div>
+            </div>
+            <div class="sub-column">
+              <div class="form-row"><label class="shifted-label">Loan Series</label><input type="text" class="width-full"/></div>
+            </div>
+          </div>
+          <div class="tab-interface-strip margin-top-sm">
+            <div class="sub-tab active" data-target="payoff-components">Pay-off Components</div>
+            <div class="sub-tab" data-target="installment-schedule">Installment Schedule</div>
+            <div class="sub-tab" data-target="loan-statement">Loan Statement</div>
+            <div class="sub-tab" data-target="loan-history">Loan History</div>
+          </div>
+          <div class="tab-container-body">
+            <div class="sub-tab-view active" id="subview-payoff-components">
+              <div class="grid-container" style="height:100px;">
+                <table class="ledger-grid" id="dynamicPayoffGrid">
+                  <thead><tr><th>Component Description</th><th class="text-right">Amount Due (ETB)</th></tr></thead>
+                  <tbody><tr><td colspan="2" class="text-center gray-text italic">Enter an Account ID to calculate pay-off components.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="sub-tab-view" id="subview-installment-schedule">
+              <div class="grid-container" style="height:100px;">
+                <table class="ledger-grid" id="installmentScheduleTable">
+                  <thead><tr><th>#</th><th>Due Date</th><th class="text-right">Installment (ETB)</th><th class="text-right">Principal (ETB)</th><th class="text-right">Interest (ETB)</th><th class="text-right">Loan Balance (ETB)</th></tr></thead>
+                  <tbody><tr><td colspan="6" class="text-center gray-text italic">Load a loan record to generate schedule.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="sub-tab-view" id="subview-loan-statement">
+              <div class="grid-container" style="height:100px;">
+                <table class="ledger-grid">
+                  <thead><tr><th>Date</th><th>Value Date</th><th>Particulars</th><th class="text-right">Debit (ETB)</th><th class="text-right">Credit (ETB)</th><th class="text-right">Closing Balance (ETB)</th></tr></thead>
+                  <tbody><tr><td colspan="6" class="text-center gray-text italic">No statement data available.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="sub-tab-view" id="subview-loan-history">
+              <div class="grid-container" style="height:100px;">
+                <table class="ledger-grid">
+                  <thead><tr><th>Interest Rate</th><th>Loan Series</th><th>File No.</th><th>Application ID</th><th class="text-right">Sanctioned Amt (ETB)</th><th class="text-right">Disbursed Amt (ETB)</th><th>First Disbursement</th><th>Term</th><th>Closed Date</th></tr></thead>
+                  <tbody><tr><td colspan="9" class="text-center gray-text italic">No history records.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="card-header-banner margin-top-sm">Analytical Ledger Vectors</div>
+          <div class="grid-two-column">
+            <div class="sub-column">
+              <div class="form-row"><label>Loan Amount (ETB)</label><input type="text" class="width-full"/></div>
+              <div class="form-row"><label>Net Amount (ETB)</label><input type="text" class="width-full"/></div>
+              <div class="form-row"><label>Created By</label><input type="text" class="width-full"/></div>
+              <div class="form-row"><label>Created On</label><input type="text" class="width-full"/></div>
+            </div>
+            <div class="sub-column">
+              <div class="form-row"><label class="shifted-label">Loan Balance (ETB)</label><input type="text" class="width-full"/></div>
+              <div class="form-row"><label class="shifted-label">Product ID</label><input type="text" class="width-full"/></div>
+              <div class="form-row"><label class="shifted-label">Modified By</label><input type="text" class="width-full"/></div>
+              <div class="form-row"><label class="shifted-label">Modified On</label><input type="text" class="width-full"/></div>
+            </div>
+            <div class="sub-column">
+              <div class="form-row"><label class="shifted-label">Preclosure Status</label><input type="text" class="width-full"/></div>
+              <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" class="width-full"/></div>
+              <div class="form-row"><label class="shifted-label">Supervised By</label><input type="text" class="width-full"/></div>
+              <div class="form-row"><label class="shifted-label">Supervised On</label><input type="text" class="width-full"/></div>
+            </div>
+          </div>
+        </form>
+        <div class="action-row-container"><button type="button" class="action-btn-inline">Denomination</button></div>
+        <div class="sub-footer-token" id="statusBar">Status: Ready</div>
       </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  document.getElementById('groupSaveOkBtn').addEventListener('click', () => overlay.remove());
-  setTimeout(() => overlay?.remove(), 8000);
-}
+    </div>
 
-function addGridRow(payload) {
-  const body = document.getElementById('groupLoanGridBody');
-  if (!body) return;
-  document.getElementById('groupLoanGridEmptyRow')?.remove();
-  const tr = document.createElement('tr');
-  const cell = v => `<td>${v != null && v !== '' ? v : '—'}</td>`;
-  tr.innerHTML =
-    cell(payload[COL.group_id]) + cell(payload[COL.client_id]) + cell(payload[COL.client_name]) +
-    cell(payload._loanCycle) + cell(payload._loanLevel) +
-    cell(payload[COL.applied_amount] != null ? Number(payload[COL.applied_amount]).toLocaleString('en-ET') : '') +
-    cell(payload[COL.term]) + cell(payload._loanPeriod) + cell(payload._repaymentTerm) +
-    cell('—') + cell(payload[COL.interest_rate]) + cell('—') + cell('—');
-  body.appendChild(tr);
-}
+    <div class="action-sidebar">
+      <button id="btnGlobalView"   class="action-btn">🔍 View</button>
+      <button id="btnGlobalAdd"    class="action-btn">➕ Add</button>
+      <button id="btnGlobalEdit"   class="action-btn">✏️ Edit</button>
+      <button id="btnGlobalClose"  class="action-btn">✕ Close</button>
+      <div class="sidebar-spacer"></div>
+      <button id="btnGlobalSave"   class="action-btn" disabled>💾 Save</button>
+      <button id="btnGlobalCancel" class="action-btn" disabled>🚫 Cancel</button>
+      <button id="btnGlobalDelete" class="action-btn" style="background:linear-gradient(to bottom,#f8d0d0,#f0a0a0);border-color:#c06060;color:#7a0000;" disabled>🗑 Delete</button>
+      <button id="btnGlobalPrint"  class="action-btn">🖨 Print</button>
+      <div class="sidebar-footer">AVMF CBS v2.0</div>
+    </div>
 
-async function commitGroupSave(payload) {
-  try {
-    toast('Processing…', 'info');
+  </div>
+</div>
 
-    const parentPayload = {
-      application_id:     payload[COL.application_id],
-      application_date:   payload[COL.app_date],
-      branch_id:           payload[COL.branch_id],
-      group_id:            payload[COL.group_id],
-      sub_group_id:        payload[COL.sub_group_id],
-      application_status:  payload[COL.app_status],
-    };
-    await sbFetch(TABLE_APPS, {
-      method: 'POST',
-      body:   JSON.stringify(parentPayload),
-      prefer: 'resolution=merge-duplicates,return=minimal'
-    });
+<div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
 
-    const childPayload = { ...payload };
-    Object.keys(childPayload).forEach(k => { if (k.startsWith('_')) delete childPayload[k]; });
-
-    const responseData = await sbFetch(TABLE_LOANS, {
-      method: 'POST',
-      body:   JSON.stringify(childPayload),
-      prefer: 'return=representation'
-    });
-    currentRecord = Array.isArray(responseData) ? responseData[0] : childPayload;
-
-    addGridRow(payload);
-    setMode('view');
-    toast('✔ Group loan application saved successfully.', 'success');
-    showGroupSaveOkDialog(payload);
-
-  } catch (e) {
-    console.error('commitGroupSave error:', e);
-    toast(`Save failed: ${e.message}`, 'error');
-  }
-}
-
-document.getElementById('btnGlobalView')?.addEventListener('click', () => {
-  toast('View not yet implemented for this module.', 'warning');
-});
-
-document.getElementById('btnGlobalAdd')?.addEventListener('click', () => {
-  if (!document.getElementById('groupBranchId').value) {
-    toast('Select a Branch ID first.', 'warning');
-    return;
-  }
-  clearGroupForm();
-  setMode('add');
-  document.getElementById('groupCenterId')?.focus();
-  toast('Add mode — enter the group loan details, then Save.');
-});
-
-document.getElementById('btnGlobalEdit')?.addEventListener('click', () => {
-  setMode('edit');
-  toast('Edit mode — make changes then Save.');
-});
-
-document.getElementById('btnGlobalSave')?.addEventListener('click', () => {
-  const payload = collectForm();
-  if (!validateGroupLoan(payload)) return;
-  payload[COL.application_id] = generateApplicationId(payload);
-
-  showGroupSaveConfirmation(payload, async () => {
-    await commitGroupSave(payload);
-  });
-});
-
-document.getElementById('btnGlobalCancel')?.addEventListener('click', () => {
-  setMode('view');
-  toast('Changes discarded.');
-});
-document.getElementById('btnGlobalClose')?.addEventListener('click', () => {
-  setMode('view');
-  toast('Record closed.');
-});
-document.getElementById('btnGlobalDelete')?.addEventListener('click', () => {
-  toast('Delete not yet implemented for this module.', 'warning');
-});
-document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
-
-document.getElementById('btnGroupClear')?.addEventListener('click', () => {
-  clearGroupForm();
-  toast('Form cleared.');
-});
-document.getElementById('btnGroupUpdate')?.addEventListener('click', () => {
-  document.getElementById('btnGlobalSave')?.click();
-});
-document.getElementById('btnGroupAlter')?.addEventListener('click', () => {
-  toast("Alter: select a saved record first (loading saved records isn't available yet).", 'warning');
-});
-
-async function init() {
-  setMode('view');
-  await loadBranches();
-}
-init();
+<script src="settlement-early-payoff.js"></script>
+</body>
+</html>
