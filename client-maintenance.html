@@ -18,11 +18,10 @@
     </div>
     <nav class="sidebar-nav">
       <div class="nav-group">
-        <label>DataEntry</label>
-        <a href="#" class="nav-item active">Client Maintenance</a>
+        <label>Data Entry</label>
+        <a href="client-maintenance.html" class="nav-item active">Client Maintenance</a>
         <a href="loanform.html" class="nav-item">Loan Application</a>
-<a href="disbursement.html" class="nav-item">Loan Dispersment</a>
-        
+        <a href="disbursement.html" class="nav-item">Loan Disbursement</a>
       </div>
       <div class="nav-group">
         <label>View</label>
@@ -234,56 +233,27 @@
 
             <div class="form-row">
               <div class="form-field">
-                <label>No. of House Members</label>
-                <input type="number" name="houseMembers" class="short-input" min="0"/>
+                <label>No. of Dependants</label>
+                <input type="number" name="dependants" min="0"/>
               </div>
               <div class="form-field">
-                <label>No. of Children</label>
-                <input type="number" name="children" class="short-input" min="0"/>
+                <label>Mobile Number</label>
+                <input type="tel" name="mobile"/>
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-field">
-                <label>No. of Dependents</label>
-                <input type="number" name="dependents" class="short-input" min="0"/>
+                <label>Alternate Phone</label>
+                <input type="tel" name="altPhone"/>
               </div>
               <div class="form-field">
-                <label>Blood Group</label>
-                <select name="bloodGroup">
-                  <option value="">– Select –</option>
-                  <option>A+</option><option>A–</option><option>B+</option><option>B–</option>
-                  <option>AB+</option><option>AB–</option><option>O+</option><option>O–</option>
-                </select>
+                <label>Email Address</label>
+                <input type="email" name="email"/>
               </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-field checkbox-field">
-                <label>Can Donate Blood</label>
-                <input type="checkbox" name="canDonate"/>
-              </div>
-              <div class="form-field">
-                <label>Relationship Manager</label>
-                <input type="text" name="relManager" placeholder="Assigned account officer"/>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-field">
-                <label>Opened By</label>
-                <div class="id-input-wrap">
-                  <input type="text" name="openedBy"/>
-                  <button class="lookup-btn" type="button" title="Lookup">🔍</button>
-                </div>
-              </div>
-              <div class="form-field">
-                <label>Opened On</label>
-                <input type="date" name="openedOn"/>
-              </div>
-            </div>
-
-          </div><!-- /form-grid -->
+          </div>
 
           <div class="bts-section">
             <div class="bts-header">Behind The Scene</div>
@@ -303,92 +273,47 @@
 
         <!-- ADDRESS TAB -->
         <div id="tab-address" class="tab-panel">
-          <div class="section-header">Mailing Address</div>
+          <div class="section-header">Address Details</div>
           <div class="form-grid">
             <div class="form-row">
               <div class="form-field">
-                <label>Address Type</label>
-                <select name="addressType">
+                <label>Region</label>
+                <select name="region">
                   <option value="">– Select –</option>
-                  <option>Residential Address</option>
-                  <option>Business Address</option>
-                  <option>Postal Address</option>
+                  <option>Addis Ababa</option><option>Oromia</option>
+                  <option>Amhara</option><option>SNNPR</option><option>Tigray</option>
                 </select>
               </div>
               <div class="form-field">
-                <label>Postal Address</label>
-                <input type="text" name="postalAddress"/>
+                <label>Zone / Woreda</label>
+                <input type="text" name="zone"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Kebele</label>
+                <input type="text" name="kebele"/>
+              </div>
+              <div class="form-field">
+                <label>House Number</label>
+                <input type="text" name="houseNo"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>P.O. Box</label>
+                <input type="text" name="poBox"/>
+              </div>
+              <div class="form-field">
+                <label>Postal Code</label>
+                <input type="text" name="postalCode"/>
               </div>
             </div>
             <div class="form-row">
               <div class="form-field full">
-                <label>Physical Address</label>
-                <input type="text" name="physicalAddress"/>
+                <label>Additional Address</label>
+                <textarea name="additionalAddress" rows="2"></textarea>
               </div>
-            </div>
-            <div class="form-row">
-              <div class="form-field">
-                <label>City <span class="req">*</span></label>
-                <select name="city">
-                  <option value="">– Select –</option>
-                  <option>Addis Ababa</option><option>Dire Dawa</option>
-                  <option>Mekelle</option><option>Hawassa</option>
-                  <option>Bahir Dar</option><option>Gondar</option>
-                  <option>Jimma</option><option>Adama</option>
-                </select>
-              </div>
-              <div class="form-field">
-                <label>Zip Code</label>
-                <input type="text" name="zipCode" class="short-input"/>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-field">
-                <label>Country <span class="req">*</span></label>
-                <select name="country">
-                  <option value="">– Select –</option>
-                  <option>Ethiopia</option><option>Other</option>
-                </select>
-              </div>
-              <div class="form-field">
-                <label>Phone (Home)</label>
-                <input type="tel" name="phoneHome"/>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-field">
-                <label>Phone (Work) <span class="req">*</span></label>
-                <input type="tel" name="phoneWork"/>
-              </div>
-              <div class="form-field">
-                <label>Mobile <span class="req">*</span></label>
-                <input type="tel" name="mobile"/>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-field">
-                <label>Fax No</label>
-                <input type="text" name="faxNo"/>
-              </div>
-              <div class="form-field">
-                <label>Email ID</label>
-                <input type="email" name="email"/>
-              </div>
-            </div>
-          </div>
-
-          <div class="bts-section">
-            <div class="bts-header">Behind The Scene</div>
-            <div class="bts-grid">
-              <div class="bts-field"><label>Status</label><input type="text" readonly/></div>
-              <div class="bts-field"><label>Open Date</label><input type="text" readonly/></div>
-              <div class="bts-field"><label>Closed Date</label><input type="text" readonly/></div>
-              <div class="bts-field"><label>Created By</label><input type="text" readonly/></div>
-              <div class="bts-field"><label>Modified By</label><input type="text" readonly/></div>
-              <div class="bts-field"><label>Supervised By</label><input type="text" readonly/></div>
-              <div class="bts-field"><label>Created On</label><input type="text" readonly/></div>
-              <div class="bts-field"><label>Modified On</label><input type="text" readonly/></div>
-              <div class="bts-field"><label>Supervised On</label><input type="text" readonly/></div>
             </div>
           </div>
         </div>
@@ -396,7 +321,7 @@
         <!-- EMPLOYMENT TAB -->
         <div id="tab-employment" class="tab-panel">
           <div class="section-header">Employment Details</div>
-          <p class="em-note">* All figures are monthly based</p>
+          <div class="em-note">* Select employment type below before filling fields</div>
           <div class="emp-type-row">
             <label class="radio-label"><input type="radio" name="empType" value="salaried" checked/> Salaried</label>
             <label class="radio-label"><input type="radio" name="empType" value="selfEmployed"/> Self Employed</label>
