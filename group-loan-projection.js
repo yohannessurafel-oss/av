@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF — 09 settlement-early-payoff</title>
+<title>AVMF — 02 Group Loan Projection</title>
 <link rel="stylesheet" href="style2.css"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -23,7 +23,7 @@
       </svg>
       <div class="title-text-block">
         <span class="title-main">Africa Village Microfinance</span>
-        <span class="title-sub">09 — Settlement / Early Payoff</span>
+        <span class="title-sub">02 — Group Loan Projection</span>
       </div>
     </div>
     <div class="title-meta">
@@ -44,18 +44,17 @@
         <span class="sidebar-header-icon">⚙</span>
         Credit Lifecycle Operations
       </div>
-    <ul class="nav-menu">
-        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan application</a></li>
-          <li><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
+      <ul class="nav-menu">
+        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
+        <li class="active"><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
         <li><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
         <li><span class="nav-num">04</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
-        <li class="active"><span class="nav-num">05</span><a href="credit-sanction-console.html" class="nav-label">Loan Account Maintenance</span></li>
+        <li><span class="nav-num">05</span><a href="loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
         <li><span class="nav-num">06</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
         <li><span class="nav-num">07</span><a href="guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
         <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
         <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
-        </li>
-         </ul>
+      </ul>
       <div class="sidebar-footer-brand">
         <svg viewBox="0 0 100 100" width="28" height="28">
           <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
@@ -65,86 +64,73 @@
     </div>
 
     <div class="main-content">
-      <div class="module-view active" id="view-module-09">
+      <div class="module-view active" id="view-group-loan">
         <div class="context-badge-bar">
-          <span class="badge-icon">📑</span>
-          Account Pay-off Settlement — Historic Installment Inquiry Console
+          <span class="badge-icon">👥</span>
+          Data Entry — Group Loan Portfolio Projection &amp; Scheduling
         </div>
-        <form class="module-form" autocomplete="off">
-          <div class="grid-two-column">
-            <div class="sub-column">
-              <div class="form-row"><label>Branch ID</label><select id="payoffBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select><input type="text" id="payoffBranchName" class="width-remaining" placeholder="Branch name" readonly/></div>
-              <div class="form-row"><label>Client ID</label><div class="input-group width-full"><input type="text" id="payoffClientId"/><span class="search-btn">🔍</span></div></div>
-              <div class="form-row"><label>Client Name</label><input type="text" id="payoffClientName" class="width-full" readonly placeholder="Auto-filled"/></div>
-              <div class="form-row"><label>Account ID</label><div class="input-group width-full"><input type="text" id="payoffAccNoTarget"/><span class="search-btn">🔍</span></div></div>
+
+        <form class="module-form grid-two-column" autocomplete="off">
+          <div class="sub-column">
+            <div class="form-row">
+              <label>Branch ID</label>
+              <select id="glpBranchId" class="width-full" style="max-width:220px;" data-always-enabled="1"></select>
+              <input type="text" id="glpBranchName" class="width-remaining" placeholder="Branch name" readonly/>
             </div>
-            <div class="sub-column">
-              <div class="form-row"><label class="shifted-label">Loan Series</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label>Group ID <span class="req">*</span></label><div class="input-group width-full"><input type="text" id="glpGroupId"/><span class="search-btn">🔍</span></div></div>
+            <div class="form-row"><label>Group Name</label><input type="text" id="glpGroupName" class="width-full" readonly placeholder="Auto-filled"/></div>
+            <div class="form-row"><label>Operational Centre</label><div class="input-group width-full"><input type="text" id="glpCentreId"/><span class="search-btn">🔍</span></div></div>
+            <div class="form-row"><label>Product ID <span class="req">*</span></label><select id="glpProductId" class="width-full" data-always-enabled="1"><option value="">-- Select Product --</option></select></div>
+            <div class="section-divider"></div>
+            <div class="form-row"><label>Meeting Date</label><input type="date" id="glpMeetingDate" class="width-full"/></div>
+            <div class="form-row"><label>Disbursement Date</label><input type="date" id="glpDisbDate" class="width-full"/></div>
+            <div class="form-row"><label>Loan Purpose</label>
+              <select id="glpLoanPurpose" class="width-full">
+                <option>OTHER</option><option>BUSINESS EXPANSION</option>
+                <option>AGRICULTURE</option><option>EDUCATION</option>
+                <option>HEALTH</option><option>HOUSING</option>
+              </select>
             </div>
+            <div class="form-row"><label>Credit Officer</label><div class="input-group width-full"><input type="text" id="glpOfficerId"/><span class="search-btn">🔍</span></div></div>
           </div>
-          <div class="tab-interface-strip margin-top-sm">
-            <div class="sub-tab active" data-target="payoff-components">Pay-off Components</div>
-            <div class="sub-tab" data-target="installment-schedule">Installment Schedule</div>
-            <div class="sub-tab" data-target="loan-statement">Loan Statement</div>
-            <div class="sub-tab" data-target="loan-history">Loan History</div>
-          </div>
-          <div class="tab-container-body">
-            <div class="sub-tab-view active" id="subview-payoff-components">
-              <div class="grid-container" style="height:100px;">
-                <table class="ledger-grid" id="dynamicPayoffGrid">
-                  <thead><tr><th>Component Description</th><th class="text-right">Amount Due (ETB)</th></tr></thead>
-                  <tbody><tr><td colspan="2" class="text-center gray-text italic">Enter an Account ID to calculate pay-off components.</td></tr></tbody>
-                </table>
-              </div>
+          <div class="sub-column">
+            <div class="form-row"><label class="shifted-label">Projection Date</label><input type="date" id="glpProjectionDate" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" id="glpCurrencyId" value="ETB" class="font-bold width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Interest Rate (%)</label><input type="number" id="glpInterestRate" class="text-right width-full" step="0.01"/></div>
+            <div class="form-row"><label class="shifted-label">Term (Months)</label><input type="number" id="glpTerm" value="12" class="text-right width-full" min="1"/></div>
+            <div class="form-row"><label class="shifted-label">Repayment Frequency</label>
+              <select id="glpFrequency" class="width-full">
+                <option>Monthly</option><option>Bi-Weekly</option><option>Weekly</option>
+              </select>
             </div>
-            <div class="sub-tab-view" id="subview-installment-schedule">
-              <div class="grid-container" style="height:100px;">
-                <table class="ledger-grid" id="installmentScheduleTable">
-                  <thead><tr><th>#</th><th>Due Date</th><th class="text-right">Installment (ETB)</th><th class="text-right">Principal (ETB)</th><th class="text-right">Interest (ETB)</th><th class="text-right">Loan Balance (ETB)</th></tr></thead>
-                  <tbody><tr><td colspan="6" class="text-center gray-text italic">Load a loan record to generate schedule.</td></tr></tbody>
-                </table>
-              </div>
-            </div>
-            <div class="sub-tab-view" id="subview-loan-statement">
-              <div class="grid-container" style="height:100px;">
-                <table class="ledger-grid">
-                  <thead><tr><th>Date</th><th>Value Date</th><th>Particulars</th><th class="text-right">Debit (ETB)</th><th class="text-right">Credit (ETB)</th><th class="text-right">Closing Balance (ETB)</th></tr></thead>
-                  <tbody><tr><td colspan="6" class="text-center gray-text italic">No statement data available.</td></tr></tbody>
-                </table>
-              </div>
-            </div>
-            <div class="sub-tab-view" id="subview-loan-history">
-              <div class="grid-container" style="height:100px;">
-                <table class="ledger-grid">
-                  <thead><tr><th>Interest Rate</th><th>Loan Series</th><th>File No.</th><th>Application ID</th><th class="text-right">Sanctioned Amt (ETB)</th><th class="text-right">Disbursed Amt (ETB)</th><th>First Disbursement</th><th>Term</th><th>Closed Date</th></tr></thead>
-                  <tbody><tr><td colspan="9" class="text-center gray-text italic">No history records.</td></tr></tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-          <div class="card-header-banner margin-top-sm">Analytical Ledger Vectors</div>
-          <div class="grid-two-column">
-            <div class="sub-column">
-              <div class="form-row"><label>Loan Amount (ETB)</label><input type="text" class="width-full"/></div>
-              <div class="form-row"><label>Net Amount (ETB)</label><input type="text" class="width-full"/></div>
-              <div class="form-row"><label>Created By</label><input type="text" class="width-full"/></div>
-              <div class="form-row"><label>Created On</label><input type="text" class="width-full"/></div>
-            </div>
-            <div class="sub-column">
-              <div class="form-row"><label class="shifted-label">Loan Balance (ETB)</label><input type="text" class="width-full"/></div>
-              <div class="form-row"><label class="shifted-label">Product ID</label><input type="text" class="width-full"/></div>
-              <div class="form-row"><label class="shifted-label">Modified By</label><input type="text" class="width-full"/></div>
-              <div class="form-row"><label class="shifted-label">Modified On</label><input type="text" class="width-full"/></div>
-            </div>
-            <div class="sub-column">
-              <div class="form-row"><label class="shifted-label">Preclosure Status</label><input type="text" class="width-full"/></div>
-              <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" class="width-full"/></div>
-              <div class="form-row"><label class="shifted-label">Supervised By</label><input type="text" class="width-full"/></div>
-              <div class="form-row"><label class="shifted-label">Supervised On</label><input type="text" class="width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Total Group Members</label><input type="number" id="glpMemberCount" class="text-right width-full" min="1"/></div>
+            <div class="form-row"><label class="shifted-label">Total Group Loan (ETB)</label><input type="number" id="glpTotalAmount" class="text-right width-full" min="0"/></div>
+            <div class="form-row"><label class="shifted-label">Avg. Per Member (ETB)</label><input type="number" id="glpAvgAmount" class="text-right width-full" readonly/></div>
+            <div class="form-row"><label class="shifted-label">Projection Status</label>
+              <input type="text" id="glpStatus" value="Draft" readonly class="width-full status-badge"/>
             </div>
           </div>
         </form>
-        <div class="action-row-container"><button type="button" class="action-btn-inline">Denomination</button></div>
+
+        <!-- Group Members Grid -->
+        <div class="grid-container margin-top-sm">
+          <table class="ledger-grid" id="tblGroupMembers">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Client ID</th>
+                <th>Client Name</th>
+                <th>Loan Amount (ETB)</th>
+                <th>Installment (ETB)</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="6" class="text-center gray-text italic">No group members loaded. Enter a Group ID and click View.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
         <div class="sub-footer-token" id="statusBar">Status: Ready</div>
       </div>
     </div>
@@ -167,6 +153,11 @@
 
 <div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
 
-<script src="settlement-early-payoff.js"></script>
+<script>
+  // Initialise system date
+  const sdEl = document.getElementById('systemDate');
+  if (sdEl) sdEl.textContent = new Date().toLocaleDateString('en-ET', { weekday:'short', year:'numeric', month:'short', day:'numeric' });
+  // Placeholder: replace with group-loan-projection.js when ready
+</script>
 </body>
 </html>
