@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Directory | Admin Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0156D3;
+            --primary-hover: #0044a8;
+            --bg: #f4f7fa;
+            --card-bg: #ffffff;
+            --text-main: #1a202c;
+            --text-muted: #718096;
+            --border: #e2e8f0;
+            --radius: 12px;
+            --green: #10b981;
+            --red: #ef4444;
+            --gray: #6b7280;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .page-header h1 {
+            margin: 0;
+            font-size: 1.6rem;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-add {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+
+        .btn-add:hover { background: var(--primary-hover); transform: translateY(-2px); }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .card-toolbar {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: #f8fafc;
+        }
+
+        .search-box {
+            position: relative;
+            flex: 1;
+            max-width: 400px;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 14px 10px 38px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        .search-box input:focus { border-color: var(--primary); }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background: white;
+            padding: 14px 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+            color: var(--text-main);
+            vertical-align: middle;
+        }
+
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f8fafc; }
+
+        .client-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .client-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .client-name { font-weight: 600; color: var(--text-main); margin-bottom: 2px; }
+        .client-id { font-size: 0.75rem; color: var(--text-muted); }
+
+        .contact-info { font-size: 0.85rem; }
+        .contact-info i { width: 16px; color: var(--text-muted); text-align: center; margin-right: 4px; }
+
+        /* Badges */
+        .badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: inline-block;
+        }
+        .badge.active { background: #d1fae5; color: #059669; }
+        .badge.closed { background: #f1f5f9; color: #475569; }
+        .badge.suspended { background: #fee2e2; color: #e11d48; }
+
+        .badge-type {
+            background: #e0e7ff; color: #4338ca;
+            padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;
+        }
+
+        .action-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            width: 32px; height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .action-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
+        .loading-state { text-align: center; padding: 40px; color: var(--text-muted); }
+        .loading-state i { font-size: 2rem; color: var(--primary); margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="page-header">
+            <h1><i class="fas fa-users"></i> Client Directory</h1>
+            <button class="btn-add"><i class="fas fa-user-plus"></i> Register Client</button>
+        </div>
+
+        <!-- Table Card -->
+        <div class="card">
+            <!-- Toolbar -->
+            <div class="card-toolbar">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search by name, ID, or phone..." onkeyup="filterTable()">
+                </div>
+                <button class="action-btn" onclick="fetchClients()" title="Refresh List"><i class="fas fa-sync-alt"></i></button>
+            </div>
+
+            <!-- Table -->
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Client Info</th>
+                            <th>Contact Details</th>
+                            <th>Client Type</th>
+                            <th>Status</th>
+                            <th>Open Date</th>
+                            <th style="text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientTableBody">
+                        <tr>
+                            <td colspan="6">
+                                <div class="loading-state">
+                                    <i class="fas fa-circle-notch fa-spin"></i>
+                                    <p>Loading client records...</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Make sure your config.js is loaded so _supabase is defined -->
+    <script src="config.js"></script> 
+    
+    <script>
+        let clientsData = [];
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchClients();
+        });
+
+        async function fetchClients() {
+            const tbody = document.getElementById('clientTableBody');
+            tbody.innerHTML = `<tr><td colspan="6"><div class="loading-state"><i class="fas fa-circle-notch fa-spin"></i><p>Loading client records...</p></div></td></tr>`;
+
+            try {
+                // Fetch data from ClientMasterRecords based on your DB schema
+                const { data, error } = await _supabase
+                    .from('ClientMasterRecords')
+                    .select('id, client_id, client_name, first_name, last_name, client_type, mobile, email, status, open_date')
+                    .order('created_on', { ascending: false });
+
+                if (error) throw error;
+
+                clientsData = data || [];
+                renderTable(clientsData);
+
+            } catch (err) {
+                console.error("Error fetching clients:", err.message);
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red; padding:30px;">Failed to load clients: ${err.message}</td></tr>`;
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('clientTableBody');
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:40px; color:#888;">No clients found in the database.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map(client => {
+                // Determine display name (Fallback to first + last if client_name is null)
+                const displayName = client.client_name || `${client.first_name || ''} ${client.last_name || ''}`.trim() || 'Unknown Client';
+                const initials = displayName.substring(0, 2).toUpperCase();
+
+                // Status Badge Color Logic
+                let statusClass = 'closed';
+                if (client.status === 'Active') statusClass = 'active';
+                if (client.status === 'Suspended') statusClass = 'suspended';
+
+                // Format Date
+                const dateStr = client.open_date ? new Date(client.open_date).toLocaleDateString() : 'N/A';
+
+                return `
+                    <tr class="client-row">
+                        <td>
+                            <div class="client-info">
+                                <div class="client-avatar">${initials}</div>
+                                <div>
+                                    <div class="client-name searchable-name">${displayName}</div>
+                                    <div class="client-id searchable-id">ID: ${client.client_id || 'N/A'}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="contact-info searchable-contact">
+                                <div style="margin-bottom: 4px;"><i class="fas fa-phone"></i> ${client.mobile || 'No Phone'}</div>
+                                <div><i class="fas fa-envelope"></i> ${client.email || 'No Email'}</div>
+                            </div>
+                        </td>
+                        <td><span class="badge-type">${client.client_type || 'N/A'}</span></td>
+                        <td><span class="badge ${statusClass}">${client.status || 'Unknown'}</span></td>
+                        <td>${dateStr}</td>
+                        <td style="text-align: right;">
+                            <button class="action-btn" title="View Details" onclick="viewClient(${client.id})"><i class="fas fa-eye"></i></button>
+                            <button class="action-btn" title="Edit Client" onclick="editClient(${client.id})"><i class="fas fa-edit"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Live Search Filter
+        function filterTable() {
+            const input = document.getElementById('searchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('.client-row');
+
+            rows.forEach(row => {
+                const name = row.querySelector('.searchable-name').textContent.toLowerCase();
+                const id = row.querySelector('.searchable-id').textContent.toLowerCase();
+                const contact = row.querySelector('.searchable-contact').textContent.toLowerCase();
+
+                if (name.includes(input) || id.includes(input) || contact.includes(input)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // Placeholder actions
+        function viewClient(id) {
+            alert(`View details for database ID: ${id}. You can link this to a client profile page!`);
+        }
+
+        function editClient(id) {
+            alert(`Edit client ID: ${id}. Link this to your form update logic.`);
+        }
+    </script>
+</body>
+</html>
