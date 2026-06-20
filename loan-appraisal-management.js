@@ -30,7 +30,7 @@ function toast(msg, type = '', duration = 3200) {
 let _branchCache = [];
 
 async function loadBranches() {
-  const sel = document.getElementById('appraisalBranchId');
+  const sel = document.getElementById('apprBranchId');
   if (sel) { sel.innerHTML = '<option value="">Loading branches…</option>'; sel.disabled = true; }
   try {
     const res = await fetch(
@@ -40,7 +40,7 @@ async function loadBranches() {
     if (!res.ok) { toast(`Branch list error ${res.status}`, 'error'); return; }
     const rows = await res.json();
     _branchCache = Array.isArray(rows) ? rows : [];
-    const sel2 = document.getElementById('appraisalBranchId');
+    const sel2 = document.getElementById('apprBranchId');
     if (!sel2) return;
     sel2.innerHTML = '<option value="">-- Select Branch --</option>';
     _branchCache.forEach(r => {
@@ -52,13 +52,13 @@ async function loadBranches() {
     sel2.disabled = false;
   } catch (e) {
     toast('Could not load branch list.', 'error');
-    const sel2 = document.getElementById('appraisalBranchId');
+    const sel2 = document.getElementById('apprBranchId');
     if (sel2) { sel2.innerHTML = '<option value="">-- Select Branch --</option>'; sel2.disabled = false; }
   }
 }
 
-document.getElementById('appraisalBranchId')?.addEventListener('change', function () {
-  const nameEl = document.getElementById('appraisalBranchName');
+document.getElementById('apprBranchId')?.addEventListener('change', function () {
+  const nameEl = document.getElementById('apprBranchName');
   const chosen = _branchCache.find(b => b.branch_id === this.value);
   if (nameEl) nameEl.value = chosen ? (chosen.branch_name || '') : '';
 });
@@ -72,12 +72,12 @@ function setMode(mode) {
   const view = document.querySelector('.module-view.active');
   if (view) {
     view.querySelectorAll('input:not([readonly]), select, textarea').forEach(el => {
-      if (el.dataset.alwaysEnabled !== undefined || el.id === 'appraisalBranchId') { el.disabled = false; return; }
+      if (el.dataset.alwaysEnabled !== undefined || el.id === 'apprBranchId') { el.disabled = false; return; }
       el.disabled = !isEdit;
     });
   }
   document.querySelectorAll('input[readonly]').forEach(el => el.disabled = false);
-  document.getElementById('appraisalBranchId').disabled = false;
+  document.getElementById('apprBranchId').disabled = false;
 
   const btnSave   = document.getElementById('btnGlobalSave');
   const btnCancel = document.getElementById('btnGlobalCancel');
