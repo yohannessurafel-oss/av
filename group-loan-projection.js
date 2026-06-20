@@ -1,163 +1,177 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF — 02 Group Loan Projection</title>
-<link rel="stylesheet" href="style2.css"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
-<body>
+/* ═══════════════════════════════════════════════════════════
+   Africa Village Microfinance — 02 Group Loan Projection
+   group-loan-projection.js  v1.0
+   Supabase REST · Toast Notifications · Branch / Client / Product
+═══════════════════════════════════════════════════════════ */
 
-<div class="window-container">
+'use strict';
 
-  <div class="title-bar">
-    <div class="title-branding-block">
-      <svg class="header-logo-svg" viewBox="0 0 100 100">
-        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
-        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
-        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
-        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
-        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
-        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
-      </svg>
-      <div class="title-text-block">
-        <span class="title-main">Africa Village Microfinance</span>
-        <span class="title-sub">02 — Group Loan Projection</span>
-      </div>
-    </div>
-    <div class="title-meta">
-      <span id="systemDate" class="title-date"></span>
-      <span class="title-user">👤 Loan Officer</span>
-    </div>
-    <div class="window-controls">
-      <span title="Minimize">─</span>
-      <span title="Maximize">▢</span>
-      <span title="Close" class="wc-close">✕</span>
-    </div>
-  </div>
+/* ── Supabase Config ───────────────────────────────────── */
+const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-  <div class="workspace">
+const TABLE_CLIENTS = 'ClientMasterRecords';
 
-    <div class="sidebar">
-      <div class="sidebar-header">
-        <span class="sidebar-header-icon">⚙</span>
-        Credit Lifecycle Operations
-      </div>
-      <ul class="nav-menu">
-        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
-        <li class="active"><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
-        <li><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
-        <li><span class="nav-num">04</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
-        <li><span class="nav-num">05</span><a href="loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
-        <li><span class="nav-num">06</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
-        <li><span class="nav-num">07</span><a href="guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
-        <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
-        <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
-      </ul>
-      <div class="sidebar-footer-brand">
-        <svg viewBox="0 0 100 100" width="28" height="28">
-          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
-        </svg>
-        <span>AVMF CBS v2.0</span>
-      </div>
-    </div>
+/* ── HTTP Helper ────────────────────────────────────────── */
+async function sbFetch(path, opts = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type':  'application/json',
+      'Prefer':        opts.prefer || 'return=representation',
+      ...(opts.headers || {})
+    }
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `HTTP ${res.status}`);
+  }
+  const text = await res.text();
+  if (!text || !text.trim()) return null;
+  try { return JSON.parse(text); } catch { return null; }
+}
 
-    <div class="main-content">
-      <div class="module-view active" id="view-group-loan">
-        <div class="context-badge-bar">
-          <span class="badge-icon">👥</span>
-          Data Entry — Group Loan Portfolio Projection &amp; Scheduling
-        </div>
+/* ── Toast ─────────────────────────────────────────────── */
+const toastEl = document.getElementById('toastNotification');
+let _toastTimer = null;
+function toast(msg, type = '', duration = 3200) {
+  if (!toastEl) return;
+  toastEl.textContent = msg;
+  toastEl.className = `toast show ${type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { toastEl.className = 'toast'; }, duration);
+}
 
-        <form class="module-form grid-two-column" autocomplete="off">
-          <div class="sub-column">
-            <div class="form-row">
-              <label>Branch ID</label>
-              <select id="glpBranchId" class="width-full" style="max-width:220px;" data-always-enabled="1"></select>
-              <input type="text" id="glpBranchName" class="width-remaining" placeholder="Branch name" readonly/>
-            </div>
-            <div class="form-row"><label>Group ID <span class="req">*</span></label><div class="input-group width-full"><input type="text" id="glpGroupId"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Group Name</label><input type="text" id="glpGroupName" class="width-full" readonly placeholder="Auto-filled"/></div>
-            <div class="form-row"><label>Operational Centre</label><div class="input-group width-full"><input type="text" id="glpCentreId"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Product ID <span class="req">*</span></label><select id="glpProductId" class="width-full" data-always-enabled="1"><option value="">-- Select Product --</option></select></div>
-            <div class="section-divider"></div>
-            <div class="form-row"><label>Meeting Date</label><input type="date" id="glpMeetingDate" class="width-full"/></div>
-            <div class="form-row"><label>Disbursement Date</label><input type="date" id="glpDisbDate" class="width-full"/></div>
-            <div class="form-row"><label>Loan Purpose</label>
-              <select id="glpLoanPurpose" class="width-full">
-                <option>OTHER</option><option>BUSINESS EXPANSION</option>
-                <option>AGRICULTURE</option><option>EDUCATION</option>
-                <option>HEALTH</option><option>HOUSING</option>
-              </select>
-            </div>
-            <div class="form-row"><label>Credit Officer</label><div class="input-group width-full"><input type="text" id="glpOfficerId"/><span class="search-btn">🔍</span></div></div>
-          </div>
-          <div class="sub-column">
-            <div class="form-row"><label class="shifted-label">Projection Date</label><input type="date" id="glpProjectionDate" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" id="glpCurrencyId" value="ETB" class="font-bold width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Interest Rate (%)</label><input type="number" id="glpInterestRate" class="text-right width-full" step="0.01"/></div>
-            <div class="form-row"><label class="shifted-label">Term (Months)</label><input type="number" id="glpTerm" value="12" class="text-right width-full" min="1"/></div>
-            <div class="form-row"><label class="shifted-label">Repayment Frequency</label>
-              <select id="glpFrequency" class="width-full">
-                <option>Monthly</option><option>Bi-Weekly</option><option>Weekly</option>
-              </select>
-            </div>
-            <div class="form-row"><label class="shifted-label">Total Group Members</label><input type="number" id="glpMemberCount" class="text-right width-full" min="1"/></div>
-            <div class="form-row"><label class="shifted-label">Total Group Loan (ETB)</label><input type="number" id="glpTotalAmount" class="text-right width-full" min="0"/></div>
-            <div class="form-row"><label class="shifted-label">Avg. Per Member (ETB)</label><input type="number" id="glpAvgAmount" class="text-right width-full" readonly/></div>
-            <div class="form-row"><label class="shifted-label">Projection Status</label>
-              <input type="text" id="glpStatus" value="Draft" readonly class="width-full status-badge"/>
-            </div>
-          </div>
-        </form>
+/* ── System Date ───────────────────────────────────────── */
+(function initDate() {
+  const el = document.getElementById('systemDate');
+  if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+  });
+})();
 
-        <!-- Group Members Grid -->
-        <div class="grid-container margin-top-sm">
-          <table class="ledger-grid" id="tblGroupMembers">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Client ID</th>
-                <th>Client Name</th>
-                <th>Loan Amount (ETB)</th>
-                <th>Installment (ETB)</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td colspan="6" class="text-center gray-text italic">No group members loaded. Enter a Group ID and click View.</td></tr>
-            </tbody>
-          </table>
-        </div>
+/* ── Branch Dropdown ───────────────────────────────────── */
+let _branchCache = [];
 
-        <div class="sub-footer-token" id="statusBar">Status: Ready</div>
-      </div>
-    </div>
+function populateBranchSelect(preserveValue) {
+  const sel = document.getElementById('groupBranchId');
+  if (!sel) return;
+  const keep = preserveValue ? sel.value : '';
+  sel.innerHTML = '<option value="">-- Select Branch --</option>';
+  _branchCache.forEach(r => {
+    const o = document.createElement('option');
+    o.value = r.branch_id;
+    o.textContent = r.branch_id + (r.branch_name ? ' — ' + r.branch_name : '');
+    sel.appendChild(o);
+  });
+  sel.disabled = false;
+  if (keep) sel.value = keep;
+}
 
-    <div class="action-sidebar">
-      <button id="btnGlobalView"   class="action-btn">🔍 View</button>
-      <button id="btnGlobalAdd"    class="action-btn">➕ Add</button>
-      <button id="btnGlobalEdit"   class="action-btn">✏️ Edit</button>
-      <button id="btnGlobalClose"  class="action-btn">✕ Close</button>
-      <div class="sidebar-spacer"></div>
-      <button id="btnGlobalSave"   class="action-btn" disabled>💾 Save</button>
-      <button id="btnGlobalCancel" class="action-btn" disabled>🚫 Cancel</button>
-      <button id="btnGlobalDelete" class="action-btn" style="background:linear-gradient(to bottom,#f8d0d0,#f0a0a0);border-color:#c06060;color:#7a0000;" disabled>🗑 Delete</button>
-      <button id="btnGlobalPrint"  class="action-btn">🖨 Print</button>
-      <div class="sidebar-footer">AVMF CBS v2.0</div>
-    </div>
+async function loadBranches() {
+  const sel = document.getElementById('groupBranchId');
+  if (sel) { sel.innerHTML = '<option value="">Loading branches…</option>'; sel.disabled = true; }
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/branchregistry?select=branch_id,branch_name&order=branch_id`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Accept': 'application/json' } }
+    );
+    if (!res.ok) { toast(`Branch list error ${res.status}`, 'error'); return; }
+    const rows = await res.json();
+    _branchCache = Array.isArray(rows) ? rows : [];
+    populateBranchSelect(true);
+  } catch (e) {
+    toast('Could not load branch list.', 'error');
+  } finally {
+    // Guard against any later code accidentally leaving the select disabled.
+    const sel2 = document.getElementById('groupBranchId');
+    if (sel2) sel2.disabled = false;
+  }
+}
 
-  </div>
-</div>
+document.getElementById('groupBranchId')?.addEventListener('change', function () {
+  const nameEl = document.getElementById('groupBranchName');
+  const chosen = _branchCache.find(b => b.branch_id === this.value);
+  if (nameEl) nameEl.value = chosen ? (chosen.branch_name || '') : '';
+});
 
-<div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
+/* ── Product Dropdown ──────────────────────────────────── */
+let _productCache = [];
 
-<script>
-  // Initialise system date
-  const sdEl = document.getElementById('systemDate');
-  if (sdEl) sdEl.textContent = new Date().toLocaleDateString('en-ET', { weekday:'short', year:'numeric', month:'short', day:'numeric' });
-  // Placeholder: replace with group-loan-projection.js when ready
-</script>
-</body>
-</html>
+async function loadProducts() {
+  const sel = document.getElementById('groupProductId');
+  if (!sel) return;
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/lendingproductparametermatrix?select=product_code_id,product_name_title,base_interest_rate&order=product_code_id`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Accept': 'application/json' } }
+    );
+    if (!res.ok) { console.error('Product load failed:', res.status); toast(`Product list error ${res.status}`, 'error'); return; }
+    const rows = await res.json();
+    _productCache = Array.isArray(rows) ? rows : [];
+    const keep = sel.value;
+    sel.innerHTML = '<option value="">-- Select Product --</option>';
+    _productCache.forEach(r => {
+      const o = document.createElement('option');
+      o.value = r.product_code_id;
+      o.textContent = r.product_code_id + (r.product_name_title ? ' — ' + r.product_name_title : '');
+      o.dataset.rate = r.base_interest_rate || '';
+      sel.appendChild(o);
+    });
+    sel.disabled = false;
+    if (keep) sel.value = keep;
+  } catch (e) {
+    console.error('loadProducts exception:', e);
+    toast('Could not load product list.', 'error');
+  }
+}
+
+document.getElementById('groupProductId')?.addEventListener('change', function () {
+  const chosen = _productCache.find(p => p.product_code_id === this.value);
+  const rateEl = document.getElementById('groupInterestRate');
+  if (chosen && chosen.base_interest_rate && rateEl && !rateEl.value) {
+    rateEl.value = chosen.base_interest_rate;
+  }
+});
+
+/* ── Client ID Lookup & Validation ─────────────────────── */
+async function lookupClient(clientId) {
+  const val = (clientId || '').trim();
+  if (!val) return null;
+  const rows = await sbFetch(`${TABLE_CLIENTS}?client_id=eq.${encodeURIComponent(val)}&select=client_name&limit=1`);
+  return (rows && rows[0]) ? rows[0] : null;
+}
+
+document.getElementById('groupClientId')?.addEventListener('blur', async function () {
+  const val = this.value.trim();
+  const nameEl = document.getElementById('groupClientName');
+  if (!nameEl) return;
+  if (!val) { nameEl.value = ''; return; }
+  try {
+    const client = await lookupClient(val);
+    if (client) {
+      nameEl.value = client.client_name || '';
+      this.classList.remove('input-invalid');
+    } else {
+      nameEl.value = '';
+      this.classList.add('input-invalid');
+      toast('Client ID not found in registry.', 'warning');
+    }
+  } catch (e) {
+    nameEl.value = '';
+    toast('Could not verify Client ID.', 'error');
+  }
+});
+
+// Clear the invalid flag as soon as the user starts editing again.
+document.getElementById('groupClientId')?.addEventListener('input', function () {
+  this.classList.remove('input-invalid');
+});
+
+/* ── Init ──────────────────────────────────────────────── */
+async function init() {
+  await Promise.all([loadBranches(), loadProducts()]);
+}
+init();
