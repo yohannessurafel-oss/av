@@ -33,6 +33,14 @@ async function sbFetch(path, options = {}) {
 let mode = 'view';
 let currentRecord = null;
 
+// ── System Date ──────────────────────────────────────────
+(function initDate() {
+  const el = document.getElementById('systemDate');
+  if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+  });
+})();
+
 // UI Tab Navigation Logic
 document.querySelectorAll('.tab').forEach(button => {
   button.addEventListener('click', () => {
@@ -44,12 +52,13 @@ document.querySelectorAll('.tab').forEach(button => {
 });
 
 // Toast Feedback Notification Pipeline
+const _toastElD = document.getElementById('toastNotification');
+let _toastTimerD = null;
 function showToast(message, variant = 'info') {
-  const target = document.getElementById('toast');
-  target.textContent = message;
-  target.className = `toast show ${variant}`;
-  clearTimeout(target._timer);
-  target._timer = setTimeout(() => target.className = 'toast', 4000);
+  _toastElD.textContent = message;
+  _toastElD.className = `toast show ${variant}`;
+  clearTimeout(_toastTimerD);
+  _toastTimerD = setTimeout(() => { _toastElD.className = 'toast'; }, 4000);
 }
 
 // Toggle Input Fields Form State
@@ -72,13 +81,17 @@ function setMode(newMode) {
   mode = newMode;
   const isEditing = (newMode === 'add' || newMode === 'edit');
   setFormControlsState(isEditing);
-  
+
   // Enforce rigid core input state flow rules
   document.getElementById('fAccountId').disabled = (newMode !== 'view');
-  document.getElementById('btnAdd').disabled = isEditing;
-  document.getElementById('btnEdit').disabled = (isEditing || !currentRecord);
-  document.getElementById('btnSave').disabled = !isEditing;
+  document.getElementById('btnAdd').disabled    = isEditing;
+  document.getElementById('btnEdit').disabled   = (isEditing || !currentRecord);
+  document.getElementById('btnSave').disabled   = !isEditing;
   document.getElementById('btnCancel').disabled = !isEditing;
+
+  // Update status bar
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = `Mode: ${newMode.charAt(0).toUpperCase() + newMode.slice(1)}${currentRecord ? ' — Account: ' + (document.getElementById('fAccountId')?.value || '') : ''}`;
 }
 
 /* ── Amortization Engine Matrix: Straight Line Amortization ── */
@@ -164,10 +177,19 @@ document.getElementById('btnView').addEventListener('click', async () => {
 // STEP 3: CLICK ADD — Unlock input elements for configuration adjustments
 document.getElementById('btnAdd').addEventListener('click', () => {
   if (!currentRecord) {
-    return showToast('Please input an Account ID and click View before activating entry fields.', 'error');
+    return showToast('Please input an Account ID and click View (🔍) before activating entry fields.', 'error');
   }
   setMode('add');
   showToast('Form fields unlocked. Populate configurations and click Save.');
+});
+
+// CLICK EDIT — Reopen existing loaded record for modification
+document.getElementById('btnEdit').addEventListener('click', () => {
+  if (!currentRecord) {
+    return showToast('Load a record first by entering an Account ID and clicking View (🔍).', 'error');
+  }
+  setMode('edit');
+  showToast('Record unlocked for editing. Make changes then Save.');
 });
 
 // STEP 7: CLICK SAVE — Validate inputs and show verification confirmation screen modal overlay
