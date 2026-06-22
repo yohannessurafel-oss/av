@@ -31,6 +31,14 @@ let currentRecord = null;
 let allRecords = [];
 let currentIndex = -1;
 
+// ── System Date ──────────────────────────────────────────
+(function initDate() {
+  const el = document.getElementById('systemDate');
+  if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+  });
+})();
+
 // ── DOM refs ─────────────────────────────────────────────
 const btnView   = document.getElementById('btnView');
 const btnAdd    = document.getElementById('btnAdd');
@@ -40,14 +48,15 @@ const btnCancel = document.getElementById('btnCancel');
 const btnClose  = document.getElementById('btnClose');
 const btnPrev   = document.getElementById('btnPrev');
 const btnNext   = document.getElementById('btnNext');
-const toast     = document.getElementById('toast');
+const _toastEl  = document.getElementById('toastNotification');
+let _toastTimer = null;
 
 // ── Toast ────────────────────────────────────────────────
-function showToast(msg, type = '') {
-  toast.textContent = msg;
-  toast.className = `toast show ${type}`;
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => toast.className = 'toast', 3000);
+function showToast(msg, type = '', duration = 3200) {
+  _toastEl.textContent = msg;
+  _toastEl.className = `toast show ${type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { _toastEl.className = 'toast'; }, duration);
 }
 
 // ── Tabs ─────────────────────────────────────────────────
@@ -114,6 +123,10 @@ function setMode(m) {
   btnAdd.disabled    = isEdit;
   btnEdit.disabled   = isEdit || !currentRecord;
   btnView.disabled   = false;
+
+  // Update status bar
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = `Mode: ${m.charAt(0).toUpperCase() + m.slice(1)}${currentRecord ? ' — ' + (currentRecord.client_id || '') + (currentRecord.client_name ? ' | ' + currentRecord.client_name : '') : ''}`;
 
   updateNavArrows();
 }
