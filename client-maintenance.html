@@ -47,9 +47,9 @@
         <span class="sidebar-header-icon">⚙</span>
         Credit Lifecycle Operations
       </div>
-       <ul class="nav-menu">
-        <li><span class="nav-num">00</span><a href="client-maintenance.html" class="nav-label">Client maintenance</a></li>
-        <li class="active"><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
+      <ul class="nav-menu">
+        <li class="active"><span class="nav-num">00</span><a href="client-maintenance.html" class="nav-label">Client Master Registry</a></li>
+        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
         <li><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
         <li><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
         <li><span class="nav-num">04</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
@@ -59,7 +59,6 @@
         <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
         <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
         <li><span class="nav-num">10</span><a href="disbursement.html" class="nav-label">Loan Disbursement</a></li>
-         <li><span class="nav-num">00</span><a href="client-directory.html" class="nav-label">Client Views </a></li>
       </ul>
       <div class="sidebar-footer-brand">
         <svg viewBox="0 0 100 100" width="28" height="28">
@@ -262,22 +261,57 @@
               <div class="field-pair-row">
                 <div class="form-field">
                   <label>No. of Dependants</label>
-                  <input type="number" name="dependants" min="0"/>
+                  <input type="number" name="dependents" min="0"/>
                 </div>
                 <div class="form-field">
-                  <label>Mobile Number</label>
-                  <input type="tel" name="mobile"/>
+                  <label>No. of Children</label>
+                  <input type="number" name="children" min="0"/>
                 </div>
               </div>
 
               <div class="field-pair-row">
                 <div class="form-field">
-                  <label>Alternate Phone</label>
-                  <input type="tel" name="altPhone"/>
+                  <label>House Members</label>
+                  <input type="number" name="houseMembers" min="0"/>
                 </div>
                 <div class="form-field">
-                  <label>Email Address</label>
-                  <input type="email" name="email"/>
+                  <label>Blood Group</label>
+                  <select name="bloodGroup">
+                    <option value="">– Select –</option>
+                    <option>A+</option><option>A−</option>
+                    <option>B+</option><option>B−</option>
+                    <option>AB+</option><option>AB−</option>
+                    <option>O+</option><option>O−</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field-pair-row">
+                <div class="form-field">
+                  <label>Can Donate Blood</label>
+                  <select name="canDonate">
+                    <option value="">– Select –</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label>Relationship Manager</label>
+                  <div class="id-input-wrap">
+                    <input type="text" name="relManager"/>
+                    <button class="lookup-btn" type="button" title="Lookup">🔍</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-pair-row">
+                <div class="form-field">
+                  <label>Opened By</label>
+                  <input type="text" name="openedBy"/>
+                </div>
+                <div class="form-field">
+                  <label>Opened On</label>
+                  <input type="date" name="openedOn"/>
                 </div>
               </div>
 
@@ -301,48 +335,120 @@
 
           <!-- ADDRESS TAB -->
           <div id="tab-address" class="tab-panel">
-            <div class="card-header-banner">Address Details</div>
+            <div class="card-header-banner">Address &amp; Contact Details</div>
             <div class="form-grid">
+
               <div class="field-pair-row">
+                <div class="form-field">
+                  <label>Address Type</label>
+                  <select name="addressType">
+                    <option value="">– Select –</option>
+                    <option>Residential</option>
+                    <option>Commercial</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label>Postal Address</label>
+                  <input type="text" name="postalAddress"/>
+                </div>
+              </div>
+
+              <div class="field-pair-row">
+                <div class="form-field full">
+                  <label>Physical Address</label>
+                  <input type="text" name="physicalAddress"/>
+                </div>
+              </div>
+
+              <div class="field-pair-row">
+                <div class="form-field">
+                  <label>City <span class="req">*</span></label>
+                  <input type="text" name="city"/>
+                </div>
+                <div class="form-field">
+                  <label>Zip / Postal Code</label>
+                  <input type="text" name="zipCode"/>
+                </div>
+              </div>
+
+              <div class="field-pair-row">
+                <div class="form-field">
+                  <label>Country <span class="req">*</span></label>
+                  <select name="country">
+                    <option value="">– Select –</option>
+                    <option>Ethiopia</option>
+                    <option>Kenya</option>
+                    <option>Uganda</option>
+                    <option>Tanzania</option>
+                    <option>Other</option>
+                  </select>
+                </div>
                 <div class="form-field">
                   <label>Region</label>
                   <select name="region">
                     <option value="">– Select –</option>
                     <option>Addis Ababa</option><option>Oromia</option>
                     <option>Amhara</option><option>SNNPR</option><option>Tigray</option>
+                    <option>Afar</option><option>Somali</option><option>Sidama</option>
                   </select>
                 </div>
+              </div>
+
+              <div class="field-pair-row">
                 <div class="form-field">
                   <label>Zone / Woreda</label>
                   <input type="text" name="zone"/>
                 </div>
-              </div>
-              <div class="field-pair-row">
                 <div class="form-field">
                   <label>Kebele</label>
                   <input type="text" name="kebele"/>
                 </div>
+              </div>
+
+              <div class="field-pair-row">
                 <div class="form-field">
                   <label>House Number</label>
                   <input type="text" name="houseNo"/>
                 </div>
-              </div>
-              <div class="field-pair-row">
                 <div class="form-field">
                   <label>P.O. Box</label>
                   <input type="text" name="poBox"/>
                 </div>
-                <div class="form-field">
-                  <label>Postal Code</label>
-                  <input type="text" name="postalCode"/>
-                </div>
               </div>
+
+              <div class="card-header-banner" style="margin:8px -6px 6px;padding-left:10px;">Contact Numbers</div>
+
               <div class="field-pair-row">
-                <div class="form-field full">
-                  <label>Additional Address</label>
-                  <textarea name="additionalAddress" rows="2"></textarea>
+                <div class="form-field">
+                  <label>Mobile Number</label>
+                  <input type="tel" name="mobile"/>
+                </div>
+                <div class="form-field">
+                  <label>Phone (Home)</label>
+                  <input type="tel" name="phoneHome"/>
                 </div>
               </div>
+
+              <div class="field-pair-row">
+                <div class="form-field">
+                  <label>Phone (Work) <span class="req">*</span></label>
+                  <input type="tel" name="phoneWork"/>
+                </div>
+                <div class="form-field">
+                  <label>Fax Number</label>
+                  <input type="tel" name="faxNo"/>
+                </div>
+              </div>
+
+              <div class="field-pair-row">
+                <div class="form-field">
+                  <label>Email Address</label>
+                  <input type="email" name="email"/>
+                </div>
+                <div class="form-field"><!-- spacer --></div>
+              </div>
+
             </div>
           </div>
 
