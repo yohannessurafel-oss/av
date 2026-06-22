@@ -846,6 +846,270 @@ input[type="checkbox"] {
 .font-bold   { font-weight: 700; }
 .italic      { font-style: italic; }
 
+/* ══ Nav-menu anchor reset (links should look like nav items, not browser links) ══ */
+.nav-menu li a,
+.nav-label {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+  flex: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Shared Module Extensions — Client Maintenance / Disbursement
+   Ported from the legacy client-maintenance.css / disbursement.css
+   onto the style2.css v2.0 navy/amber token set so every module
+   (Loan Application, Client Master Registry, Loan Disbursement…)
+   renders from this single shared stylesheet.
+═══════════════════════════════════════════════════════════ */
+
+/* ══ Identity / Search Bar ═══════════════════════════════ */
+.identity-bar {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px 7px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow-sm);
+}
+.id-row { display: flex; gap: 18px; margin-bottom: 6px; align-items: center; }
+.id-row:last-child { margin-bottom: 0; }
+.id-field { display: flex; align-items: center; gap: 7px; flex: 1; }
+.id-field.full { flex: 1 1 100%; }
+.id-field label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--navy-800);
+  min-width: 96px;
+  text-align: right;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.id-input-wrap { display: flex; align-items: center; flex: 1; }
+.id-input {
+  flex: 1;
+  height: 19px;
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  font-size: 10.5px;
+  border-radius: 2px 0 0 2px;
+  outline: none;
+  background: var(--input-bg);
+  color: var(--text-dark);
+}
+.id-input:focus { border-color: var(--navy-500); box-shadow: 0 0 0 2px rgba(46,109,164,.2); }
+.id-input.wide { border-radius: 2px; }
+.id-input[readonly] { background: var(--input-ro); color: var(--text-muted); }
+.id-select {
+  flex: 1;
+  height: 19px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 0 4px;
+  font-size: 10.5px;
+  background: var(--input-bg);
+  outline: none;
+  color: var(--text-dark);
+}
+.id-select:focus { border-color: var(--navy-500); }
+.lookup-btn {
+  height: 19px;
+  width: 24px;
+  border: 1px solid var(--border);
+  border-left: none;
+  background: linear-gradient(to bottom, #eef4fc, #d8e8f5);
+  cursor: pointer;
+  border-radius: 0 2px 2px 0;
+  font-size: 10px;
+  color: var(--navy-700);
+  transition: background var(--transition);
+}
+.lookup-btn:hover { background: linear-gradient(to bottom, #c8ddf2, #b0cce8); }
+
+/* ══ Sub-Module Tab Bar (Client Maintenance / Disbursement) ══ */
+.tab-bar {
+  display: flex;
+  background: var(--navy-100);
+  border: 1px solid var(--border);
+  border-bottom: 2px solid var(--navy-700);
+  border-radius: 3px 3px 0 0;
+  overflow-x: auto;
+}
+.tab {
+  padding: 6px 14px;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-mid);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition);
+}
+.tab:hover { background: #c8ddf2; color: var(--navy-800); }
+.tab.active { background: var(--white); color: var(--navy-800); border-bottom-color: var(--amber); }
+.tab-panels {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+  margin-bottom: 8px;
+}
+.tab-panel { display: none; padding: 8px 6px 6px; }
+.tab-panel.active { display: block; }
+
+/* ══ Form Grid (label/input pairs, two per row) ══════════ */
+.form-grid { padding: 2px 4px 6px; }
+.field-pair-row { display: flex; gap: 16px; margin-bottom: 5px; }
+.form-field { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.form-field.full { flex: 1 1 100%; }
+.form-field label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--navy-800);
+  min-width: 118px;
+  text-align: right;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.form-field input[type="text"],
+.form-field input[type="number"],
+.form-field input[type="tel"],
+.form-field input[type="email"],
+.form-field input[type="date"],
+.form-field select,
+.form-field textarea {
+  flex: 1;
+  min-width: 0;
+}
+.form-field textarea { height: auto; resize: vertical; padding: 4px 6px; }
+.form-field input.computed,
+.form-field input[readonly] { background: var(--input-ro); color: var(--text-muted); }
+.form-field .short-input { max-width: 76px; flex: 0 0 76px; }
+.form-field .id-input-wrap { flex: 1; }
+
+.em-note { font-size: 10px; color: var(--red); padding: 4px 6px 0; font-style: italic; }
+.emp-type-row { display: flex; gap: 22px; padding: 6px 6px 2px; }
+.radio-label { display: flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; color: var(--navy-800); cursor: pointer; }
+
+/* ══ Behind The Scene Panel ═══════════════════════════════ */
+.bts-section { margin: 10px 0 4px; border-radius: 0 0 2px 2px; overflow: hidden; }
+.bts-header {
+  background: var(--navy-900);
+  color: var(--amber);
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.bts-grid {
+  background: var(--navy-800);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  padding: 8px 10px;
+}
+.bts-field { display: flex; align-items: center; gap: 6px; }
+.bts-field label { font-size: 9px; color: rgba(255,255,255,.7); min-width: 78px; text-align: right; white-space: nowrap; flex-shrink: 0; }
+.bts-field input {
+  flex: 1;
+  height: 18px;
+  border: 1px solid rgba(255,255,255,.25);
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.92);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+
+/* ══ Date Dropdowns ═══════════════════════════════════════ */
+.date-dropdowns { display: flex; gap: 4px; flex: 1; }
+.date-dropdowns .inline-sel {
+  flex: 1;
+  height: 19px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 0 3px;
+  font-size: 10px;
+  background: var(--input-bg);
+  outline: none;
+}
+.date-dropdowns .inline-sel:focus { border-color: var(--navy-500); }
+
+/* ══ Required Field Error Highlight ═══════════════════════ */
+.field-error {
+  border-color: var(--red) !important;
+  background: var(--red-light) !important;
+  box-shadow: 0 0 0 2px rgba(192,57,43,.18) !important;
+}
+
+/* ══ Record Nav Arrows (Prev/Next, used in action-sidebar) ══ */
+.nav-arrows { display: flex; gap: 4px; margin: 0 0 4px; }
+.arrow-btn {
+  flex: 1;
+  height: 22px;
+  background: linear-gradient(to bottom, #f8fafc, #dce8f4);
+  border: 1px solid var(--border);
+  border-bottom: 2px solid #88aac8;
+  color: var(--navy-800);
+  font-size: 10px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background var(--transition);
+}
+.arrow-btn:hover { background: linear-gradient(to bottom, #ddeaf7, #b8d0ec); }
+.arrow-btn:disabled { opacity: .38; cursor: not-allowed; }
+
+/* ══ Placeholder rows inside data tables ══════════════════ */
+.placeholder-text {
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 18px !important;
+}
+
+/* ══ Disbursement Confirmation Modal ══════════════════════ */
+.disb-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6,29,58,.55);
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity .2s ease, visibility .2s ease;
+}
+.disb-modal-overlay.active { visibility: visible; opacity: 1; }
+.disb-modal-window {
+  background: var(--white);
+  border: 2px solid var(--navy-700);
+  border-top: 4px solid var(--amber);
+  border-radius: 5px;
+  width: 420px;
+  max-width: 94vw;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.disb-modal-body { padding: 14px 16px 6px; }
+.disb-warning { color: var(--red); font-weight: 700; margin-bottom: 10px; font-size: 11px; }
+.disb-confirm-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.disb-confirm-table td { padding: 6px 4px; border-bottom: 1px solid var(--border-light); }
+.disb-confirm-table td:first-child { color: var(--text-muted); width: 50%; }
+.disb-modal-footer {
+  background: var(--navy-50);
+  padding: 9px 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--border-light);
+}
+
 /* ══ Print ════════════════════════════════════════════════ */
 @media print {
   body { background: none; padding: 0; }
