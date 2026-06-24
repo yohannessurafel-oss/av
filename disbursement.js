@@ -67,11 +67,15 @@ function showToast(msg, variant = 'info') {
 }
 
 /* ── Form enable/disable ─────────────────────────────────── */
+/* ── Updated Form enable/disable ─────────────────────────── */
 function setFormControlsState(enabled) {
   document.querySelectorAll('.tab-panel input, .tab-panel select')
-    .forEach(el => { el.disabled = !enabled; });
+    .forEach(el => { 
+      if (el.id !== 'fCustomerName') {
+        el.disabled = !enabled; 
+      }
+    });
 }
-
 /* ── Clear form ──────────────────────────────────────────── */
 function clearFormLayout() {
   document.querySelectorAll('.tab-panel input, .tab-panel select').forEach(el => {
@@ -210,14 +214,19 @@ document.getElementById('btnView').addEventListener('click', async () => {
 });
 
 /* ── ADD button ──────────────────────────────────────────── */
+/* ── Updated ADD button ──────────────────────────────────── */
 document.getElementById('btnAdd').addEventListener('click', () => {
   if (!currentRecord) {
     return showToast('Enter an Application ID and click 🔍 View before adding.', 'error');
   }
   setMode('add');
+  
+  // Explicitly ensure parameters remain filled when changing states
+  document.getElementById('fCustomerName').value    = currentRecord.client_name || '';
+  document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
+  
   showToast('Fields unlocked. Confirm details then click Save.');
 });
-
 /* ── EDIT button ─────────────────────────────────────────── */
 document.getElementById('btnEdit').addEventListener('click', () => {
   if (!currentRecord) {
