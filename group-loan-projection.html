@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF  group-loan-projection</title>
+<title>AVMF — 02 Center Loan Application</title>
 <link rel="stylesheet" href="style2.css"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -23,7 +23,7 @@
       </svg>
       <div class="title-text-block">
         <span class="title-main">Africa Village Microfinance</span>
-        <span class="title-sub">AVMF — Center Loan Application</span>
+        <span class="title-sub">02 — Center Loan Application</span>
       </div>
     </div>
     <div class="title-meta">
@@ -44,25 +44,25 @@
         <span class="sidebar-header-icon">⚙</span>
         Credit Lifecycle Operations
       </div>
-       <ul class="nav-menu">
-        <li><span class="nav-num">AVMF</span><a href="client-maintenance.html" class="nav-label">Client maintenance</a></li>
-        <li class="active"><span class="nav-num">AVMF</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
-        <li><span class="nav-num">AVMF</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
-        <li><span class="nav-num">AVMF</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
-        <li><span class="nav-num">AVMF</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
-        <li><span class="nav-num">AVMF</span><a href="loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
-        <li><span class="nav-num">AVMF</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
-        <li><span class="nav-num">AVMF</span><a href="guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
-        <li><span class="nav-num">AVMF</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
-        <li><span class="nav-num">AVMF</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
-        <li><span class="nav-num">AVMF</span><a href="disbursement.html" class="nav-label">Loan Disbursement</a></li>
-         <li><span class="nav-num">AVMF</span><a href="client-directory.html" class="nav-label">Client Views </a></li>
+      <ul class="nav-menu">
+        <li><span class="nav-num">00</span><a href="client-maintenance.html" class="nav-label">Client Maintenance</a></li>
+        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
+        <li class="active"><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
+        <li><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
+        <li><span class="nav-num">04</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
+        <li><span class="nav-num">05</span><a href="loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
+        <li><span class="nav-num">06</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
+        <li><span class="nav-num">07</span><a href="guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
+        <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
+        <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
+        <li><span class="nav-num">10</span><a href="disbursement.html" class="nav-label">Loan Disbursement</a></li>
+        <li><span class="nav-num">00</span><a href="client-directory.html" class="nav-label">Client Views</a></li>
       </ul>
       <div class="sidebar-footer-brand">
         <svg viewBox="0 0 100 100" width="28" height="28">
           <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
         </svg>
-       
+        <span>AVMF CBS v2.0</span>
       </div>
     </div>
 
@@ -72,50 +72,228 @@
           <span class="badge-icon">👥</span>
           Center Loan Application — Collective Batch Projection Setup
         </div>
+
         <form class="module-form grid-two-column" autocomplete="off">
+
+          <!-- ── LEFT COLUMN — Batch Header ─────────────────── -->
           <div class="sub-column">
-            <div class="form-row"><label>Branch ID</label><select id="groupBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select><input type="text" id="groupBranchName" class="width-remaining" placeholder="Branch name" readonly/></div>
-            <div class="form-row"><label>Center ID</label><div class="input-group width-full"><input type="text" id="groupCenterId"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Scheme ID</label><div class="input-group width-full"><input type="text" id="groupSchemeId"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Disbursement Date</label><input type="date" id="groupDisbursementDate" class="width-full"/></div>
-            <div class="form-row"><label>Mode Of Disbursement</label><select id="groupModeOfDisbursement" class="width-full"><option value="">--Select--</option><option>Transfer</option><option>Cash</option></select></div>
-            <div class="form-row"><label>File Number</label><input type="text" id="groupFileNumber" class="width-full"/></div>
-            <div class="form-row"><label>Fund ID</label><div class="input-group width-full"><input type="text" id="groupFundId"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Loan Purpose</label><input type="text" id="groupLoanPurpose" class="width-full" placeholder="e.g. Working Capital"/></div>
-            <div class="section-divider"></div>
-            <div class="form-row"><label>Client ID</label><input type="text" id="groupClientId" class="width-full"/></div>
-            <div class="form-row"><label>Client Name</label><input type="text" id="groupClientName" class="width-full" readonly placeholder="Auto-filled"/></div>
-            <div class="form-row"><label>Repayment Acc ID</label><div class="input-group width-full"><input type="text" id="groupRepaymentAccId"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Loan Amount (ETB)</label><input type="number" id="groupLoanAmount" class="text-right width-full"/></div>
-            <div class="form-row"><label>Loan Level</label><input type="text" id="groupLoanLevel" class="width-full"/></div>
-            <div class="form-row"><label>Term</label><input type="number" id="groupTerm" class="text-right width-full"/></div>
-            <div class="form-row"><label>Interest Rate (%)</label><input type="number" id="groupInterestRate" class="text-right width-full" step="0.01"/></div>
-            <div class="form-row"><label>Loan Period</label><input type="text" id="groupLoanPeriod" class="width-full"/></div>
+            <div class="card-header-banner">Batch Header</div>
+
+            <div class="form-row">
+              <label>Branch ID</label>
+              <select id="groupBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select>
+              <input type="text" id="groupBranchName" class="width-remaining" placeholder="Branch name" readonly/>
+            </div>
+            <div class="form-row">
+              <label>Center ID</label>
+              <div class="input-group width-full">
+                <input type="text" id="groupCenterId" placeholder="e.g. CTR-001"/>
+                <span class="search-btn" title="Verify Center ID">🔍</span>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Scheme ID</label>
+              <div class="input-group width-full">
+                <input type="text" id="groupSchemeId"/>
+                <span class="search-btn" title="Look up Scheme">🔍</span>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Disbursement Date</label>
+              <input type="date" id="groupDisbursementDate" class="width-full"/>
+            </div>
+            <div class="form-row">
+              <label>Mode Of Disbursement</label>
+              <select id="groupModeOfDisbursement" class="width-full">
+                <option value="">-- Select --</option>
+                <option value="Transfer">Transfer</option>
+                <option value="Cash">Cash</option>
+                <option value="Cheque">Cheque</option>
+                <option value="Mobile Money">Mobile Money</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>File Number</label>
+              <input type="text" id="groupFileNumber" class="width-full"/>
+            </div>
+            <div class="form-row">
+              <label>Fund ID</label>
+              <div class="input-group width-full">
+                <input type="text" id="groupFundId"/>
+                <span class="search-btn" title="Look up Fund">🔍</span>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Loan Purpose</label>
+              <input type="text" id="groupLoanPurpose" class="width-full" placeholder="e.g. Working Capital"/>
+            </div>
+
+            <!-- ── Member Entry ──────────────────────────────── -->
+            <div class="card-header-banner" style="margin-top:10px;">Member Entry</div>
+
+            <div class="form-row">
+              <label>Client ID</label>
+              <div class="input-group width-full">
+                <input type="text" id="groupClientId" placeholder="Enter client ID"/>
+                <span class="search-btn" id="btnLookupClient" title="Look up client">🔍</span>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Client Name</label>
+              <input type="text" id="groupClientName" class="width-full" readonly placeholder="Auto-filled"/>
+            </div>
+            <div class="form-row">
+              <label>Repayment Acc ID</label>
+              <div class="input-group width-full">
+                <input type="text" id="groupRepaymentAccId"/>
+                <span class="search-btn" title="Look up account">🔍</span>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Loan Amount (ETB)</label>
+              <input type="number" id="groupLoanAmount" class="text-right width-full" min="0" step="0.01"/>
+            </div>
+            <div class="form-row">
+              <label>Loan Level</label>
+              <input type="number" id="groupLoanLevel" class="width-full" min="1"/>
+            </div>
           </div>
+
+          <!-- ── RIGHT COLUMN ──────────────────────────────── -->
           <div class="sub-column">
-            <div class="form-row"><label class="shifted-label">Advance Type</label><input type="text" id="groupAdvanceType" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Credit Officer</label><input type="text" id="groupCreditOfficer" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Product ID</label><select id="groupProductId" class="width-full" data-always-enabled="1"><option value="">-- Select Product --</option></select></div>
-            <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" id="groupCurrencyId" class="width-full" value="ETB"/></div>
-            <div class="form-row"><label class="shifted-label">Line Of Business</label><input type="text" id="groupLineOfBusiness" class="width-full" placeholder="e.g. Retail Trade"/></div>
-            <div class="form-spacer" style="height:90px;"></div>
-            <div class="form-row"><label class="shifted-label">Loan Cycle</label><input type="text" id="groupLoanCycle" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Group Class</label><input type="text" id="groupGroupClass" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Repayment Term</label><input type="text" id="groupRepaymentTerm" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Grace Period</label><input type="text" id="groupGracePeriod" class="width-full"/></div>
+            <div class="card-header-banner">Loan Parameters</div>
+
+            <div class="form-row">
+              <label class="shifted-label">Advance Type</label>
+              <input type="text" id="groupAdvanceType" class="width-full"/>
+            </div>
+            <div class="form-row">
+              <label class="shifted-label">Credit Officer</label>
+              <input type="text" id="groupCreditOfficer" class="width-full"/>
+            </div>
+            <div class="form-row">
+              <label class="shifted-label">Product ID</label>
+              <select id="groupProductId" class="width-full" data-always-enabled="1">
+                <option value="">-- Select Product --</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="shifted-label">Currency</label>
+              <select id="groupCurrencyId" class="width-full">
+                <option value="ETB" selected>ETB — Ethiopian Birr</option>
+                <option value="USD">USD — US Dollar</option>
+                <option value="EUR">EUR — Euro</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="shifted-label">Line Of Business</label>
+              <input type="text" id="groupLineOfBusiness" class="width-full" placeholder="e.g. Retail Trade"/>
+            </div>
+            <div class="form-row">
+              <label class="shifted-label">Group Class</label>
+              <input type="text" id="groupGroupClass" class="width-full"/>
+            </div>
+
+            <!-- Member parameters (right side) -->
+            <div class="card-header-banner" style="margin-top:10px;">Member Parameters</div>
+
+            <div class="form-row">
+              <label class="shifted-label">Term (months)</label>
+              <input type="number" id="groupTerm" class="text-right width-full" min="1"/>
+            </div>
+            <div class="form-row">
+              <label class="shifted-label">Interest Rate (%)</label>
+              <input type="number" id="groupInterestRate" class="text-right width-full" step="0.01" min="0"/>
+            </div>
+            <div class="form-row">
+              <label class="shifted-label">Penalty Rate (%)</label>
+              <input type="number" id="groupPenaltyRate" class="text-right width-full" step="0.01" min="0"/>
+            </div>
+            <div class="form-row">
+              <label class="shifted-label">Loan Period</label>
+              <input type="text" id="groupLoanPeriod" class="width-full" placeholder="e.g. Monthly"/>
+            </div>
+            <div class="form-row">
+              <label class="shifted-label">Repayment Term</label>
+              <input type="text" id="groupRepaymentTerm" class="width-full"/>
+            </div>
+            <div class="form-row">
+              <label class="shifted-label">Frequency</label>
+              <select id="groupFrequency" class="width-full">
+                <option value="Monthly">Monthly</option>
+                <option value="Weekly">Weekly</option>
+                <option value="Bi-Weekly">Bi-Weekly</option>
+                <option value="Quarterly">Quarterly</option>
+                <option value="Lump Sum">Lump Sum</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="shifted-label">Loan Cycle</label>
+              <input type="number" id="groupLoanCycle" class="width-full" min="1"/>
+            </div>
+            <div class="form-row">
+              <label class="shifted-label">Total Savings (ETB)</label>
+              <input type="number" id="groupTotalSavings" class="text-right width-full" min="0" step="0.01"/>
+            </div>
+            <div class="form-row">
+              <label class="shifted-label">Grace Period</label>
+              <input type="text" id="groupGracePeriod" class="width-full"/>
+            </div>
           </div>
         </form>
+
+        <!-- ── Batch Row Action Buttons ──────────────────────── -->
         <div class="action-row-container">
-          <button type="button" id="btnGroupAlter" class="action-btn-inline">Alter</button>
-          <button type="button" id="btnGroupUpdate" class="action-btn-inline">Update</button>
-          <button type="button" id="btnGroupClear" class="action-btn-inline">Clear</button>
+          <button type="button" id="btnGroupUpdate" class="action-btn-inline" title="Add the current member entry as a new row in the batch grid">
+            ➕ Add Member to Batch
+          </button>
+          <button type="button" id="btnGroupAlter" class="action-btn-inline" title="Update the selected (highlighted) row in the batch grid with the current form values">
+            ✏️ Update Selected Row
+          </button>
+          <button type="button" id="btnGroupRemove" class="action-btn-inline" style="background:linear-gradient(to bottom,#f8d0d0,#f0a0a0);border-color:#c06060;color:#7a0000;" title="Remove the selected (highlighted) row from the batch grid">
+            🗑 Remove Selected Row
+          </button>
+          <button type="button" id="btnGroupClear" class="action-btn-inline" title="Clear the member entry fields above (batch header fields are kept)">
+            🧹 Clear Member Fields
+          </button>
+          <span id="batchRowCount" style="font-size:12px;color:var(--color-text-secondary,#666);margin-left:auto;align-self:center;padding-right:4px;">0 member(s)</span>
         </div>
-        <div class="grid-container" style="height:80px;">
+
+        <!-- ── Batch Grid ─────────────────────────────────────── -->
+        <div class="grid-container" style="height:180px;">
           <table class="ledger-grid">
-            <thead><tr><th>Group ID</th><th>Client ID</th><th>Name</th><th>Loan Cycle</th><th>Loan Level</th><th>Loan Amount</th><th>Term</th><th>Loan Period</th><th>Repayment Term</th><th>Frequency</th><th>Interest Rate</th><th>Penalty Rate</th><th>Total Savings</th></tr></thead>
-            <tbody id="groupLoanGridBody"><tr id="groupLoanGridEmptyRow"><td colspan="13" class="text-center gray-text italic">No records to display.</td></tr></tbody>
+            <thead>
+              <tr>
+                <th>Group ID</th>
+                <th>Client ID</th>
+                <th>Name</th>
+                <th>Loan Cycle</th>
+                <th>Loan Level</th>
+                <th class="text-right">Loan Amount</th>
+                <th>Term</th>
+                <th>Loan Period</th>
+                <th>Repayment Term</th>
+                <th>Frequency</th>
+                <th class="text-right">Interest Rate</th>
+                <th class="text-right">Penalty Rate</th>
+                <th class="text-right">Total Savings</th>
+              </tr>
+            </thead>
+            <tbody id="groupLoanGridBody">
+              <tr id="groupLoanGridEmptyRow">
+                <td colspan="13" class="text-center gray-text italic">No records to display. Use "Add Member to Batch" above.</td>
+              </tr>
+            </tbody>
+            <tfoot id="groupLoanGridFoot" style="display:none;">
+              <tr style="font-weight:600;background:var(--color-background-secondary,#f5f5f5);">
+                <td colspan="5" style="padding:4px 8px;">TOTALS</td>
+                <td class="text-right" id="gridTotalAmount" style="padding:4px 8px;">0.00</td>
+                <td colspan="7"></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
+
         <div class="sub-footer-token" id="statusBar">Status: Ready</div>
       </div>
     </div>
