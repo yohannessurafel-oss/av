@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AVMF — Delinquency & PAR Dashboard</title>
+<link rel="stylesheet" href="style2.css"/>
+<style>
+  .kpi-row { display: flex; gap: 12px; margin-bottom: 16px; }
+  .kpi-card { flex: 1; background: #fff; border: 1px solid #c0c0c0; padding: 12px; box-shadow: 2px 2px 0 rgba(0,0,0,0.05); }
+  .kpi-title { font-size: 11px; text-transform: uppercase; color: #555; font-weight: bold; }
+  .kpi-value { font-size: 22px; font-weight: bold; color: #1a365d; margin-top: 4px; }
+  .status-badge { padding: 2px 6px; font-size: 11px; font-weight: bold; border-radius: 2px; text-transform: uppercase; }
+  .badge-par0 { background: #e2e8f0; color: #4a5568; }
+  .badge-par30 { background: #feebc8; color: #c05621; }
+  .badge-par90 { background: #fed7d7; color: #9b2c2c; }
+</style>
+</head>
+<body>
+
+<div class="window-container">
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <div class="title-text-context">
+        <span>Africa Village Microfinance</span>
+        <span>Risk Operations — Portfolio At Risk (PAR) Control Center</span>
+      </div>
+    </div>
+    <div class="title-controls"><span title="Close">✕</span></div>
+  </div>
+
+  <div class="workspace">
+    <div class="main-content">
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-title">Total Portfolio Outstanding</div>
+          <div class="kpi-value" id="kpiTotalActive">—</div>
+        </div>
+        <div class="kpi-card" style="border-left: 4px solid #dd6b20;">
+          <div class="kpi-title">PAR Portfolio (>30 Days)</div>
+          <div class="kpi-value" id="kpiPAR30">—</div>
+        </div>
+        <div class="kpi-card" style="border-left: 4px solid #e53e3e;">
+          <div class="kpi-title">Non-Performing Loans (NPL)</div>
+          <div class="kpi-value" id="kpiNPL">—</div>
+        </div>
+      </div>
+
+      <div class="action-filter-bar">
+        <div class="search-input-wrapper">
+          <input type="text" id="searchAppId" placeholder="Filter by Application/Account ID..." />
+          <button id="btnRefresh" class="action-btn" style="width:auto; padding:0 12px;">🔄 Refresh Dashboard</button>
+        </div>
+      </div>
+
+      <div class="table-frame">
+        <table id="delinquencyTable">
+          <thead>
+            <tr>
+              <th>Application ID</th>
+              <th>Days Past Due</th>
+              <th>Overdue Principal</th>
+              <th>Overdue Interest</th>
+              <th>Accrued Penalties</th>
+              <th>Risk Bucket</th>
+              <th>Collection Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="7" class="text-center gray-text italic">Loading delinquency status ledger matrix...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="sub-footer-token" id="statusBar">Status: Ready</div>
+    </div>
+  </div>
+</div>
+
+<script src="delinquency-dashboard.js"></script>
+</body>
+</html>
