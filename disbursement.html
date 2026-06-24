@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF — Loan Disbursement</title>
+<title>AVMF — 10 Loan Disbursement</title>
 <link rel="stylesheet" href="style2.css"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -48,18 +47,18 @@
         Credit Lifecycle Operations
       </div>
       <ul class="nav-menu">
-        <li><span class="nav-num">AVMF</span><a href="client-maintenance.html" class="nav-label">Client maintenance</a></li>
-        <li class="active"><span class="nav-num">AVMF</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
-        <li><span class="nav-num">AVMF</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
-        <li><span class="nav-num">AVMF</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
-        <li><span class="nav-num">AVMF</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
-        <li><span class="nav-num">AVMF</span><a href="loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
-        <li><span class="nav-num">AVMF</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
-        <li><span class="nav-num">AVMF</span><a href="guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
-        <li><span class="nav-num">AVMF</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
-        <li><span class="nav-num">AVMF</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
-        <li><span class="nav-num">AVMF</span><a href="disbursement.html" class="nav-label">Loan Disbursement</a></li>
-         <li><span class="nav-num">AVMF</span><a href="client-directory.html" class="nav-label">Client Views </a></li>
+        <li><span class="nav-num">00</span><a href="client-maintenance.html" class="nav-label">Client Maintenance</a></li>
+        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
+        <li><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
+        <li><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
+        <li><span class="nav-num">04</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
+        <li><span class="nav-num">05</span><a href="loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
+        <li><span class="nav-num">06</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
+        <li><span class="nav-num">07</span><a href="guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
+        <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
+        <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
+        <li class="active"><span class="nav-num">10</span><a href="disbursement.html" class="nav-label">Loan Disbursement</a></li>
+        <li><span class="nav-num">00</span><a href="client-directory.html" class="nav-label">Client Directory</a></li>
       </ul>
       <div class="sidebar-footer-brand">
         <svg viewBox="0 0 100 100" width="28" height="28">
@@ -72,6 +71,7 @@
     <!-- ── Main Content Canvas ─────────────────────────── -->
     <div class="main-content">
       <div class="module-view active" id="view-disbursement">
+
         <div class="context-badge-bar">
           <span class="badge-icon">💵</span>
           Transaction Posting — Loan Disbursement &amp; Amortization Schedule
@@ -89,7 +89,7 @@
             </div>
             <div class="id-field">
               <label>Customer Name</label>
-              <input type="text" id="fCustomerName" class="id-input wide" readonly placeholder="Auto-populated"/>
+              <input type="text" id="fCustomerName" class="id-input wide" readonly placeholder="Auto-populated from application"/>
             </div>
           </div>
         </div>
@@ -143,7 +143,7 @@
               <div class="field-pair-row">
                 <div class="form-field">
                   <label>Contra Account ID <span class="req">*</span></label>
-                  <input type="text" id="fContraAccountId" placeholder="e.g. GL-100204"/>
+                  <input type="text" id="fContraAccountId" placeholder="Auto-filled from repayment account"/>
                 </div>
                 <div class="form-field">
                   <label>Cheque / Reference No</label>
@@ -201,6 +201,7 @@
         </div><!-- /tab-panels -->
 
         <div class="sub-footer-token" id="statusBar">Status: Ready</div>
+
       </div>
     </div><!-- /main-content -->
 
@@ -218,7 +219,7 @@
   </div><!-- /workspace -->
 </div><!-- /window-container -->
 
-<!-- Confirmation Modal -->
+<!-- ══ Confirmation Modal ══════════════════════════════ -->
 <div id="disbursementModal" class="disb-modal-overlay">
   <div class="disb-modal-window">
     <div class="modal-header" style="border-radius:0;">
@@ -227,15 +228,17 @@
     <div class="disb-modal-body">
       <p class="disb-warning">⚠️ Verify all variables before posting to the general ledger:</p>
       <table class="disb-confirm-table">
-        <tr><td><strong>Account ID:</strong></td><td><span id="mdAccountId">—</span></td></tr>
-        <tr><td><strong>Mode of Disbursement:</strong></td><td><span id="mdPaymentMode">—</span></td></tr>
-        <tr><td><strong>Account Type:</strong></td><td><span id="mdAccountType">—</span></td></tr>
-        <tr><td><strong>Contra Account ID:</strong></td><td><span id="mdContraAccountId">—</span></td></tr>
+        <tr><td><strong>Account ID:</strong></td>           <td><span id="mdAccountId">—</span></td></tr>
+        <tr><td><strong>Mode of Disbursement:</strong></td> <td><span id="mdPaymentMode">—</span></td></tr>
+        <tr><td><strong>Account Type:</strong></td>         <td><span id="mdAccountType">—</span></td></tr>
+        <tr><td><strong>Contra Account ID:</strong></td>    <td><span id="mdContraAccountId">—</span></td></tr>
       </table>
     </div>
     <div class="disb-modal-footer">
-      <button class="action-btn" id="btnConfirmCancel" style="width:auto;padding:0 16px;">Abort</button>
-      <button class="action-btn" id="btnConfirmCommit" style="width:auto;padding:0 16px;background:linear-gradient(to bottom,var(--amber-light),var(--amber));border-color:var(--amber-600);color:var(--navy-900);">Post Disbursement</button>
+      <button class="action-btn" id="btnConfirmCancel"
+              style="width:auto;padding:0 16px;">Abort</button>
+      <button class="action-btn" id="btnConfirmCommit"
+              style="width:auto;padding:0 16px;background:linear-gradient(to bottom,var(--amber-light),var(--amber));border-color:var(--amber-600);color:var(--navy-900);">Post Disbursement</button>
     </div>
   </div>
 </div>
