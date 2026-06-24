@@ -1,39 +1,44 @@
-/* ─────────────────────────────────────────────────────────
-   Loan Disbursement Execution Controller Module
-   Africa Village Microfinance CBS
-   ───────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════
+   Africa Village Microfinance — 10 Loan Disbursement
+   disbursement.js  v3.0
+   Tables written:
+     → loan_disbursement  (one row per disbursement event)
+     → loan_ledger        (disbursement row + one row per instalment)
+   Tables read:
+     → loanmasterrecords              (application lookup)
+     → lendingproductparametermatrix  (product_name_title)
+═══════════════════════════════════════════════════════════ */
 'use strict';
 
-// ── Supabase REST API Setup ──────────────────────────────
+/* ── Supabase config ────────────────────────────────────── */
 const SUPABASE_URL = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-/**
- * Universal Data Fetching Utility for Supabase PostgREST API
- */
-async function sbFetch(path, options = {}) {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...options,
+/* ── HTTP helper ─────────────────────────────────────────── */
+async function sbFetch(path, opts = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
     headers: {
-      'apikey': SUPABASE_KEY,
+      'apikey':        SUPABASE_KEY,
       'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': options.prefer || 'return=representation',
-      ...(options.headers || {})
+      'Content-Type':  'application/json',
+      'Prefer':        opts.prefer || 'return=representation',
+      ...(opts.headers || {})
     }
   });
-  if (!response.ok) {
-    const errorDetails = await response.json().catch(() => ({}));
-    throw new Error(errorDetails.message || `HTTP Execution Refusal: ${response.status}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `HTTP ${res.status}`);
   }
-  return response.status === 204 ? null : response.json();
+  return res.status === 204 ? null : res.json();
 }
 
-// ── Application Core Operational State Parameters ────────
-let mode = 'view';
-let currentRecord = null;
+/* ── Module state ────────────────────────────────────────── */
+let mode          = 'view';
+let currentRecord = null;   // row from loanmasterrecords
+let _productName  = '';     // resolved from lendingproductparametermatrix
 
-// ── System Date ──────────────────────────────────────────
+/* ── System date ─────────────────────────────────────────── */
 (function initDate() {
   const el = document.getElementById('systemDate');
   if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
@@ -41,251 +46,395 @@ let currentRecord = null;
   });
 })();
 
-// UI Tab Navigation Logic
-document.querySelectorAll('.tab').forEach(button => {
-  button.addEventListener('click', () => {
+/* ── Tab navigation ──────────────────────────────────────── */
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    button.classList.add('active');
-    document.getElementById(`tab-${button.dataset.tab}`).classList.add('active');
+    btn.classList.add('active');
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
   });
 });
 
-// Toast Feedback Notification Pipeline
-const _toastElD = document.getElementById('toastNotification');
-let _toastTimerD = null;
-function showToast(message, variant = 'info') {
-  _toastElD.textContent = message;
-  _toastElD.className = `toast show ${variant}`;
-  clearTimeout(_toastTimerD);
-  _toastTimerD = setTimeout(() => { _toastElD.className = 'toast'; }, 4000);
+/* ── Toast ───────────────────────────────────────────────── */
+const _toastEl = document.getElementById('toastNotification');
+let _toastTimer = null;
+function showToast(msg, variant = 'info') {
+  _toastEl.textContent = msg;
+  _toastEl.className = `toast show ${variant}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { _toastEl.className = 'toast'; }, 4000);
 }
 
-// Toggle Input Fields Form State
+/* ── Form enable/disable ─────────────────────────────────── */
 function setFormControlsState(enabled) {
-  const entries = document.querySelectorAll('.tab-panel input, .tab-panel select');
-  entries.forEach(item => item.disabled = !enabled);
+  document.querySelectorAll('.tab-panel input, .tab-panel select')
+    .forEach(el => { el.disabled = !enabled; });
 }
 
-// Clear Form Input Layout Clear out
+/* ── Clear form ──────────────────────────────────────────── */
 function clearFormLayout() {
-  document.querySelectorAll('.tab-panel input, .tab-panel select').forEach(element => {
-    if (element.id !== 'fAccountId') element.value = '';
+  document.querySelectorAll('.tab-panel input, .tab-panel select').forEach(el => {
+    if (el.id !== 'fAccountId') el.value = '';
   });
-  document.getElementById('repaymentGrid').querySelector('tbody').innerHTML = 
-    `<tr><td colspan="7" class="placeholder-text">Enter transaction parameters and click save to calculate amortization profile layout.</td></tr>`;
+  document.getElementById('repaymentGrid').querySelector('tbody').innerHTML =
+    `<tr><td colspan="7" class="placeholder-text">Enter transaction parameters and click Save to generate amortization schedule.</td></tr>`;
 }
 
-// Global Core State Workflow Matrix
+/* ── Mode control ────────────────────────────────────────── */
 function setMode(newMode) {
   mode = newMode;
-  const isEditing = (newMode === 'add' || newMode === 'edit');
+  const isEditing = newMode === 'add' || newMode === 'edit';
   setFormControlsState(isEditing);
 
-  // Enforce rigid core input state flow rules
-  document.getElementById('fAccountId').disabled = (newMode !== 'view');
+  /* Account ID field stays editable in view mode (for new lookups) */
+  document.getElementById('fAccountId').disabled = false;
+
   document.getElementById('btnAdd').disabled    = isEditing;
-  document.getElementById('btnEdit').disabled   = (isEditing || !currentRecord);
+  document.getElementById('btnEdit').disabled   = isEditing || !currentRecord;
   document.getElementById('btnSave').disabled   = !isEditing;
   document.getElementById('btnCancel').disabled = !isEditing;
 
-  // Update status bar
   const sb = document.getElementById('statusBar');
-  if (sb) sb.textContent = `Mode: ${newMode.charAt(0).toUpperCase() + newMode.slice(1)}${currentRecord ? ' — Account: ' + (document.getElementById('fAccountId')?.value || '') : ''}`;
+  if (sb) sb.textContent = `Mode: ${newMode.charAt(0).toUpperCase() + newMode.slice(1)}` +
+    (currentRecord ? ` — Account: ${document.getElementById('fAccountId').value}` : '');
 }
 
-/* ── Amortization Engine Matrix: Straight Line Amortization ── */
-function runAmortizationCalculation(principal, annualRate, totalMonths, startingValueDate) {
-  const tbody = document.getElementById('repaymentGrid').querySelector('tbody');
-  tbody.innerHTML = '';
+/* ══════════════════════════════════════════════════════════
+   AMORTIZATION ENGINE
+   Returns an array of instalment objects (used both for the
+   on-screen table and for writing to loan_ledger).
+══════════════════════════════════════════════════════════ */
+function buildAmortizationSchedule(principal, annualRate, tenor, startDate) {
+  const rows = [];
+  let balance           = parseFloat(principal);
+  const months          = parseInt(tenor);
+  const monthlyRate     = (parseFloat(annualRate) / 100) / 12;
+  const flatPrincipal   = balance / months;
+  let date              = startDate ? new Date(startDate) : new Date();
 
-  let balance = parseFloat(principal);
-  const tenor = parseInt(totalMonths);
-  const monthlyRateFactor = (parseFloat(annualRate) / 100) / 12;
-  const flatPrincipalInstallment = balance / tenor;
-  
-  let processingDate = startingValueDate ? new Date(startingValueDate) : new Date();
+  for (let i = 1; i <= months; i++) {
+    const interest     = balance * monthlyRate;
+    const totalDue     = flatPrincipal + interest;
+    const openBalance  = balance;
+    balance           -= flatPrincipal;
+    date.setMonth(date.getMonth() + 1);
 
-  for (let step = 1; step <= tenor; step++) {
-    const interestComponent = balance * monthlyRateFactor;
-    const grossDuePayment = flatPrincipalInstallment + interestComponent;
-    const initialBalance = balance;
-    balance -= flatPrincipalInstallment;
-
-    processingDate.setMonth(processingDate.getMonth() + 1);
-    const dateString = processingDate.toISOString().split('T')[0];
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${step}</td>
-      <td>${dateString}</td>
-      <td>${initialBalance.toFixed(2)} ETB</td>
-      <td>${flatPrincipalInstallment.toFixed(2)} ETB</td>
-      <td>${interestComponent.toFixed(2)} ETB</td>
-      <td><strong>${grossDuePayment.toFixed(2)} ETB</strong></td>
-      <td>${Math.abs(balance) < 0.01 ? '0.00' : balance.toFixed(2)} ETB</td>
-    `;
-    tbody.appendChild(tr);
+    rows.push({
+      instalment_no:   i,
+      payment_date:    date.toISOString().split('T')[0],
+      opening_balance: openBalance,
+      principal_paid:  flatPrincipal,
+      interest:        interest,
+      total_due:       totalDue,
+      closing_balance: Math.abs(balance) < 0.01 ? 0 : balance
+    });
   }
+  return rows;
 }
 
-/* ── Core 7-Step Business Rule Pipeline Logic ───────────── */
+/* Render schedule to the on-screen grid */
+function renderScheduleGrid(rows) {
+  const tbody = document.getElementById('repaymentGrid').querySelector('tbody');
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.instalment_no}</td>
+      <td>${r.payment_date}</td>
+      <td>${r.opening_balance.toFixed(2)} ETB</td>
+      <td>${r.principal_paid.toFixed(2)} ETB</td>
+      <td>${r.interest.toFixed(2)} ETB</td>
+      <td><strong>${r.total_due.toFixed(2)} ETB</strong></td>
+      <td>${r.closing_balance.toFixed(2)} ETB</td>
+    </tr>`).join('');
+}
 
-// STEP 2: CLICK VIEW — Query master backend table schemas to populate customer details
+/* ══════════════════════════════════════════════════════════
+   STEP 1 + 2 — VIEW: lookup application from loanmasterrecords
+   Also resolves product_name from lendingproductparametermatrix
+   so loan_ledger.product_name is never the hardcoded default.
+══════════════════════════════════════════════════════════ */
 document.getElementById('btnView').addEventListener('click', async () => {
-  const searchId = document.getElementById('fAccountId').value.trim(); // STEP 1: Enter Account/Application ID
-  if (!searchId) return showToast('Please enter an Account ID to fetch.', 'error');
+  const appId = document.getElementById('fAccountId').value.trim();
+  if (!appId) return showToast('Please enter an Application / Account ID.', 'error');
 
   try {
-    showToast('Fetching structural application ledger parameters...', 'info');
-    // Queries database layout matching your exact relational schemas
-    const records = await sbFetch(`loanmasterrecords?application_id=eq.${encodeURIComponent(searchId)}&limit=1`);
-    
-    if (records && records.length > 0) {
-      currentRecord = records[0];
-      
-      // Map properties back dynamically into core input controls
-      document.getElementById('fCustomerName').value = currentRecord.client_name || '';
-      document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
-      document.getElementById('fDisbursementDate').value = currentRecord.disbursement_date || new Date().toISOString().split('T')[0];
-      document.getElementById('fPaymentMode').value = currentRecord.mode_of_disbursement || '';
-      document.getElementById('fAccountType').value = currentRecord.account_class || '';
-      document.getElementById('fContraAccountId').value = currentRecord.main_repayment_account_id || '';
-      document.getElementById('fChequeNo').value = currentRecord.reference_no || '';
-      document.getElementById('fBankName').value = currentRecord.bank_id || '';
-      document.getElementById('fInterestRate').value = currentRecord.interest_rate || '12.00';
-      document.getElementById('fTenorMonths').value = currentRecord.term_months || '12';
+    showToast('Loading application record…', 'info');
 
-      // Load client-side visualization plan values instantly
-      runAmortizationCalculation(
-        currentRecord.approved_amount || currentRecord.applied_amount,
-        currentRecord.interest_rate || 12,
-        currentRecord.term_months || 12,
-        currentRecord.disbursement_date
-      );
-      
-      setMode('view');
-      showToast(`✔ Records loaded for Account Application ID: ${searchId}`, 'success');
-    } else {
-      showToast('No record found matching that entry inside loanmasterrecords.', 'error');
+    /* Primary lookup */
+    const rows = await sbFetch(
+      `loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}&limit=1`
+    );
+    if (!rows || rows.length === 0) {
+      return showToast('No record found for that Application ID in loanmasterrecords.', 'error');
     }
+    currentRecord = rows[0];
+
+    /* Resolve product name from parameter matrix */
+    _productName = '';
+    if (currentRecord.product_id) {
+      try {
+        const prod = await sbFetch(
+          `lendingproductparametermatrix?product_code_id=eq.${encodeURIComponent(currentRecord.product_id)}&select=product_name_title&limit=1`
+        );
+        if (prod && prod[0]) _productName = prod[0].product_name_title || '';
+      } catch (_) { /* non-fatal — fall back to empty */ }
+    }
+
+    /* Populate form */
+    document.getElementById('fCustomerName').value    = currentRecord.client_name || '';
+    document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
+    document.getElementById('fDisbursementDate').value = currentRecord.disbursement_date || new Date().toISOString().split('T')[0];
+    document.getElementById('fPaymentMode').value      = currentRecord.mode_of_disbursement || '';
+    document.getElementById('fAccountType').value      = currentRecord.account_class || '';
+    /* Contra account = the repayment account saved on the loan */
+    document.getElementById('fContraAccountId').value  = currentRecord.main_repayment_account_id || '';
+    document.getElementById('fChequeNo').value         = currentRecord.reference_no || '';
+    document.getElementById('fBankName').value         = '';   /* no bank_id column on loanmasterrecords */
+    document.getElementById('fInterestRate').value     = currentRecord.interest_rate || '12.00';
+    document.getElementById('fTenorMonths').value      = currentRecord.term_months   || '12';
+
+    /* Preview amortization */
+    const schedule = buildAmortizationSchedule(
+      currentRecord.approved_amount || currentRecord.applied_amount,
+      currentRecord.interest_rate || 12,
+      currentRecord.term_months   || 12,
+      currentRecord.disbursement_date
+    );
+    renderScheduleGrid(schedule);
+
+    setMode('view');
+    showToast(`✔ Loaded: ${appId} — ${currentRecord.client_name || ''}`, 'success');
   } catch (err) {
-    showToast(`Inquiry Failure: ${err.message}`, 'error');
+    showToast(`Lookup failed: ${err.message}`, 'error');
   }
 });
 
-// STEP 3: CLICK ADD — Unlock input elements for configuration adjustments
+/* ── ADD button ──────────────────────────────────────────── */
 document.getElementById('btnAdd').addEventListener('click', () => {
   if (!currentRecord) {
-    return showToast('Please input an Account ID and click View (🔍) before activating entry fields.', 'error');
+    return showToast('Enter an Application ID and click 🔍 View before adding.', 'error');
   }
   setMode('add');
-  showToast('Form fields unlocked. Populate configurations and click Save.');
+  showToast('Fields unlocked. Confirm details then click Save.');
 });
 
-// CLICK EDIT — Reopen existing loaded record for modification
+/* ── EDIT button ─────────────────────────────────────────── */
 document.getElementById('btnEdit').addEventListener('click', () => {
   if (!currentRecord) {
-    return showToast('Load a record first by entering an Account ID and clicking View (🔍).', 'error');
+    return showToast('Load a record first via View (🔍).', 'error');
   }
   setMode('edit');
-  showToast('Record unlocked for editing. Make changes then Save.');
+  showToast('Edit mode — adjust details then Save.');
 });
 
-// STEP 7: CLICK SAVE — Validate inputs and show verification confirmation screen modal overlay
+/* ══════════════════════════════════════════════════════════
+   SAVE — validate → show confirmation modal
+══════════════════════════════════════════════════════════ */
 document.getElementById('btnSave').addEventListener('click', () => {
-  const accId   = document.getElementById('fAccountId').value.trim();
- const modeDis = document.getElementById('fPaymentMode').value;           // STEP 4: Select Mode of Disbursement
-  const accType = document.getElementById('fAccountType').value;           // STEP 5: Select Account Type
-  const contra  = document.getElementById('fContraAccountId').value.trim(); // STEP 6: Enter Contra Account ID
-  const cName   = document.getElementById('fCustomerName').value.trim();
+  const accId     = document.getElementById('fAccountId').value.trim();
+  const modeDis   = document.getElementById('fPaymentMode').value;
+  const accType   = document.getElementById('fAccountType').value;
+  const contra    = document.getElementById('fContraAccountId').value.trim();
+  const cName     = document.getElementById('fCustomerName').value.trim();
   const principal = document.getElementById('fAmountDisbursed').value;
 
-  // Enforce rigid transactional form assertions
-  if (!accId) return showToast('Validation Error: Account ID field cannot be left blank.', 'error');
-  if (!modeDis) return showToast('Validation Error: Please select a valid Mode Of Disbursement.', 'error');
-  if (!accType) return showToast('Validation Error: Please select an Account Type context.', 'error');
-  if (!contra) return showToast('Validation Error: Contra Account ID field is mandatory.', 'error');
-  if (!cName || !principal) return showToast('Validation Error: Structural profile transaction metrics are missing.', 'error');
+  if (!accId)     return showToast('Validation: Application ID cannot be blank.', 'error');
+  if (!modeDis)   return showToast('Validation: Select a Mode of Disbursement.', 'error');
+  if (!accType)   return showToast('Validation: Select an Account Type.', 'error');
+  if (!contra)    return showToast('Validation: Contra Account ID is required.', 'error');
+  if (!cName || !principal) return showToast('Validation: Customer name and principal amount are required.', 'error');
 
-  // Sync details dynamically to validation modal text nodes
-  document.getElementById('mdAccountId').textContent = accId;
-  document.getElementById('mdPaymentMode').textContent = modeDis;
-  document.getElementById('mdAccountType').textContent = accType;
+  /* Populate confirmation modal */
+  document.getElementById('mdAccountId').textContent      = accId;
+  document.getElementById('mdPaymentMode').textContent    = modeDis;
+  document.getElementById('mdAccountType').textContent    = accType;
   document.getElementById('mdContraAccountId').textContent = contra;
 
-  // Refresh data matrix views before final confirmation sequence
-  runAmortizationCalculation(
-    principal, 
-    document.getElementById('fInterestRate').value, 
-    document.getElementById('fTenorMonths').value, 
+  /* Refresh schedule preview with current form values */
+  const schedule = buildAmortizationSchedule(
+    principal,
+    document.getElementById('fInterestRate').value,
+    document.getElementById('fTenorMonths').value,
     document.getElementById('fDisbursementDate').value
   );
+  renderScheduleGrid(schedule);
 
-  // Present validation window to supervisor
   document.getElementById('disbursementModal').classList.add('active');
 });
 
-/* ── Modal Processing and Database Pipeline Actions ────── */
-
-// Handle cancellation request from the overlay
+/* ── Modal abort ─────────────────────────────────────────── */
 document.getElementById('btnConfirmCancel').addEventListener('click', () => {
   document.getElementById('disbursementModal').classList.remove('active');
-  showToast('Disbursement journal entry creation aborted by user.', 'info');
+  showToast('Disbursement posting aborted.', 'info');
 });
 
-// Post validated input configurations directly to Supabase production tables
+/* ══════════════════════════════════════════════════════════
+   CONFIRM COMMIT — the single write sequence
+   Order:
+     1. POST  → loan_disbursement  (one row, exact column match)
+     2. POST  → loan_ledger        (disbursement row, balance = principal)
+     3. POST  → loan_ledger ×N     (one row per instalment)
+     4. PATCH → loanmasterrecords  (application_status → 'Disbursed',
+                                    first_disbursement_date if blank)
+══════════════════════════════════════════════════════════ */
 document.getElementById('btnConfirmCommit').addEventListener('click', async () => {
   document.getElementById('disbursementModal').classList.remove('active');
 
-  // Build schema mapping payload fields exactly matching your database structures
-  const payload = {
-    application_id:    document.getElementById('fAccountId').value.trim(), // Foreign key link to loanmasterrecords
-    customer_name:     document.getElementById('fCustomerName').value.trim(),
-    amount_disbursed:  parseFloat(document.getElementById('fAmountDisbursed').value),
-    disbursement_date: document.getElementById('fDisbursementDate').value || new Date().toISOString().split('T')[0],
-    payment_mode:      document.getElementById('fPaymentMode').value,
-    account_type:       document.getElementById('fAccountType').value,
-    contra_account_id:  document.getElementById('fContraAccountId').value.trim(), 
-    cheque_no:         document.getElementById('fChequeNo').value || null,
-    bank_name:         document.getElementById('fBankName').value || null,
-    interest_rate:     parseFloat(document.getElementById('fInterestRate').value),
-    tenor_months:      parseInt(document.getElementById('fTenorMonths').value)
-  };
+  /* ── Read current form values ─────────────────────────── */
+  const appId         = document.getElementById('fAccountId').value.trim();
+  const customerName  = document.getElementById('fCustomerName').value.trim();
+  const principal     = parseFloat(document.getElementById('fAmountDisbursed').value);
+  const disbDate      = document.getElementById('fDisbursementDate').value || new Date().toISOString().split('T')[0];
+  const paymentMode   = document.getElementById('fPaymentMode').value;
+  const chequeNo      = document.getElementById('fChequeNo').value || null;
+  const bankName      = document.getElementById('fBankName').value || null;
+  const interestRate  = parseFloat(document.getElementById('fInterestRate').value);
+  const tenorMonths   = parseInt(document.getElementById('fTenorMonths').value);
+  /* account_number comes from the loan's repayment account — never the hardcoded default */
+  const accountNumber = document.getElementById('fContraAccountId').value.trim() || currentRecord?.main_repayment_account_id || null;
+  const today         = new Date().toISOString().split('T')[0];
+
+  /* ref_batch: DISB-{appId}-{YYYYMMDD} */
+  const refBatch = `DISB-${appId}-${today.replace(/-/g, '')}`;
 
   try {
-    showToast('Committing posted values into public schema tables...', 'info');
-    
-    // Fire transaction save records directly onto table paths via REST API endpoints
-    const responseData = await sbFetch('loan_disbursement', {
+    showToast('Posting disbursement records…', 'info');
+
+    /* ── STEP 1: loan_disbursement ───────────────────────
+       Exact columns only — no account_type, no contra_account_id
+       (those columns do not exist in the table).
+    ─────────────────────────────────────────────────────── */
+    const disbPayload = {
+      application_id:    appId,
+      customer_name:     customerName,
+      amount_disbursed:  principal,
+      disbursement_date: disbDate,
+      payment_mode:      paymentMode,
+      cheque_no:         chequeNo,
+      bank_name:         bankName,
+      account_number:    accountNumber,
+      interest_rate:     interestRate,
+      tenor_months:      tenorMonths
+    };
+
+    await sbFetch('loan_disbursement', {
       method: 'POST',
-      body: JSON.stringify(payload)
+      prefer: 'return=minimal',
+      body:   JSON.stringify(disbPayload)
     });
 
-    currentRecord = Array.isArray(responseData) ? responseData[0] : responseData;
+    /* ── STEP 2: loan_ledger — disbursement opening row ──
+       Description: "Disbursement"
+       principal = full disbursed amount (debit on loan account)
+       running_balance = full outstanding (positive = amount owed)
+    ─────────────────────────────────────────────────────── */
+    const ledgerDisbRow = {
+      application_id:  appId,
+      client_id:       currentRecord?.client_id  || null,
+      account_number:  accountNumber,
+      product_name:    _productName              || null,
+      post_date:       today,
+      value_date:      disbDate,
+      description:     'Disbursement',
+      ref_batch:       refBatch,
+      principal:       principal,
+      interest:        0,
+      charges_penalties: 0,
+      accrued_interest_receivable: 0,
+      total_paid:      0,
+      accrued_unpaid_interest: 0,
+      running_balance: principal,
+      borrower_name:   customerName
+    };
+
+    await sbFetch('loan_ledger', {
+      method: 'POST',
+      prefer: 'return=minimal',
+      body:   JSON.stringify(ledgerDisbRow)
+    });
+
+    /* ── STEP 3: loan_ledger — one row per instalment ────
+       Each scheduled instalment is posted with a future value_date.
+       running_balance decreases by principal_paid each row.
+       ref_batch: INST-{appId}-{YYYYMMDD}-{N}
+    ─────────────────────────────────────────────────────── */
+    const schedule = buildAmortizationSchedule(principal, interestRate, tenorMonths, disbDate);
+
+    /* Batch all instalment rows — sequential awaits keep order correct */
+    for (const row of schedule) {
+      const instBatch = `INST-${appId}-${today.replace(/-/g, '')}-${String(row.instalment_no).padStart(3, '0')}`;
+      const ledgerInstRow = {
+        application_id:  appId,
+        client_id:       currentRecord?.client_id  || null,
+        account_number:  accountNumber,
+        product_name:    _productName              || null,
+        post_date:       row.payment_date,
+        value_date:      row.payment_date,
+        description:     `Instalment ${row.instalment_no}/${tenorMonths}`,
+        ref_batch:       instBatch,
+        principal:       parseFloat(row.principal_paid.toFixed(2)),
+        interest:        parseFloat(row.interest.toFixed(2)),
+        charges_penalties: 0,
+        accrued_interest_receivable: parseFloat(row.interest.toFixed(2)),
+        total_paid:      0,               /* 0 until teller posts a receipt */
+        accrued_unpaid_interest: 0,
+        running_balance: parseFloat(row.closing_balance.toFixed(2)),
+        borrower_name:   customerName
+      };
+      await sbFetch('loan_ledger', {
+        method: 'POST',
+        prefer: 'return=minimal',
+        body:   JSON.stringify(ledgerInstRow)
+      });
+    }
+
+    /* ── STEP 4: update loanmasterrecords status → Disbursed ─ */
+    const masterPatch = {
+      application_status: 'Disbursed',
+      modified_on:        new Date().toISOString()
+    };
+    /* Only set first_disbursement_date if it wasn't already set */
+    if (!currentRecord?.first_disbursement_date) {
+      masterPatch.first_disbursement_date = disbDate;
+    }
+
+    await sbFetch(`loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}`, {
+      method: 'PATCH',
+      prefer: 'return=minimal',
+      body:   JSON.stringify(masterPatch)
+    });
+
+    /* ── All done ─────────────────────────────────────── */
+    currentRecord = { ...currentRecord, application_status: 'Disbursed' };
     setMode('view');
-    showToast('✔ Credit disbursement posted and saved safely into the general ledger.', 'success');
+    showToast(
+      `✔ Disbursement posted. loan_disbursement + ${1 + tenorMonths} ledger rows written.`,
+      'success'
+    );
+
   } catch (err) {
-    showToast(`Post Failure: ${err.message}`, 'error');
+    showToast(`Post failed: ${err.message}`, 'error');
   }
 });
 
-// TOOLBAR CANCEL Action Handler
+/* ── CANCEL button ───────────────────────────────────────── */
 document.getElementById('btnCancel').addEventListener('click', () => {
   clearFormLayout();
   currentRecord = null;
+  _productName  = '';
   setMode('view');
-  showToast('Pending structural entry changes discarded.');
+  showToast('Pending changes discarded.');
 });
 
-// TOOLBAR CLOSE Action Handler
+/* ── CLOSE button ────────────────────────────────────────── */
 document.getElementById('btnClose').addEventListener('click', () => {
   clearFormLayout();
   document.getElementById('fAccountId').value = '';
   currentRecord = null;
+  _productName  = '';
   setMode('view');
-  showToast('Workspace reset. System operational references cleared.');
+  showToast('Workspace cleared.');
 });
 
-// Initialize form operational view components upon screen load
+/* ── Init ────────────────────────────────────────────────── */
 setMode('view');
