@@ -68,9 +68,11 @@ function showToast(msg, variant = 'info') {
 
 /* ── Form enable/disable ─────────────────────────────────── */
 /* ── Updated Form enable/disable ─────────────────────────── */
+/* ── Updated Form Control State Handler ──────────────────── */
 function setFormControlsState(enabled) {
   document.querySelectorAll('.tab-panel input, .tab-panel select')
     .forEach(el => { 
+      // CRITICAL: Protect customer name from layout disabling state locks
       if (el.id !== 'fCustomerName') {
         el.disabled = !enabled; 
       }
@@ -85,7 +87,7 @@ function clearFormLayout() {
     `<tr><td colspan="7" class="placeholder-text">Enter transaction parameters and click Save to generate amortization schedule.</td></tr>`;
 }
 
-/* ── Mode control ────────────────────────────────────────── */
+/* ── Updated Mode Control ────────────────────────────────── */
 function setMode(newMode) {
   mode = newMode;
   const isEditing = newMode === 'add' || newMode === 'edit';
@@ -157,6 +159,7 @@ function renderScheduleGrid(rows) {
    Also resolves product_name from lendingproductparametermatrix
    so loan_ledger.product_name is never the hardcoded default.
 ══════════════════════════════════════════════════════════ */
+/* ── STEP 1 + 2 — VIEW: Lookup Application ───────────────── */
 document.getElementById('btnView').addEventListener('click', async () => {
   const appId = document.getElementById('fAccountId').value.trim();
   if (!appId) return showToast('Please enter an Application / Account ID.', 'error');
@@ -164,7 +167,7 @@ document.getElementById('btnView').addEventListener('click', async () => {
   try {
     showToast('Loading application record…', 'info');
 
-    /* Primary lookup */
+    /* Primary lookup matching public.loanmasterrecords database layout */
     const rows = await sbFetch(
       `loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}&limit=1`
     );
@@ -181,19 +184,18 @@ document.getElementById('btnView').addEventListener('click', async () => {
           `lendingproductparametermatrix?product_code_id=eq.${encodeURIComponent(currentRecord.product_id)}&select=product_name_title&limit=1`
         );
         if (prod && prod[0]) _productName = prod[0].product_name_title || '';
-      } catch (_) { /* non-fatal — fall back to empty */ }
+      } catch (_) { /* non-fatal fallback */ }
     }
 
-    /* Populate form */
+    /* Populate Form Fields */
     document.getElementById('fCustomerName').value    = currentRecord.client_name || '';
     document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
     document.getElementById('fDisbursementDate').value = currentRecord.disbursement_date || new Date().toISOString().split('T')[0];
     document.getElementById('fPaymentMode').value      = currentRecord.mode_of_disbursement || '';
     document.getElementById('fAccountType').value      = currentRecord.account_class || '';
-    /* Contra account = the repayment account saved on the loan */
     document.getElementById('fContraAccountId').value  = currentRecord.main_repayment_account_id || '';
     document.getElementById('fChequeNo').value         = currentRecord.reference_no || '';
-    document.getElementById('fBankName').value         = '';   /* no bank_id column on loanmasterrecords */
+    document.getElementById('fBankName').value         = '';   
     document.getElementById('fInterestRate').value     = currentRecord.interest_rate || '12.00';
     document.getElementById('fTenorMonths').value      = currentRecord.term_months   || '12';
 
@@ -214,27 +216,36 @@ document.getElementById('btnView').addEventListener('click', async () => {
 });
 
 /* ── ADD button ──────────────────────────────────────────── */
-/* ── Updated ADD button ──────────────────────────────────── */
+/* ── Updated ADD button: Explicit Value Re-injection ────── */
 document.getElementById('btnAdd').addEventListener('click', () => {
   if (!currentRecord) {
     return showToast('Enter an Application ID and click 🔍 View before adding.', 'error');
   }
   setMode('add');
   
-  // Explicitly ensure parameters remain filled when changing states
+  // Force data re-population into the inputs to guarantee validation visibility
   document.getElementById('fCustomerName').value    = currentRecord.client_name || '';
   document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
   
   showToast('Fields unlocked. Confirm details then click Save.');
 });
-/* ── EDIT button ─────────────────────────────────────────── */
+
+/* ── Updated EDIT button: Explicit Value Re-injection ───── */
 document.getElementById('btnEdit').addEventListener('click', () => {
   if (!currentRecord) {
     return showToast('Load a record first via View (🔍).', 'error');
   }
   setMode('edit');
+  
+  // Maintain persistence across fields
+  document.getElementById('fCustomerName').value = currentRecord.client_name || '';
+  if (!document.getElementById('fAmountDisbursed').value) {
+    document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
+  }
+  
   showToast('Edit mode — adjust details then Save.');
 });
+
 
 /* ══════════════════════════════════════════════════════════
    SAVE — validate → show confirmation modal
