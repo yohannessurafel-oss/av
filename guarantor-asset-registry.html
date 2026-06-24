@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF — 07 guarantor-asset-registry</title>
+<title>AVMF — 07 Guarantor Asset Registry</title>
 <link rel="stylesheet" href="style2.css"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -44,19 +44,19 @@
         <span class="sidebar-header-icon">⚙</span>
         Credit Lifecycle Operations
       </div>
-   <ul class="nav-menu">
+      <ul class="nav-menu">
         <li><span class="nav-num">00</span><a href="client-maintenance.html" class="nav-label">Client maintenance</a></li>
-        <li class="active"><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
+        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
         <li><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
         <li><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
         <li><span class="nav-num">04</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
         <li><span class="nav-num">05</span><a href="loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
         <li><span class="nav-num">06</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
-        <li><span class="nav-num">07</span><a href="guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
+        <li class="active"><span class="nav-num">07</span><a href="guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
         <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
         <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
         <li><span class="nav-num">10</span><a href="disbursement.html" class="nav-label">Loan Disbursement</a></li>
-         <li><span class="nav-num">00</span><a href="client-directory.html" class="nav-label">Client Views </a></li>
+        <li><span class="nav-num">00</span><a href="client-directory.html" class="nav-label">Client Views</a></li>
       </ul>
       <div class="sidebar-footer-brand">
         <svg viewBox="0 0 100 100" width="28" height="28">
@@ -73,38 +73,193 @@
           Personal &amp; Corporate — Loan Guarantor Guarantee Registry
         </div>
         <form class="module-form grid-two-column" autocomplete="off">
+
+          <!-- ── LEFT COLUMN ───────────────────────────────── -->
           <div class="sub-column">
-            <div class="form-row"><label>Branch ID</label><select id="guarantorBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select><input type="text" id="guarantorBranchName" class="width-remaining" placeholder="Branch name" readonly/></div>
-            <div class="form-row"><label>Guarantor Type ID</label><select class="width-full"><option>--Select--</option><option>Personal</option><option>Corporate</option></select></div>
-            <div class="form-row"><label>Guarantor ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Relevant ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Signed By</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>Max. Guarantee Amt</label><input type="text" class="width-full"/><span class="append-text-label">ETB</span></div>
-            <div class="form-row"><label>Max. No. Of Loans</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>Net Worth</label><input type="text" class="width-full"/><span class="append-text-label">ETB</span></div>
-            <div class="card-header-banner">Behind The Scene Profile Matrix</div>
-            <div class="form-row"><label>Address</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>City</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>No Of Loans</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>Constitution</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>ID 1</label><input type="text" class="width-full"/></div>
-            <div class="section-divider"></div>
-            <div class="form-row"><label>Created By</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>Created On</label><input type="text" class="width-full"/></div>
+
+            <!-- LOAN LINKAGE (new FK fields) -->
+            <div class="card-header-banner">Loan Linkage</div>
+
+            <div class="form-row">
+              <label>Branch ID</label>
+              <select id="guarantorBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select>
+              <input type="text" id="guarantorBranchName" class="width-remaining" placeholder="Branch name" readonly/>
+            </div>
+
+            <div class="form-row">
+              <label>Application ID *</label>
+              <div class="input-group width-full">
+                <input type="text" id="guarantorApplicationId" placeholder="e.g. APP-00123"/>
+                <span class="search-btn" id="btnLookupApplication" title="Look up loan application">🔍</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label>Account ID</label>
+              <div class="input-group width-full">
+                <input type="text" id="guarantorAccountId" placeholder="Loan account (auto-filled or manual)"/>
+                <span class="search-btn" id="btnLookupAccount" title="Look up loan account">🔍</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label>Client ID</label>
+              <input type="text" id="guarantorClientId" class="width-full" readonly placeholder="Auto-filled from Application"/>
+            </div>
+
+            <div class="form-row">
+              <label>Client Name</label>
+              <input type="text" id="guarantorClientName" class="width-full" readonly placeholder="Auto-filled from Application"/>
+            </div>
+
+            <!-- GUARANTOR DETAILS -->
+            <div class="card-header-banner" style="margin-top:10px;">Guarantor Details</div>
+
+            <div class="form-row">
+              <label>Guarantor Type</label>
+              <select id="guarantorTypeId" class="width-full">
+                <option value="">-- Select --</option>
+                <option value="Personal">Personal</option>
+                <option value="Corporate">Corporate</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label>Guarantor ID *</label>
+              <div class="input-group width-full">
+                <input type="text" id="guarantorId" placeholder="Guarantor client ID"/>
+                <span class="search-btn" id="btnLookupGuarantor" title="Look up guarantor in client registry">🔍</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label>Guarantor Name</label>
+              <input type="text" id="guarantorName" class="width-full" readonly placeholder="Auto-filled from registry"/>
+            </div>
+
+            <div class="form-row">
+              <label>Signed By</label>
+              <input type="text" id="guarantorSignedBy" class="width-full"/>
+            </div>
+
+            <div class="form-row">
+              <label>Max. Guarantee Amt</label>
+              <input type="number" id="guarantorMaxGuaranteeAmt" class="width-full" min="0" step="0.01"/>
+              <span class="append-text-label">ETB</span>
+            </div>
+
+            <div class="form-row">
+              <label>Max. No. Of Loans</label>
+              <input type="number" id="guarantorMaxNoOfLoans" class="width-full" min="0"/>
+            </div>
+
+            <div class="form-row">
+              <label>Net Worth</label>
+              <input type="number" id="guarantorNetWorth" class="width-full" min="0" step="0.01"/>
+              <span class="append-text-label">ETB</span>
+            </div>
+
           </div>
+
+          <!-- ── RIGHT COLUMN ──────────────────────────────── -->
           <div class="sub-column">
-            <div class="form-spacer" style="height:158px;"></div>
-            <div class="form-row"><label class="shifted-label">Liability (ETB)</label><input type="text" class="width-full"/></div>
-            <div class="form-spacer" style="height:35px;"></div>
-            <div class="form-row"><label class="shifted-label">Country</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Loan Amount (ETB)</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Line of Business</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">ID 2</label><input type="text" class="width-full"/></div>
-            <div class="form-spacer" style="height:15px;"></div>
-            <div class="form-row"><label class="shifted-label">Modified By</label><input type="text" class="width-medium"/><label style="width:75px;min-width:75px;">Supervised By</label><input type="text" class="width-medium"/></div>
-            <div class="form-row"><label class="shifted-label">Modified On</label><input type="text" class="width-medium"/><label style="width:75px;min-width:75px;">Supervised On</label><input type="text" class="width-medium"/></div>
+
+            <!-- PROFILE MATRIX -->
+            <div class="card-header-banner">Profile Matrix</div>
+
+            <div class="form-row">
+              <label class="shifted-label">Liability (ETB)</label>
+              <input type="number" id="guarantorLiability" class="width-full" min="0" step="0.01"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Loan Amount (ETB)</label>
+              <input type="number" id="guarantorLoanAmount" class="width-full" min="0" step="0.01"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">No. of Loans</label>
+              <input type="number" id="guarantorNoOfLoans" class="width-full" min="0"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Line of Business</label>
+              <input type="text" id="guarantorLineOfBusiness" class="width-full"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Constitution</label>
+              <select id="guarantorConstitution" class="width-full">
+                <option value="">-- Select --</option>
+                <option value="Individual">Individual</option>
+                <option value="Partnership">Partnership</option>
+                <option value="PLC">PLC</option>
+                <option value="Share Company">Share Company</option>
+                <option value="Cooperative">Cooperative</option>
+                <option value="NGO">NGO</option>
+                <option value="Government">Government</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Address</label>
+              <input type="text" id="guarantorAddress" class="width-full"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">City</label>
+              <input type="text" id="guarantorCity" class="width-full"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Country</label>
+              <select id="guarantorCountry" class="width-full">
+                <option value="">-- Select --</option>
+                <option value="Ethiopia">Ethiopia</option>
+                <option value="Kenya">Kenya</option>
+                <option value="Uganda">Uganda</option>
+                <option value="Tanzania">Tanzania</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">ID 1</label>
+              <input type="text" id="guarantorId1" class="width-full" placeholder="National ID / Passport No."/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">ID 2</label>
+              <input type="text" id="guarantorId2" class="width-full" placeholder="Secondary ID"/>
+            </div>
+
+            <!-- AUDIT TRAIL -->
+            <div class="section-divider"></div>
+
+            <div class="form-row">
+              <label class="shifted-label">Created By</label>
+              <input type="text" id="guarantorCreatedBy" class="width-medium"/>
+              <label style="width:75px;min-width:75px;">Created On</label>
+              <input type="text" id="guarantorCreatedOn" class="width-medium" readonly/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Modified By</label>
+              <input type="text" id="guarantorModifiedBy" class="width-medium"/>
+              <label style="width:75px;min-width:75px;">Modified On</label>
+              <input type="text" id="guarantorModifiedOn" class="width-medium" readonly/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Supervised By</label>
+              <input type="text" id="guarantorSupervisedBy" class="width-medium"/>
+              <label style="width:75px;min-width:75px;">Supervised On</label>
+              <input type="text" id="guarantorSupervisedOn" class="width-medium" readonly/>
+            </div>
+
           </div>
         </form>
+
         <div class="sub-footer-token" id="statusBar">Status: Ready</div>
       </div>
     </div>
