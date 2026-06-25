@@ -1,6 +1,16 @@
 /* ═══════════════════════════════════════════════════════════
-   Africa Village Microfinance — Loan Appraisal Management
-   03-loan-appraisal-management.js  v2.1 (Fully Connected)
+   Africa Village Microfinance — 03 Loan Appraisal Management
+   loan-appraisal-management.js  v3.0
+   
+   Design: This module READS an existing loanmasterrecords row
+   (created in Module 01) and UPDATEs only the appraisal fields:
+     - recommended_amount
+     - approved_amount
+     - application_status  → 'Appraisal'
+   
+   Appraisal-specific fields (risk rating, DSR, collateral
+   coverage, conditions) are UI-only analysis aids and are NOT
+   persisted — loanmasterrecords has no columns for them.
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -8,17 +18,31 @@
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-const headers = {
-  'apikey': SUPABASE_ANON_KEY,
-  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-  'Content-Type': 'application/json',
-  'Accept': 'application/json'
-};
+/* ── HTTP Helper ────────────────────────────────────────── */
+async function sbFetch(path, opts = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type':  'application/json',
+      'Prefer':        opts.prefer || 'return=representation',
+      ...(opts.headers || {})
+    }
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `HTTP ${res.status}`);
+  }
+  const text = await res.text();
+  if (!text || !text.trim()) return null;
+  try { return JSON.parse(text); } catch { return null; }
+}
 
 /* ── Toast ─────────────────────────────────────────────── */
 const toastEl = document.getElementById('toastNotification');
 let _toastTimer = null;
-function toast(msg, type = '', duration = 3200) {
+function toast(msg, type = '', duration = 3500) {
   if (!toastEl) return;
   toastEl.textContent = msg;
   toastEl.className = `toast show ${type}`;
@@ -41,9 +65,7 @@ async function loadBranches() {
   const sel = document.getElementById('apprBranchId');
   if (sel) { sel.innerHTML = '<option value="">Loading branches…</option>'; sel.disabled = true; }
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/branchregistry?select=branch_id,branch_name&order=branch_id`, { headers });
-    if (!res.ok) { toast(`Branch list error ${res.status}`, 'error'); return; }
-    const rows = await res.json();
+    const rows = await sbFetch('branchregistry?select=branch_id,branch_name&order=branch_id');
     _branchCache = Array.isArray(rows) ? rows : [];
     const sel2 = document.getElementById('apprBranchId');
     if (!sel2) return;
@@ -57,6 +79,8 @@ async function loadBranches() {
     sel2.disabled = false;
   } catch (e) {
     toast('Could not load branch list.', 'error');
+    const sel2 = document.getElementById('apprBranchId');
+    if (sel2) { sel2.innerHTML = '<option value="">-- Select Branch --</option>'; sel2.disabled = false; }
   }
 }
 
@@ -71,13 +95,18 @@ let currentMode = 'view';
 
 function setMode(mode) {
   currentMode = mode;
-  const isEdit = mode === 'edit' || mode === 'add';
+  const isEdit = mode === 'edit';
   const view = document.querySelector('.module-view.active') || document.body;
-  
-  view.querySelectorAll('input:not([readonly]), select, textarea').forEach(el => {
-    if (el.dataset.alwaysEnabled !== undefined || el.id === 'apprBranchId') { el.disabled = false; return; }
+
+  view.querySelectorAll('input, select, textarea').forEach(el => {
+    if (el.dataset.alwaysEnabled !== undefined) { el.disabled = false; return; }
+    if (el.hasAttribute('readonly'))            { el.disabled = false; return; }
     el.disabled = !isEdit;
   });
+
+  // Application ID field: always enabled so user can type and search
+  const appIdEl = document.getElementById('apprApplicationId');
+  if (appIdEl) appIdEl.disabled = false;
 
   const btnSave   = document.getElementById('btnGlobalSave');
   const btnCancel = document.getElementById('btnGlobalCancel');
@@ -85,134 +114,185 @@ function setMode(mode) {
   const btnEdit   = document.getElementById('btnGlobalEdit');
   const btnClose  = document.getElementById('btnGlobalClose');
   const btnDelete = document.getElementById('btnGlobalDelete');
-  
+
   if (btnSave)   btnSave.disabled   = !isEdit;
   if (btnCancel) btnCancel.disabled = !isEdit;
   if (btnAdd)    btnAdd.disabled    = isEdit;
-  if (btnEdit)   btnEdit.disabled   = isEdit;
-  if (btnDelete) btnDelete.disabled = !isEdit;
+  if (btnEdit)   btnEdit.disabled   = isEdit || !_loadedAppId;
+  if (btnDelete) btnDelete.disabled = true;   // appraisal never hard-deletes
   if (btnClose)  btnClose.disabled  = isEdit;
 
   const sb = document.getElementById('statusBar');
   if (sb) sb.textContent = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)} — Ready`;
 }
 
-/* ── UI Form Helper Mapping (Maps fields to public.loanmasterrecords columns) ── */
-function getFormData() {
-  return {
-    application_id: document.getElementById('apprApplicationId')?.value,
-    branch_id: document.getElementById('apprBranchId')?.value,
-    client_id: document.getElementById('apprClientId')?.value,
-    client_name: document.getElementById('apprClientName')?.value,
-    product_id: document.getElementById('apprProductId')?.value,
-    main_repayment_account_id: document.getElementById('apprRepayAccountId')?.value || 'NOT_ASSIGNED',
-    applied_amount: parseFloat(document.getElementById('apprAppliedAmount')?.value || 0),
-    recommended_amount: parseFloat(document.getElementById('apprRecommendedAmount')?.value || 0),
-    approved_amount: parseFloat(document.getElementById('apprApprovedAmount')?.value || 0),
-    term_months: parseInt(document.getElementById('apprTermMonths')?.value || 12),
-    interest_rate: parseFloat(document.getElementById('apprInterestRate')?.value || 0),
-    application_status: document.getElementById('apprStatus')?.value || 'DataEntry'
+/* ── Track the currently loaded record ─────────────────── */
+let _loadedAppId = null;
+
+/* ── Load record into form (read-only display) ─────────── */
+function populateForm(rec) {
+  const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+
+  v('apprApplicationId',    rec.application_id);
+  v('apprClientId',         rec.client_id);
+  v('apprClientName',       rec.client_name);
+  v('apprProductId',        rec.product_id);
+  v('apprAppliedAmount',    rec.applied_amount);
+  v('apprTermMonths',       rec.term_months);
+  v('apprInterestRate',     rec.interest_rate);
+  v('apprRecommendedAmount',rec.recommended_amount ?? '');
+  v('apprApprovedAmount',   rec.approved_amount ?? '');
+  v('apprStatus',           rec.application_status);
+  v('apprRepayAccountId',   rec.main_repayment_account_id);
+  v('apprLoanPurpose',      rec.loan_purpose);
+  v('apprCreditOfficer',    rec.credit_officer_id);
+
+  // Set branch dropdown + name
+  const brSel = document.getElementById('apprBranchId');
+  if (brSel) {
+    brSel.value = rec.branch_id || '';
+    brSel.dispatchEvent(new Event('change'));
+  }
+
+  // Clear analysis fields (they are not stored)
+  ['apprNetIncome','apprObligations','apprDisposable','apprDSR',
+   'apprRiskRating','apprCreditScore','apprCollateralCoverage','apprLTV',
+   'apprOutcome','apprConditions','apprRemarks'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+}
+
+function clearForm() {
+  document.querySelectorAll('#view-appraisal input, #view-appraisal select, #view-appraisal textarea')
+    .forEach(el => { el.value = ''; });
+  _loadedAppId = null;
+}
+
+/* ── DSR / Disposable auto-calc ─────────────────────────── */
+function recalcDSR() {
+  const income      = parseFloat(document.getElementById('apprNetIncome')?.value  || 0);
+  const obligations = parseFloat(document.getElementById('apprObligations')?.value || 0);
+  const loanAmt     = parseFloat(document.getElementById('apprRecommendedAmount')?.value ||
+                                  document.getElementById('apprAppliedAmount')?.value || 0);
+  const termMonths  = parseInt(document.getElementById('apprTermMonths')?.value || 12) || 12;
+
+  const installment   = loanAmt / termMonths;
+  const disposable    = income - obligations;
+  const totalObligation = obligations + installment;
+  const dsr           = income > 0 ? ((totalObligation / income) * 100).toFixed(2) : '';
+
+  const dispEl = document.getElementById('apprDisposable');
+  const dsrEl  = document.getElementById('apprDSR');
+  if (dispEl) dispEl.value = disposable.toFixed(2);
+  if (dsrEl)  dsrEl.value  = dsr;
+}
+
+['apprNetIncome','apprObligations','apprRecommendedAmount'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', recalcDSR);
+});
+
+/* ── View / Lookup ──────────────────────────────────────── */
+async function viewRecord() {
+  const appId = document.getElementById('apprApplicationId')?.value?.trim();
+  if (!appId) { toast('Enter an Application ID to search.', 'warning'); return; }
+
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = 'Searching…';
+
+  try {
+    const rows = await sbFetch(
+      `loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}&select=*&limit=1`
+    );
+    if (rows && rows[0]) {
+      populateForm(rows[0]);
+      _loadedAppId = rows[0].application_id;
+      setMode('view');
+      toast(`Loaded: ${_loadedAppId}`);
+    } else {
+      toast('Application ID not found in loan master records.', 'warning');
+      if (sb) sb.textContent = 'Status: Not found';
+    }
+  } catch (e) {
+    toast('Lookup error: ' + e.message, 'error');
+    if (sb) sb.textContent = 'Status: Error';
+  }
+}
+
+/* ── Save (PATCH only — appraisal fields) ───────────────── */
+async function saveRecord() {
+  if (!_loadedAppId) { toast('Load a record first, then Edit to make changes.', 'warning'); return; }
+
+  const recAmt  = parseFloat(document.getElementById('apprRecommendedAmount')?.value || 0);
+  const appAmt  = parseFloat(document.getElementById('apprApprovedAmount')?.value    || 0);
+
+  // Only update the columns that actually exist in loanmasterrecords
+  const payload = {
+    recommended_amount: recAmt   || null,
+    approved_amount:    appAmt   || null,
+    application_status: 'Appraisal',
+    modified_on:        new Date().toISOString()
   };
+
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = 'Saving…';
+
+  try {
+    await sbFetch(
+      `loanmasterrecords?application_id=eq.${encodeURIComponent(_loadedAppId)}`,
+      { method: 'PATCH', prefer: 'return=minimal', body: JSON.stringify(payload) }
+    );
+    toast(`Appraisal saved — status set to Appraisal for ${_loadedAppId}`, 'success');
+    document.getElementById('apprStatus').value = 'Appraisal';
+    setMode('view');
+  } catch (e) {
+    toast('Save error: ' + e.message, 'error');
+    if (sb) sb.textContent = 'Save failed — see toast.';
+  }
 }
 
-function setFormData(data) {
-  if (!data) return;
-  if (document.getElementById('apprApplicationId')) document.getElementById('apprApplicationId').value = data.application_id || '';
-  if (document.getElementById('apprBranchId')) {
-    document.getElementById('apprBranchId').value = data.branch_id || '';
-    document.getElementById('apprBranchId').dispatchEvent(new Event('change'));
-  }
-  if (document.getElementById('apprClientId')) document.getElementById('apprClientId').value = data.client_id || '';
-  if (document.getElementById('apprClientName')) document.getElementById('apprClientName').value = data.client_name || '';
-  if (document.getElementById('apprProductId')) document.getElementById('apprProductId').value = data.product_id || '';
-  if (document.getElementById('apprAppliedAmount')) document.getElementById('apprAppliedAmount').value = data.applied_amount || 0;
-  if (document.getElementById('apprRecommendedAmount')) document.getElementById('apprRecommendedAmount').value = data.recommended_amount || 0;
-  if (document.getElementById('apprApprovedAmount')) document.getElementById('apprApprovedAmount').value = data.approved_amount || 0;
-  if (document.getElementById('apprTermMonths')) document.getElementById('apprTermMonths').value = data.term_months || 12;
-  if (document.getElementById('apprInterestRate')) document.getElementById('apprInterestRate').value = data.interest_rate || 0;
-  if (document.getElementById('apprStatus')) document.getElementById('apprStatus').value = data.application_status || 'DataEntry';
-}
+/* ── Toolbar ────────────────────────────────────────────── */
+document.getElementById('btnGlobalView')?.addEventListener('click', viewRecord);
 
-/* ── Database Engine Hooks ────────────────────────────── */
-document.getElementById('btnGlobalView')?.addEventListener('click', async () => {
-  const appId = document.getElementById('apprApplicationId')?.value;
-  if (!appId) { toast('Please enter an Application ID to fetch.', 'warning'); return; }
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/loanmasterrecords?application_id=eq.${appId}&select=*`, { headers });
-    const data = await res.json();
-    if (res.ok && data.length > 0) {
-      setFormData(data[0]);
-      setMode('view');
-      toast('Record loaded successfully.');
-    } else {
-      toast('Record not found.', 'error');
-    }
-  } catch (e) {
-    toast('Error fetching record.', 'error');
-  }
+// Search icon on Application ID field
+document.getElementById('btnSearchAppId')?.addEventListener('click', viewRecord);
+
+document.getElementById('btnGlobalEdit')?.addEventListener('click', () => {
+  if (!_loadedAppId) { toast('Load a record first before editing.', 'warning'); return; }
+  setMode('edit');
+  toast('Edit mode — update amounts then Save.');
 });
 
-document.getElementById('btnGlobalSave')?.addEventListener('click', async () => {
-  const payload = getFormData();
-  if (!payload.application_id) { toast('Application ID is required.', 'error'); return; }
-  
-  try {
-    let url = `${SUPABASE_URL}/rest/v1/loanmasterrecords`;
-    let method = 'POST';
-    
-    if (currentMode === 'edit') {
-      url += `?application_id=eq.${payload.application_id}`;
-      method = 'PATCH';
-    } else {
-      // For POST headers, make it act as a upsert if it already exists
-      headers['Prefer'] = 'resolution=merge-duplicates';
-    }
+document.getElementById('btnGlobalSave')?.addEventListener('click', saveRecord);
 
-    const res = await fetch(url, {
-      method: method,
-      headers: headers,
-      body: JSON.stringify(payload)
-    });
-
-    if (res.ok) {
-      toast('Application Appraisal saved successfully!', 'success');
-      setMode('view');
-    } else {
-      const err = await res.json();
-      toast(`Save Failed: ${err.message || res.statusText}`, 'error');
-    }
-  } catch (e) {
-    toast('Network error during save execution.', 'error');
+document.getElementById('btnGlobalCancel')?.addEventListener('click', () => {
+  if (_loadedAppId) {
+    // Re-load the original from DB to discard UI changes
+    viewRecord();
+  } else {
+    clearForm();
+    setMode('view');
   }
+  toast('Changes discarded.');
 });
 
-document.getElementById('btnGlobalDelete')?.addEventListener('click', async () => {
-  const appId = document.getElementById('apprApplicationId')?.value;
-  if (!appId || !confirm('Are you sure you want to completely remove this appraisal profile?')) return;
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/loanmasterrecords?application_id=eq.${appId}`, {
-      method: 'DELETE',
-      headers: headers
-    });
-    if (res.ok) {
-      toast('Record dropped successfully.');
-      setFormData({});
-      setMode('view');
-    } else {
-      toast('Delete failed.', 'error');
-    }
-  } catch (e) {
-    toast('Delete error.', 'error');
-  }
+document.getElementById('btnGlobalAdd')?.addEventListener('click', () => {
+  toast('Use Module 01 — Loan Application to create a new application.', 'warning');
 });
 
-/* ── Standard Control Handlers ─────────────────────────── */
-document.getElementById('btnGlobalAdd')?.addEventListener('click', () => { setFormData({}); setMode('add'); });
-document.getElementById('btnGlobalEdit')?.addEventListener('click', () => { setMode('edit'); });
-document.getElementById('btnGlobalCancel')?.addEventListener('click', () => { setMode('view'); toast('Changes discarded.'); });
-document.getElementById('btnGlobalClose')?.addEventListener('click', () => { setMode('view'); toast('Record closed.'); });
+document.getElementById('btnGlobalClose')?.addEventListener('click', () => {
+  clearForm();
+  setMode('view');
+  toast('Record closed.');
+});
+
+document.getElementById('btnGlobalDelete')?.addEventListener('click', () => {
+  toast('Appraisal records cannot be deleted here. Use Module 01.', 'warning');
+});
+
 document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
 
+/* ── Init ───────────────────────────────────────────────── */
 async function init() {
   setMode('view');
   await loadBranches();
