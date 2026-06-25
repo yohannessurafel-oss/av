@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>AVMF — collateral-inventory-risk</title>
 <link rel="stylesheet" href="style2.css"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -56,11 +55,9 @@
         <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
         <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
         <li><span class="nav-num">10</span><a href="general-ledger.html" class="nav-label">Loan Disbursement</a></li>
-         <li><span class="nav-num">11</span><a href="client-directory.html" class="nav-label">Client Views </a></li>
-
- <li><span class="nav-num">12</span><a href="general-ledger.html" class="nav-label">general-ledger </a></li>
-       <li><span class="nav-num">13</span><a href="delinquency-dashboard.html" class="nav-label">delinquency-dashboard </a></li>
-      
+        <li><span class="nav-num">11</span><a href="client-directory.html" class="nav-label">Client Views</a></li>
+        <li><span class="nav-num">12</span><a href="general-ledger.html" class="nav-label">general-ledger</a></li>
+        <li><span class="nav-num">13</span><a href="delinquency-dashboard.html" class="nav-label">delinquency-dashboard</a></li>
       </ul>
       <div class="sidebar-footer-brand">
         <svg viewBox="0 0 100 100" width="28" height="28">
@@ -76,44 +73,200 @@
           <span class="badge-icon">🏠</span>
           Collateral Maintenance Registry — Risk Mitigation Evaluation
         </div>
+
         <form class="module-form grid-two-column" autocomplete="off">
           <div class="sub-column">
-            <div class="form-row"><label>Branch ID</label><select id="collateralBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select><input type="text" id="collateralBranchName" class="width-remaining" placeholder="Branch name" readonly/></div>
-            <div class="form-row"><label>Collateral ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Description</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>Collateral Type</label><select class="width-full"><option>--Select--</option><option>Land</option><option>Building</option><option>Vehicle</option><option>Equipment</option><option>Inventory</option></select></div>
-            <div class="form-row"><label>Owner ID</label><div class="input-group width-full"><input type="text"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Lodged Date</label><input type="date" id="collateralLodgedDate" class="width-full"/></div>
-            <div class="form-row"><label>Insured</label><input type="checkbox"/></div>
-            <div class="form-row"><label>Nature Of Charge</label><select class="width-full"><option>--Select--</option><option>First Charge</option><option>Second Charge</option><option>Hypothecation</option></select></div>
-            <div class="form-row"><label>Remarks</label><textarea class="width-full" rows="2"></textarea></div>
+
+            <!-- Branch -->
+            <div class="form-row">
+              <label>Branch ID</label>
+              <select id="collateralBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select>
+              <input type="text" id="collateralBranchName" class="width-remaining" placeholder="Branch name" readonly/>
+            </div>
+
+            <!-- Collateral ID -->
+            <div class="form-row">
+              <label>Collateral ID</label>
+              <div class="input-group width-full">
+                <input type="text" id="collateralId"/>
+                <span class="search-btn" id="btnSearchCollateral">🔍</span>
+              </div>
+            </div>
+
+            <!-- Description -->
+            <div class="form-row">
+              <label>Description</label>
+              <input type="text" id="collateralDescription" class="width-full"/>
+            </div>
+
+            <!-- Collateral Type -->
+            <div class="form-row">
+              <label>Collateral Type</label>
+              <select id="collateralType" class="width-full">
+                <option value="">--Select--</option>
+                <option>Land</option>
+                <option>Building</option>
+                <option>Vehicle</option>
+                <option>Equipment</option>
+                <option>Inventory</option>
+              </select>
+            </div>
+
+            <!-- Owner ID -->
+            <div class="form-row">
+              <label>Owner ID</label>
+              <div class="input-group width-full">
+                <input type="text" id="collateralOwnerId"/>
+                <span class="search-btn">🔍</span>
+              </div>
+            </div>
+
+            <!-- Lodged Date -->
+            <div class="form-row">
+              <label>Lodged Date</label>
+              <input type="date" id="collateralLodgedDate" class="width-full"/>
+            </div>
+
+            <!-- Insured -->
+            <div class="form-row">
+              <label>Insured</label>
+              <input type="checkbox" id="collateralInsured"/>
+            </div>
+
+            <!-- Nature of Charge -->
+            <div class="form-row">
+              <label>Nature Of Charge</label>
+              <select id="collateralNatureOfCharge" class="width-full">
+                <option value="">--Select--</option>
+                <option>First Charge</option>
+                <option>Second Charge</option>
+                <option>Hypothecation</option>
+              </select>
+            </div>
+
+            <!-- Remarks -->
+            <div class="form-row">
+              <label>Remarks</label>
+              <textarea id="collateralRemarks" class="width-full" rows="2"></textarea>
+            </div>
+
             <div class="card-header-banner">Pricing &amp; Valuation Framework</div>
-            <div class="form-row"><label>Collateral Value (ETB)</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>Used Collateral Value</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>Withdrawn Date</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>Withdrawn Reason</label><textarea class="width-full" rows="2"></textarea></div>
-            <div class="form-row"><label>Created By</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label>Created On</label><input type="text" class="width-full"/></div>
-          </div>
+
+            <!-- Collateral Value -->
+            <div class="form-row">
+              <label>Collateral Value (ETB)</label>
+              <input type="text" id="collateralValue" class="width-full"/>
+            </div>
+
+            <!-- Used Collateral Value -->
+            <div class="form-row">
+              <label>Used Collateral Value</label>
+              <input type="text" id="usedCollateralValue" class="width-full"/>
+            </div>
+
+            <!-- Withdrawn Date -->
+            <div class="form-row">
+              <label>Withdrawn Date</label>
+              <input type="date" id="collateralWithdrawnDate" class="width-full"/>
+            </div>
+
+            <!-- Withdrawn Reason -->
+            <div class="form-row">
+              <label>Withdrawn Reason</label>
+              <textarea id="collateralWithdrawnReason" class="width-full" rows="2"></textarea>
+            </div>
+
+            <!-- Created By -->
+            <div class="form-row">
+              <label>Created By</label>
+              <input type="text" id="collateralCreatedBy" class="width-full"/>
+            </div>
+
+            <!-- Created On -->
+            <div class="form-row">
+              <label>Created On</label>
+              <input type="text" id="collateralCreatedOn" class="width-full" readonly/>
+            </div>
+
+          </div><!-- /sub-column left -->
+
           <div class="sub-column">
             <div class="form-spacer" style="height:175px;"></div>
-            <div class="form-row"><label class="shifted-label">Apportioned Ratio</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Apportioned Value</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Margin (%)</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Apportioned Coll. Value</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Loan Collateral Value</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Assigned Date</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Exchange Rate</label><input type="text" class="width-full"/></div>
+
+            <div class="form-row">
+              <label class="shifted-label">Apportioned Ratio</label>
+              <input type="text" id="collateralApportionedRatio" class="width-full"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Apportioned Value</label>
+              <input type="text" id="collateralApportionedValue" class="width-full"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Margin (%)</label>
+              <input type="text" id="collateralMargin" class="width-full"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Apportioned Coll. Value</label>
+              <input type="text" id="collateralApportionedCollValue" class="width-full"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Loan Collateral Value</label>
+              <input type="text" id="collateralLoanCollValue" class="width-full"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Assigned Date</label>
+              <input type="date" id="collateralAssignedDate" class="width-full"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Exchange Rate</label>
+              <input type="text" id="collateralExchangeRate" class="width-full"/>
+            </div>
+
             <div class="form-spacer" style="height:15px;"></div>
-            <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Value Type</label><input type="text" class="width-full"/></div>
-            <div class="form-row"><label class="shifted-label">Status</label><input type="text" class="width-full"/></div>
+
+            <div class="form-row">
+              <label class="shifted-label">Currency ID</label>
+              <input type="text" id="collateralCurrencyId" class="width-full"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Value Type</label>
+              <input type="text" id="collateralValueType" class="width-full"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Status</label>
+              <input type="text" id="collateralStatus" class="width-full"/>
+            </div>
+
             <div class="form-spacer" style="height:25px;"></div>
-            <div class="form-row"><label class="shifted-label">Modified By</label><input type="text" class="width-medium"/><label style="width:75px;min-width:75px;">Supervised By</label><input type="text" class="width-medium"/></div>
-            <div class="form-row"><label class="shifted-label">Modified On</label><input type="text" class="width-medium"/><label style="width:75px;min-width:75px;">Supervised On</label><input type="text" class="width-medium"/></div>
-          </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Modified By</label>
+              <input type="text" id="collateralModifiedBy" class="width-medium"/>
+              <label style="width:75px;min-width:75px;">Supervised By</label>
+              <input type="text" id="collateralSupervisedBy" class="width-medium"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Modified On</label>
+              <input type="text" id="collateralModifiedOn" class="width-medium" readonly/>
+              <label style="width:75px;min-width:75px;">Supervised On</label>
+              <input type="text" id="collateralSupervisedOn" class="width-medium" readonly/>
+            </div>
+
+          </div><!-- /sub-column right -->
         </form>
-        <div class="action-row-container"><button type="button" class="action-btn-inline">Withdraw</button></div>
+
+        <div class="action-row-container">
+          <button type="button" class="action-btn-inline" id="btnWithdraw">Withdraw</button>
+        </div>
         <div class="sub-footer-token" id="statusBar">Status: Ready</div>
       </div>
     </div>
