@@ -5,11 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>AVMF — 03 Loan Appraisal Management</title>
 <link rel="stylesheet" href="style2.css"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-  
 <div class="window-container">
 
   <div class="title-bar">
@@ -24,7 +22,7 @@
       </svg>
       <div class="title-text-block">
         <span class="title-main">Africa Village Microfinance</span>
-        <span class="title-sub">AVMF — Loan Appraisal Management</span>
+        <span class="title-sub">03 — Loan Appraisal Management</span>
       </div>
     </div>
     <div class="title-meta">
@@ -47,9 +45,9 @@
       </div>
       <ul class="nav-menu">
         <li><span class="nav-num">00</span><a href="client-maintenance.html" class="nav-label">Client maintenance</a></li>
-        <li class="active"><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
+        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
         <li><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
-        <li><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
+        <li class="active"><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
         <li><span class="nav-num">04</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
         <li><span class="nav-num">05</span><a href="loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
         <li><span class="nav-num">06</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
@@ -57,7 +55,9 @@
         <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
         <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
         <li><span class="nav-num">10</span><a href="disbursement.html" class="nav-label">Loan Disbursement</a></li>
-         <li><span class="nav-num">11</span><a href="client-directory.html" class="nav-label">Client Views </a></li>
+        <li><span class="nav-num">11</span><a href="client-directory.html" class="nav-label">Client Views</a></li>
+        <li><span class="nav-num">12</span><a href="general-ledger.html" class="nav-label">general-ledger</a></li>
+        <li><span class="nav-num">13</span><a href="delinquency-dashboard.html" class="nav-label">delinquency-dashboard</a></li>
       </ul>
       <div class="sidebar-footer-brand">
         <svg viewBox="0 0 100 100" width="28" height="28">
@@ -76,34 +76,54 @@
 
         <form class="module-form grid-two-column" autocomplete="off">
           <div class="sub-column">
+
+            <!-- Branch (always-enabled, populated from loanmasterrecords) -->
             <div class="form-row">
               <label>Branch ID</label>
               <select id="apprBranchId" class="width-full" style="max-width:220px;" data-always-enabled="1"></select>
               <input type="text" id="apprBranchName" class="width-remaining" placeholder="Branch name" readonly/>
             </div>
-            <div class="form-row"><label>Application ID <span class="req">*</span></label><div class="input-group width-full"><input type="text" id="apprApplicationId"/><span class="search-btn">🔍</span></div></div>
+
+            <!-- Application ID — user types here then clicks View -->
+            <div class="form-row">
+              <label>Application ID <span class="req">*</span></label>
+              <div class="input-group width-full">
+                <input type="text" id="apprApplicationId" placeholder="Enter ID then click 🔍"/>
+                <span class="search-btn" id="btnSearchAppId">🔍</span>
+              </div>
+            </div>
+
+            <!-- Auto-filled from loanmasterrecords (readonly) -->
             <div class="form-row"><label>Client ID</label><input type="text" id="apprClientId" class="width-full" readonly placeholder="Auto-filled"/></div>
             <div class="form-row"><label>Client Name</label><input type="text" id="apprClientName" class="width-full" readonly placeholder="Auto-filled"/></div>
+            <div class="form-row"><label>Product ID</label><input type="text" id="apprProductId" class="width-full" readonly placeholder="Auto-filled"/></div>
+            <div class="form-row"><label>Loan Purpose</label><input type="text" id="apprLoanPurpose" class="width-full" readonly placeholder="Auto-filled"/></div>
+            <div class="form-row"><label>Credit Officer</label><input type="text" id="apprCreditOfficer" class="width-full" readonly placeholder="Auto-filled"/></div>
+            <div class="form-row"><label>Repayment Account</label><input type="text" id="apprRepayAccountId" class="width-full" readonly placeholder="Auto-filled"/></div>
+
             <div class="section-divider"></div>
+
+            <!-- Amounts: applied is readonly from DB; recommended + approved are editable -->
             <div class="form-row"><label>Applied Amount (ETB)</label><input type="number" id="apprAppliedAmount" class="text-right width-full" readonly/></div>
-            <div class="form-row"><label>Recommended Amount (ETB)</label><input type="number" id="apprRecommendedAmount" class="text-right width-full"/></div>
-            <div class="form-row"><label>Appraisal Date</label><input type="date" id="apprDate" class="width-full"/></div>
-            <div class="form-row"><label>Appraisal Officer</label><div class="input-group width-full"><input type="text" id="apprOfficerId"/><span class="search-btn">🔍</span></div></div>
-            <div class="form-row"><label>Appraisal Method</label>
-              <select id="apprMethod" class="width-full">
-                <option>Field Visit</option><option>Desk Appraisal</option><option>Committee Review</option>
-              </select>
-            </div>
+            <div class="form-row"><label>Recommended Amount (ETB)</label><input type="number" id="apprRecommendedAmount" class="text-right width-full" step="0.01"/></div>
+            <div class="form-row"><label>Approved Amount (ETB)</label><input type="number" id="apprApprovedAmount" class="text-right width-full" step="0.01"/></div>
+            <div class="form-row"><label>Term (Months)</label><input type="number" id="apprTermMonths" class="text-right width-full" readonly/></div>
+            <div class="form-row"><label>Interest Rate (%)</label><input type="number" id="apprInterestRate" class="text-right width-full" readonly/></div>
+
             <div class="card-header-banner">Income &amp; Repayment Capacity</div>
             <div class="form-row"><label>Monthly Net Income (ETB)</label><input type="number" id="apprNetIncome" class="text-right width-full" step="0.01"/></div>
             <div class="form-row"><label>Existing Obligations (ETB)</label><input type="number" id="apprObligations" class="text-right width-full" step="0.01"/></div>
             <div class="form-row"><label>Disposable Income (ETB)</label><input type="number" id="apprDisposable" class="text-right width-full" readonly/></div>
             <div class="form-row"><label>Debt-Service Ratio (%)</label><input type="number" id="apprDSR" class="text-right width-full" readonly/></div>
-          </div>
+
+          </div><!-- /sub-column left -->
+
           <div class="sub-column">
-            <div class="form-row"><label class="shifted-label">Risk Rating</label>
+
+            <div class="form-row">
+              <label class="shifted-label">Risk Rating</label>
               <select id="apprRiskRating" class="width-full">
-                <option>-- Select --</option>
+                <option value="">-- Select --</option>
                 <option>AAA — Minimal Risk</option>
                 <option>AA — Low Risk</option>
                 <option>A — Satisfactory</option>
@@ -113,28 +133,50 @@
                 <option>CCC — Speculative</option>
               </select>
             </div>
+
             <div class="form-row"><label class="shifted-label">Credit Score</label><input type="number" id="apprCreditScore" class="text-right width-full" min="0" max="1000"/></div>
             <div class="form-row"><label class="shifted-label">Collateral Coverage (%)</label><input type="number" id="apprCollateralCoverage" class="text-right width-full" step="0.1"/></div>
             <div class="form-row"><label class="shifted-label">Loan-to-Value (%)</label><input type="number" id="apprLTV" class="text-right width-full" step="0.1" readonly/></div>
+
             <div class="form-spacer" style="height:16px;"></div>
-            <div class="form-row"><label class="shifted-label">Appraisal Outcome</label>
+
+            <div class="form-row">
+              <label class="shifted-label">Appraisal Outcome</label>
               <select id="apprOutcome" class="width-full">
-                <option>-- Pending --</option>
+                <option value="">-- Pending --</option>
                 <option>Recommended for Approval</option>
                 <option>Recommended with Conditions</option>
                 <option>Referred to Committee</option>
                 <option>Declined</option>
               </select>
             </div>
-            <div class="form-row"><label class="shifted-label">Conditions (if any)</label><textarea id="apprConditions" style="flex:1;min-height:60px;border:1px solid var(--border);padding:4px 6px;resize:vertical;"></textarea></div>
-            <div class="form-row"><label class="shifted-label">Remarks</label><textarea id="apprRemarks" style="flex:1;min-height:50px;border:1px solid var(--border);padding:4px 6px;resize:vertical;"></textarea></div>
-            <div class="form-row"><label class="shifted-label">Appraisal Status</label>
-              <input type="text" id="apprStatus" value="Pending" readonly class="width-full status-badge"/>
+
+            <div class="form-row">
+              <label class="shifted-label">Conditions (if any)</label>
+              <textarea id="apprConditions" style="flex:1;min-height:60px;border:1px solid var(--border);padding:4px 6px;resize:vertical;"></textarea>
             </div>
-          </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Remarks</label>
+              <textarea id="apprRemarks" style="flex:1;min-height:50px;border:1px solid var(--border);padding:4px 6px;resize:vertical;"></textarea>
+            </div>
+
+            <!-- Status: readonly display of application_status from DB -->
+            <div class="form-row">
+              <label class="shifted-label">Application Status</label>
+              <input type="text" id="apprStatus" class="width-full status-badge" readonly placeholder="Loaded from record"/>
+            </div>
+
+            <div class="form-spacer" style="height:16px;"></div>
+            <div class="card-header-banner" style="font-size:11px;color:var(--muted,#888);">
+              ℹ️ Save updates Recommended &amp; Approved amounts and advances status to <strong>Appraisal</strong>.
+              Analysis fields (Risk Rating, DSR, Conditions) are for officer use only and are not persisted.
+            </div>
+
+          </div><!-- /sub-column right -->
         </form>
 
-        <div class="sub-footer-token" id="statusBar">Status: Ready</div>
+        <div class="sub-footer-token" id="statusBar">Status: Ready — Enter an Application ID and click View (🔍)</div>
       </div>
     </div>
 
