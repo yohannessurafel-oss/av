@@ -1,7 +1,16 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 04 Credit Sanction Console
-   credit-sanction-console.js  v2.0  (NEW)
+   credit-sanction-console.js  v2.1
    Tables: loanapplications · loanmasterrecords · branchregistry
+
+   Workflow:
+     1. User enters Application ID → clicks 🔍 (or View button)
+     2. Record loads from loanmasterrecords → fills all read-only
+        Application Details fields AND pre-fills editable sanction
+        fields (amounts, rates, dates).
+     3. User clicks Edit → adjusts sanction fields → Save
+     4. Save PATCHes loanmasterrecords + loanapplications with
+        status = 'Sanctioned'.
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -79,42 +88,44 @@ document.getElementById('sanctionBranchId')?.addEventListener('change', function
   if (nameEl) nameEl.value = chosen ? (chosen.branch_name || '') : '';
 });
 
-/* ── Application Lookup ─────────────────────────────────── */
-// Reads loanapplications + loanmasterrecords and populates the
-// "Application Details" read-only section at the bottom of the form.
+/* ── Track loaded record ───────────────────────────────── */
+let _loadedAppId = null;
 
-async function lookupApplication(appId) {
-  if (!appId) return;
+/* ── Application Lookup ─────────────────────────────────── */
+async function lookupApplication() {
+  // Read from the APPLICATION ID input field (editable, top of form)
+  const appId = document.getElementById('sanctionApplicationId')?.value?.trim();
+  if (!appId) { toast('Enter an Application ID to search.', 'warning'); return; }
+
   const sb = document.getElementById('statusBar');
-  if (sb) sb.textContent = `Looking up application ${appId}…`;
+  if (sb) sb.textContent = `Looking up ${appId}…`;
 
   try {
-    // Fetch header from loanapplications
-    const appRows = await sbFetch(
-      `loanapplications?application_id=eq.${encodeURIComponent(appId)}&limit=1`
-    );
-    // Fetch full record from loanmasterrecords
     const lmrRows = await sbFetch(
-      `loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}&limit=1`
+      `loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}&select=*&limit=1`
     );
 
-    if ((!appRows || appRows.length === 0) && (!lmrRows || lmrRows.length === 0)) {
-      toast('Application ID not found.', 'warning');
-      if (sb) sb.textContent = 'Mode: View — Ready';
+    if (!lmrRows || lmrRows.length === 0) {
+      toast('Application ID not found in loan master records.', 'warning');
+      if (sb) sb.textContent = 'Status: Not found';
       return;
     }
 
-    const lmr = (lmrRows && lmrRows[0]) || {};
+    const lmr = lmrRows[0];
+    _loadedAppId = lmr.application_id;
 
-    // Populate Application Details read-only section
-    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val ?? '';
+    };
 
+    // ── Read-only Application Details ──────────────────
+    set('sanctionAccountId',        lmr.application_id);
     set('sanctionClientId',         lmr.client_id);
     set('sanctionMailingAddress',   lmr.mailing_address);
     set('sanctionCity',             lmr.city);
     set('sanctionPhone',            lmr.phone_number);
     set('sanctionLoanType',         lmr.account_class);
-    set('sanctionAccountId',        appId);
     set('sanctionProductId',        lmr.product_id);
     set('sanctionSanctionAmount',   lmr.sanction_amount);
     set('sanctionTerm',             lmr.term_months);
@@ -132,81 +143,99 @@ async function lookupApplication(appId) {
     set('sanctionGracePeriod2',     lmr.grace_period);
     set('sanctionRefNo',            lmr.reference_no);
     set('sanctionAppDate',          lmr.application_date);
+    set('sanctionBaseRate',         lmr.base_rate);
 
-    // Pre-fill the sanction header from existing values
-    set('sanctionApprovedAmount',   lmr.approved_amount || lmr.applied_amount);
-    set('sanctionRepaymentTerm',    lmr.repayment_term_months);
-    set('sanctionInterestRate',     lmr.interest_rate);
-    set('sanctionGracePeriod',      lmr.grace_period);
+    // Set branch dropdown to match the loaded record
+    const brSel = document.getElementById('sanctionBranchId');
+    if (brSel && lmr.branch_id) {
+      brSel.value = lmr.branch_id;
+      brSel.dispatchEvent(new Event('change'));
+    }
+
+    // ── Pre-fill editable sanction fields ──────────────
+    set('sanctionApprovedAmount',    lmr.approved_amount  || lmr.applied_amount);
+    set('sanctionRepaymentTerm',     lmr.repayment_term_months);
+    set('sanctionInterestRate',      lmr.interest_rate);
+    set('sanctionGracePeriod',       lmr.grace_period);
     set('sanctionNoOfDisbursements', lmr.no_of_disbursements || 1);
+    set('sanctionModeOfDisb',        lmr.mode_of_disbursement || 'Transfer');
+    set('sanctionFirstDisbDate',     lmr.first_disbursement_date);
+    set('sanctionInstallmentStartDate', lmr.installment_start_date);
+    set('sanctionInterestRateType',  lmr.interest_rate_type);
+    set('sanctionMarkingRate2',      lmr.marking_rate);
 
-    toast(`Application ${appId} loaded.`);
-    if (sb) sb.textContent = `Application ${appId} — ready to sanction`;
+    toast(`Application ${_loadedAppId} loaded.`);
+    if (sb) sb.textContent = `Application ${_loadedAppId} — click Edit to sanction`;
+
+    // Enable Edit button now that a record is loaded
+    const btnEdit = document.getElementById('btnGlobalEdit');
+    if (btnEdit) btnEdit.disabled = false;
+
+    setMode('view');
   } catch (e) {
     toast('Lookup error: ' + e.message, 'error');
     if (sb) sb.textContent = 'Lookup failed.';
   }
 }
 
-/* Wire the Application ID search button */
-document.querySelectorAll('.search-btn').forEach(btn => {
-  btn.addEventListener('click', function () {
-    const input = this.closest('.input-group')?.querySelector('input');
-    if (!input) return;
-    // Identify which search button was clicked by its sibling input's placeholder or position
-    const label = this.closest('.form-row')?.querySelector('label')?.textContent?.trim();
-    if (label && label.includes('Application ID')) {
-      lookupApplication(input.value.trim());
-    }
-  });
-});
-
 /* ── Save Sanction ──────────────────────────────────────── */
 async function saveSanction() {
-  // Identify application_id from the Application Details section
-  const appId = document.getElementById('sanctionAccountId')?.value?.trim();
-  if (!appId) { toast('Load an Application first (use Application ID search).', 'warning'); return; }
+  if (!_loadedAppId) {
+    toast('Load an Application first — enter Application ID and click 🔍.', 'warning');
+    return;
+  }
 
-  const getVal = id => { const el = document.getElementById(id); return el ? el.value.trim() : null; };
+  const getVal  = id => { const el = document.getElementById(id); return el ? el.value.trim() || null : null; };
+  const getNum  = id => { const v = parseFloat(getVal(id)); return isNaN(v) ? null : v; };
+  const getInt  = id => { const v = parseInt(getVal(id));   return isNaN(v) ? null : v; };
 
-  const sanctionPayload = {
-    approved_amount:        parseFloat(getVal('sanctionApprovedAmount')) || null,
-    no_of_disbursements:    parseInt(getVal('sanctionNoOfDisbursements')) || 1,
-    repayment_term_months:  parseInt(getVal('sanctionRepaymentTerm')) || null,
-    installment_start_date: getVal('sanctionInstallmentStartDate') || null,
-    marking_rate:           parseFloat(getVal('sanctionMarkingRate2')) || null,
-    interest_rate:          parseFloat(getVal('sanctionInterestRate')) || null,
-    grace_period:           parseInt(getVal('sanctionGracePeriod')) || 0,
-    mode_of_disbursement:   getVal('sanctionModeOfDisb') || 'Transfer',
-    first_disbursement_date: getVal('sanctionFirstDisbDate') || null,
-    interest_rate_type:     getVal('sanctionInterestRateType') || null,
-    application_status:     'Sanctioned',
-    modified_on:            new Date().toISOString(),
+  const payload = {
+    approved_amount:         getNum('sanctionApprovedAmount'),
+    no_of_disbursements:     getInt('sanctionNoOfDisbursements') || 1,
+    repayment_term_months:   getInt('sanctionRepaymentTerm'),
+    installment_start_date:  getVal('sanctionInstallmentStartDate'),
+    interest_rate:           getNum('sanctionInterestRate'),
+    grace_period:            getInt('sanctionGracePeriod') || 0,
+    mode_of_disbursement:    getVal('sanctionModeOfDisb') || 'Transfer',
+    first_disbursement_date: getVal('sanctionFirstDisbDate'),
+    interest_rate_type:      getVal('sanctionInterestRateType'),
+    marking_rate:            getNum('sanctionMarkingRate2'),
+    application_status:      'Sanctioned',
+    modified_on:             new Date().toISOString(),
   };
+
+  // Remove null dates — PostgREST rejects null for date columns
+  if (!payload.installment_start_date)  delete payload.installment_start_date;
+  if (!payload.first_disbursement_date) delete payload.first_disbursement_date;
 
   const sb = document.getElementById('statusBar');
   if (sb) sb.textContent = 'Saving sanction…';
 
   try {
-    // Update loanmasterrecords
-    await sbFetch(`loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}`, {
+    // 1. Update loanmasterrecords
+    await sbFetch(`loanmasterrecords?application_id=eq.${encodeURIComponent(_loadedAppId)}`, {
       method: 'PATCH',
       prefer: 'return=minimal',
-      body: JSON.stringify(sanctionPayload)
+      body: JSON.stringify(payload)
     });
-    // Update loanapplications status
-    await sbFetch(`loanapplications?application_id=eq.${encodeURIComponent(appId)}`, {
+
+    // 2. Update loanapplications status
+    await sbFetch(`loanapplications?application_id=eq.${encodeURIComponent(_loadedAppId)}`, {
       method: 'PATCH',
       prefer: 'return=minimal',
       body: JSON.stringify({ application_status: 'Sanctioned' })
     });
 
-    toast(`Application ${appId} sanctioned successfully.`, 'success');
-    if (sb) sb.textContent = `Sanctioned — ${appId}`;
+    // Reflect new status in the read-only field
+    const statusEl = document.getElementById('sanctionAppStatus');
+    if (statusEl) statusEl.value = 'Sanctioned';
+
+    toast(`Application ${_loadedAppId} sanctioned successfully.`, 'success');
+    if (sb) sb.textContent = `Sanctioned — ${_loadedAppId}`;
     setMode('view');
   } catch (e) {
     toast('Sanction save error: ' + e.message, 'error');
-    if (sb) sb.textContent = 'Save failed.';
+    if (sb) sb.textContent = 'Save failed — see toast.';
   }
 }
 
@@ -217,17 +246,18 @@ function setMode(mode) {
   currentMode = mode;
   const isEdit = mode === 'edit' || mode === 'add';
   const view = document.querySelector('.module-view.active');
+
   if (view) {
-    view.querySelectorAll('input:not([readonly]), select, textarea').forEach(el => {
-      if (el.dataset.alwaysEnabled !== undefined || el.id === 'sanctionBranchId') {
-        el.disabled = false; return;
-      }
+    view.querySelectorAll('input, select, textarea').forEach(el => {
+      if (el.dataset.alwaysEnabled !== undefined) { el.disabled = false; return; }
+      if (el.hasAttribute('readonly'))            { el.disabled = false; return; }
       el.disabled = !isEdit;
     });
   }
-  document.querySelectorAll('input[readonly]').forEach(el => el.disabled = false);
-  const sel = document.getElementById('sanctionBranchId');
-  if (sel) sel.disabled = false;
+
+  // Application ID input always enabled so user can type a new ID
+  const appIdEl = document.getElementById('sanctionApplicationId');
+  if (appIdEl) appIdEl.disabled = false;
 
   const btnSave   = document.getElementById('btnGlobalSave');
   const btnCancel = document.getElementById('btnGlobalCancel');
@@ -235,44 +265,62 @@ function setMode(mode) {
   const btnEdit   = document.getElementById('btnGlobalEdit');
   const btnClose  = document.getElementById('btnGlobalClose');
   const btnDelete = document.getElementById('btnGlobalDelete');
+
   if (btnSave)   btnSave.disabled   = !isEdit;
   if (btnCancel) btnCancel.disabled = !isEdit;
   if (btnAdd)    btnAdd.disabled    = isEdit;
-  if (btnEdit)   btnEdit.disabled   = isEdit;
-  if (btnDelete) btnDelete.disabled = !isEdit;
+  if (btnEdit)   btnEdit.disabled   = isEdit || !_loadedAppId;
+  if (btnDelete) btnDelete.disabled = true;    // no hard-delete on sanctions
   if (btnClose)  btnClose.disabled  = isEdit;
 
   const sb = document.getElementById('statusBar');
-  if (sb) sb.textContent = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)} — Ready`;
+  if (sb && mode !== 'view') {
+    sb.textContent = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)} — Ready`;
+  }
 }
 
-/* ── Toolbar Buttons ─────────────────────────────────────── */
-document.getElementById('btnGlobalView')?.addEventListener('click', () => {
-  const appId = document.getElementById('sanctionAccountId')?.value?.trim();
-  if (appId) lookupApplication(appId);
-  else toast('Enter an Application ID first.', 'warning');
-});
-document.getElementById('btnGlobalAdd')?.addEventListener('click', () => {
-  setMode('add');
-  toast('Add mode — search for an Application ID to sanction.');
-});
+/* ── Toolbar ─────────────────────────────────────────────── */
+// View button: look up whatever is in the Application ID field
+document.getElementById('btnGlobalView')?.addEventListener('click', lookupApplication);
+
+// 🔍 icon next to Application ID input
+document.getElementById('btnSearchAppId')?.addEventListener('click', lookupApplication);
+
 document.getElementById('btnGlobalEdit')?.addEventListener('click', () => {
+  if (!_loadedAppId) { toast('Load an application first.', 'warning'); return; }
   setMode('edit');
   toast('Edit mode — adjust sanction details then Save.');
 });
+
 document.getElementById('btnGlobalSave')?.addEventListener('click', saveSanction);
+
 document.getElementById('btnGlobalCancel')?.addEventListener('click', () => {
-  setMode('view');
+  if (_loadedAppId) lookupApplication();  // reload fresh from DB
+  else setMode('view');
   toast('Changes discarded.');
 });
+
+document.getElementById('btnGlobalAdd')?.addEventListener('click', () => {
+  toast('Use Module 01 — Loan Application to create a new application.', 'warning');
+});
+
 document.getElementById('btnGlobalClose')?.addEventListener('click', () => {
+  _loadedAppId = null;
+  document.querySelectorAll('#view-module-04 input, #view-module-04 select, #view-module-04 textarea')
+    .forEach(el => { if (!el.dataset.alwaysEnabled) el.value = ''; });
   setMode('view');
   toast('Record closed.');
 });
+
 document.getElementById('btnGlobalDelete')?.addEventListener('click', () => {
   toast('Delete not permitted on sanctioned records.', 'warning');
 });
+
 document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
+
+document.getElementById('btnCharges')?.addEventListener('click', () => {
+  toast('Charges module coming soon.', '');
+});
 
 /* ── Init ──────────────────────────────────────────────── */
 async function init() {
