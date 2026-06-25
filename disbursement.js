@@ -27,10 +27,15 @@ async function sbFetch(path, opts = {}) {
     }
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+    const errText = await res.text().catch(() => '');
+    let msg = 'HTTP ' + res.status;
+    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
+    throw new Error(msg);
   }
-  return res.status === 204 ? null : res.json();
+  if (res.status === 204) return null;
+  const body = await res.text();
+  if (!body || !body.trim()) return null;
+  try { return JSON.parse(body); } catch { return null; }
 }
 
 /* ── Module state ────────────────────────────────────────── */
@@ -383,6 +388,8 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
     /* Batch all instalment rows — sequential awaits keep order correct */
     for (const row of schedule) {
       const instBatch = `INST-${appId}-${today.replace(/-/g, '')}-${String(row.instalment_no).padStart(3, '0')}`;
+
+      // Write to loan_ledger (running balance ledger)
       const ledgerInstRow = {
         application_id:  appId,
         client_id:       currentRecord?.client_id  || null,
@@ -396,7 +403,7 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
         interest:        parseFloat(row.interest.toFixed(2)),
         charges_penalties: 0,
         accrued_interest_receivable: parseFloat(row.interest.toFixed(2)),
-        total_paid:      0,               /* 0 until teller posts a receipt */
+        total_paid:      0,
         accrued_unpaid_interest: 0,
         running_balance: parseFloat(row.closing_balance.toFixed(2)),
         borrower_name:   customerName
@@ -405,6 +412,20 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
         method: 'POST',
         prefer: 'return=minimal',
         body:   JSON.stringify(ledgerInstRow)
+      });
+
+      // Also write to amortization_schedules (repayment plan tracking table)
+      await sbFetch('amortization_schedules', {
+        method: 'POST',
+        prefer: 'return=minimal',
+        body: JSON.stringify({
+          application_id: appId,
+          installment_no: row.instalment_no,
+          due_date:       row.payment_date,
+          principal_due:  parseFloat(row.principal_paid.toFixed(2)),
+          interest_due:   parseFloat(row.interest.toFixed(2)),
+          status:         'UNPAID'
+        })
       });
     }
 
