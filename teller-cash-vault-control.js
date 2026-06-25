@@ -3,7 +3,6 @@
    teller-cash-vault-control.js  v2.1 (Fully Connected)
    Table: tellervaultregistry
 ═══════════════════════════════════════════════════════════ */
-
 'use strict';
 
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
