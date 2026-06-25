@@ -282,7 +282,6 @@ function collectForm() {
   return {
     client_id:      document.getElementById('clientId').value.trim() || null,
     application_id: document.getElementById('applicationId').value.trim() || null,
-    client_name:    document.getElementById('clientName').value.trim() || null,
     client_type:    document.getElementById('clientType').value || 'Individual Client',
     base_id:        document.getElementById('baseId').value || null,
     // Personal
@@ -555,7 +554,8 @@ async function saveRecord() {
     return;
   }
 
-  // total_income/expenses/net_savings are DEFAULT computed cols — let DB recalculate them
+  // These columns are GENERATED ALWAYS in the live DB — never write them
+  delete payload.client_name;
   delete payload.total_income;
   delete payload.total_expenses;
   delete payload.net_savings;
