@@ -60,7 +60,7 @@
         <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
         <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
         <li><span class="nav-num">10</span><a href="disbursement.html" class="nav-label">Loan Disbursement</a></li>
-         <li><span class="nav-num">11</span><a href="client-directory.html" class="nav-label">Client Views </a></li>
+         <li><span class="nav-num">00</span><a href="client-directory.html" class="nav-label">Client Views</a></li>
       </ul>
       <div class="sidebar-footer-brand">
         <svg viewBox="0 0 100 100" width="28" height="28">
@@ -118,10 +118,10 @@
                 <option>Proprietary</option><option>Commercial</option>
               </select>
             </div>
-            <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" id="fCurrencyId" value="ETB" class="font-bold width-full"/></div>
+            <div class="form-row"><label class="shifted-label">Currency</label><select id="fCurrencyId" class="width-full"><option value="ETB" selected>ETB — Ethiopian Birr</option><option value="USD">USD — US Dollar</option><option value="EUR">EUR — Euro</option></select></div>
             <div class="form-row"><label class="shifted-label">Interest Rate (%) <span class="req">*</span></label><input type="number" id="fInterestRate" class="text-right width-full" step="0.01"/></div>
             <div class="form-row"><label class="shifted-label">Tax Rate (%)</label><input type="number" id="fTaxRate" class="text-right width-full" step="0.01"/></div>
-            <div class="form-row"><label class="shifted-label">Disbursement Date</label><select id="fDisbursementDate" class="width-full"><option value="">-- Select Date --</option></select></div>
+            <div class="form-row"><label class="shifted-label">Disbursement Date</label><input type="date" id="fDisbursementDate" class="width-full"/></div>
             <div class="form-row"><label class="shifted-label">Application Status</label>
               <input type="text" id="fApplicationStatus" value="DataEntry" readonly class="width-full status-badge"/>
             </div>
