@@ -19,10 +19,15 @@ async function sbFetch(path, options = {}) {
     }
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+    const errText = await res.text().catch(() => '');
+    let msg = 'HTTP ' + res.status;
+    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
+    throw new Error(msg);
   }
-  return res.status === 204 ? null : res.json();
+  if (res.status === 204) return null;
+  const body = await res.text();
+  if (!body || !body.trim()) return null;
+  try { return JSON.parse(body); } catch { return null; }
 }
 
 // ── State ────────────────────────────────────────────────
@@ -289,7 +294,8 @@ function collectForm() {
     house_members: get('houseMembers') ? +get('houseMembers') : null,
     children:      get('children')     ? +get('children')     : null,
     dependents:    get('dependents')   ? +get('dependents')   : null,
-    blood_group: get('bloodGroup'), can_donate: get('canDonate'),
+    blood_group: get('bloodGroup'),
+    can_donate: (() => { const v = get('canDonate'); return v === 'Yes' ? true : v === 'No' ? false : null; })(),
     opened_by: get('openedBy'), opened_on: get('openedOn') || null,
     age_as_on: get('ageAsOn') || null,
     relationship_manager: get('relManager') || null,
@@ -310,6 +316,8 @@ function collectForm() {
     address_type: get('addressType'), postal_address: get('postalAddress'),
     physical_address: get('physicalAddress'), city: get('city'),
     zip_code: get('zipCode'), country: get('country'),
+    region: get('region'), zone: get('zone'), kebele: get('kebele'),
+    house_no: get('houseNo'), po_box: get('poBox'),
     phone_home: get('phoneHome'), phone_work: get('phoneWork'),
     mobile: get('mobile'), fax_no: get('faxNo'), email: get('email'),
     // Employment
@@ -418,7 +426,7 @@ function calculateLiveAge() {
 // ── Load branches from BranchRegistry ────────────────────
 async function loadBranches() {
   try {
-    const data = await sbFetch('BranchRegistry?select=branch_id,branch_name&order=branch_name');
+    const data = await sbFetch('branchregistry?select=branch_id,branch_name&order=branch_name');
     const sel = document.getElementById('baseId');
     if (!sel || !data) return;
     // keep the default "– Select –" option
@@ -547,7 +555,7 @@ async function saveRecord() {
     return;
   }
 
-  // Computed fields are never stored
+  // total_income/expenses/net_savings are DEFAULT computed cols — let DB recalculate them
   delete payload.total_income;
   delete payload.total_expenses;
   delete payload.net_savings;
@@ -561,8 +569,9 @@ async function saveRecord() {
 
   try {
     if (mode === 'add') {
-      // Generate unique Client ID
-      payload.client_id = 'CLI-' + Math.floor(100000 + Math.random() * 900000);
+      // Generate unique Client ID using timestamp + random suffix (collision-safe)
+      payload.client_id = 'CLI-' + Date.now().toString(36).toUpperCase().slice(-5) +
+                          Math.random().toString(36).slice(2,5).toUpperCase();
       delete payload.application_id;
       showToast('Creating new client…');
       const data = await sbFetch('ClientMasterRecords', {
@@ -685,6 +694,30 @@ document.getElementById('lookupAppId')?.addEventListener('click', async () => {
     }
   } catch (e) {
     showToast(`Error: ${e.message}`, 'error');
+  }
+});
+
+// ── Delete ────────────────────────────────────────────────
+document.getElementById('btnDelete')?.addEventListener('click', async () => {
+  if (!currentRecord?.client_id) {
+    showToast('Load a record first before deleting.', 'error');
+    return;
+  }
+  const name = currentRecord.client_name || currentRecord.client_id;
+  if (!confirm(`Permanently delete client "${name}"?\n\nThis cannot be undone.`)) return;
+  try {
+    await sbFetch(
+      `ClientMasterRecords?client_id=eq.${encodeURIComponent(currentRecord.client_id)}`,
+      { method: 'DELETE', prefer: 'return=minimal' }
+    );
+    showToast(`Client ${currentRecord.client_id} deleted.`, 'success');
+    clearForm();
+    currentRecord = null;
+    currentIndex  = -1;
+    await loadAllRecords();
+    setMode('view');
+  } catch (e) {
+    showToast(`Delete failed: ${e.message}`, 'error');
   }
 });
 
