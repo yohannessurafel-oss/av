@@ -31,12 +31,15 @@ async function sbFetch(path, opts = {}) {
     }
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+    const errText = await res.text().catch(() => '');
+    let msg = 'HTTP ' + res.status;
+    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
+    throw new Error(msg);
   }
-  const text = await res.text();
-  if (!text || !text.trim()) return null;
-  try { return JSON.parse(text); } catch { return null; }
+  if (res.status === 204) return null;
+  const body = await res.text();
+  if (!body || !body.trim()) return null;
+  try { return JSON.parse(body); } catch { return null; }
 }
 
 /* ── Column Map ─────────────────────────────────────────── */
@@ -273,9 +276,7 @@ function fillForm(rec) {
   set('fApplicationStatus', COL.app_status);
   document.getElementById('loanBranchId')?.dispatchEvent(new Event('change'));
   const disbDate = rec[COL.disbursement_date] || null;
-  populateDisbursementDates(disbDate);
-  const disbSel = document.getElementById('fDisbursementDate');
-  if (disbSel && disbDate) disbSel.value = disbDate;
+  populateDisbursementDates(disbDate); // sets value directly on date input
   calcLoanSummary();
 }
 
@@ -288,7 +289,8 @@ function collectForm() {
     [COL.sub_group_id]:     g('fSubGroupId'),
     [COL.application_id]:   g('fApplicationId'),
     [COL.client_id]:        g('fClientId'),
-    [COL.client_name]:      g('fClientName'),
+    // client_name is a computed column in loanmasterrecords — read-only, stripped before write
+    // [COL.client_name]:   g('fClientName'),  // DO NOT send to DB
     [COL.product_id]:       g('fProductId'),
     [COL.repayment_acc_id]: g('fRepaymentAccId'),
     [COL.donor_id]:         g('fDonorId'),
@@ -428,33 +430,13 @@ function buildViewModal(rows) {
   }
 }
 
-/* ── Disbursement Date Population ───────────────────────── */
+/* ── Disbursement Date — now a plain <input type="date"> ─── */
+// populateDisbursementDates() removed — field is now a native date picker.
 function populateDisbursementDates(existingDate) {
-  const sel = document.getElementById('fDisbursementDate');
-  if (!sel) return;
-  const today = new Date();
-  const dates = [];
-  for (let i = 0; i <= 24; i++) {
-    const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
-    dates.push(d.toISOString().split('T')[0]);
-  }
-  if (existingDate && !dates.includes(existingDate)) dates.unshift(existingDate);
-  sel.innerHTML = '<option value="">-- Select Date --</option>';
-  dates.forEach(dateStr => {
-    const opt = document.createElement('option');
-    opt.value = dateStr;
-    const d = new Date(dateStr + 'T00:00:00');
-    opt.textContent = d.toLocaleDateString('en-ET', { year: 'numeric', month: 'long', day: 'numeric' });
-    if (dateStr === existingDate) opt.selected = true;
-    sel.appendChild(opt);
-  });
+  // no-op stub — kept for backward compat with fillForm() call
+  const el = document.getElementById('fDisbursementDate');
+  if (el && existingDate) el.value = existingDate;
 }
-
-document.getElementById('fTerm')?.addEventListener('blur', () => {
-  populateDisbursementDates(document.getElementById('fDisbursementDate')?.value || null);
-  setTimeout(() => document.getElementById('fDisbursementDate')?.focus(), 50);
-});
-populateDisbursementDates(null);
 
 /* ── Confirmation Dialog ────────────────────────────────── */
 function showSaveConfirmation(payload, onConfirm) {
@@ -520,54 +502,64 @@ function showSaveOkDialog() {
   setTimeout(() => overlay?.remove(), 8000);
 }
 
-/* ── Updated Consolidated commitSave Function ────────────────── */
+/* ── commitSave v2.2 ────────────────────────────────────────── */
 async function commitSave(payload) {
-  const appId      = payload[COL.application_id];
-  const appStatus  = payload[COL.app_status] || 'DataEntry';
-  
+  const appId     = payload[COL.application_id];
+  const branchId  = payload[COL.branch_id];
+  const appDate   = payload[COL.app_date] || new Date().toISOString().slice(0,10);
+  const appStatus = payload[COL.app_status] || 'DataEntry';
+
+  // Strip generated/computed columns — loanmasterrecords rejects writes to these
+  const writePayload = { ...payload };
+  delete writePayload[COL.client_name];   // generated column in loanmasterrecords
+
   try {
     toast('Processing…', 'info');
-    
+
     if (currentMode === 'add') {
-      // 1. Create the base Core Intake anchor record first
-      await sbFetch('loan_applications', {
-        method: 'POST',
+      if (!appId) throw new Error('Application ID is required.');
+
+      // Step 1 — Insert parent row into loanapplications (CBS v2 staging table)
+      // ON CONFLICT DO NOTHING protects against duplicate saves on retry
+      await sbFetch('loanapplications', {
+        method:  'POST',
+        prefer:  'return=minimal',
+        headers: { 'Prefer': 'return=minimal,resolution=ignore-duplicates' },
         body: JSON.stringify({
-          application_code: appId,
-          first_name: payload[COL.client_name] || 'New Web Intake',
-          status: 'pending'
+          application_id:     appId,
+          branch_id:          branchId || null,
+          application_date:   appDate,
+          application_status: appStatus,
         })
       });
 
-      // 2. Insert the main banking metrics into loanmasterrecords
-      const responseData = await sbFetch(TABLE_LOANS, { 
-        method: 'POST', 
-        body: JSON.stringify(payload), 
-        prefer: 'return=representation' 
+      // Step 2 — Insert into loanmasterrecords (child)
+      const responseData = await sbFetch(TABLE_LOANS, {
+        method: 'POST',
+        prefer: 'return=representation',
+        body:   JSON.stringify(writePayload),
       });
       currentRecord = Array.isArray(responseData) ? responseData[0] : responseData;
-      
+
     } else if (currentMode === 'edit') {
       const currentAppId = currentRecord[COL.application_id];
-      if (!currentAppId) throw new Error('No active record identifier to modify.');
-      
-      const updatePayload = { ...payload };
-      delete updatePayload[COL.application_id]; // Protect identity key
-      
-      // Update core master data fields directly
-      const responseData = await sbFetch(`${TABLE_LOANS}?${COL.application_id}=eq.${encodeURIComponent(currentAppId)}`, { 
-        method: 'PATCH', 
-        body: JSON.stringify(updatePayload), 
-        prefer: 'return=representation' 
-      });
-      currentRecord = Array.isArray(responseData) ? responseData[0] : currentRecord;
+      if (!currentAppId) throw new Error('No active record to modify.');
+
+      const updatePayload = { ...writePayload };
+      delete updatePayload[COL.application_id]; // never PATCH the PK
+
+      const responseData = await sbFetch(
+        `${TABLE_LOANS}?${COL.application_id}=eq.${encodeURIComponent(currentAppId)}`,
+        { method: 'PATCH', prefer: 'return=representation', body: JSON.stringify(updatePayload) }
+      );
+      currentRecord = (Array.isArray(responseData) && responseData[0]) ? responseData[0] : currentRecord;
     }
-    
+
     if (currentRecord) fillForm(currentRecord);
     setMode('view');
-    toast('✔ Loan application record saved.', 'success');
+    toast('✔ Loan application saved.', 'success');
   } catch (error) {
-    console.error('Save error details:', error);
+    console.error('Save error:', error);
     toast(`Save failed: ${error.message}`, 'error');
   }
 }
