@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 06 Collateral Inventory Risk
-   collateral-inventory-risk.js  v2.0  (NEW)
+   collateral-inventory-risk.js  v2.1
    Table: collateralinventory
 ═══════════════════════════════════════════════════════════ */
 
@@ -50,36 +50,37 @@ function toast(msg, type = '', duration = 3200) {
 })();
 
 /* ── Field Map: HTML id → DB column ─────────────────────
-   All inputs in collateral-inventory-risk.html must have
-   these id attributes for this mapping to work.           */
+   Matches collateralinventory schema exactly.            */
 const FIELD_MAP = {
-  collateralBranchId:         'branch_id',
-  collateralId:               'collateral_id',
-  collateralDescription:      'description',
-  collateralType:             'collateral_type',
-  collateralOwnerId:          'owner_id',
-  collateralLodgedDate:       'lodged_date',
-  collateralInsured:          'is_insured',     // checkbox
-  collateralNatureOfCharge:   'nature_of_charge',
-  collateralRemarks:          'remarks',
-  collateralValue:            'collateral_value',
-  usedCollateralValue:        'used_collateral_value',
-  collateralWithdrawnDate:    'withdrawn_date',
-  collateralWithdrawnReason:  'withdrawn_reason',
-  collateralCreatedBy:        'created_by',
-  collateralCreatedOn:        'created_on',
-  collateralApportionedRatio: 'apportioned_ratio',
-  collateralApportionedValue: 'apportioned_value',
-  collateralMargin:           'margin_percentage',
+  collateralBranchId:             'branch_id',
+  collateralId:                   'collateral_id',
+  collateralDescription:          'description',
+  collateralType:                 'collateral_type',
+  collateralOwnerId:              'owner_id',
+  collateralLodgedDate:           'lodged_date',
+  collateralInsured:              'is_insured',          // checkbox
+  collateralNatureOfCharge:       'nature_of_charge',
+  collateralRemarks:              'remarks',
+  collateralValue:                'collateral_value',
+  usedCollateralValue:            'used_collateral_value',
+  collateralWithdrawnDate:        'withdrawn_date',
+  collateralWithdrawnReason:      'withdrawn_reason',
+  collateralCreatedBy:            'created_by',
+  collateralCreatedOn:            'created_on',
+  collateralApportionedRatio:     'apportioned_ratio',
+  collateralApportionedValue:     'apportioned_value',
+  collateralMargin:               'margin_percentage',
   collateralApportionedCollValue: 'apportioned_collateral_value',
-  collateralLoanCollValue:    'loan_collateral_value',
-  collateralAssignedDate:     'assigned_date',
-  collateralExchangeRate:     'exchange_rate',
-  collateralCurrencyId:       'currency_id',
-  collateralValueType:        'value_type',
-  collateralStatus:           'status',
-  collateralModifiedBy:       'modified_by',
-  collateralModifiedOn:       'modified_on',
+  collateralLoanCollValue:        'loan_collateral_value',
+  collateralAssignedDate:         'assigned_date',
+  collateralExchangeRate:         'exchange_rate',
+  collateralCurrencyId:           'currency_id',
+  collateralValueType:            'value_type',
+  collateralStatus:               'status',
+  collateralModifiedBy:           'modified_by',
+  collateralModifiedOn:           'modified_on',
+  collateralSupervisedBy:         'supervised_by',
+  collateralSupervisedOn:         'supervised_on',
 };
 
 /* ── Helpers ────────────────────────────────────────────── */
@@ -99,7 +100,6 @@ function setField(id, val) {
 
 function clearForm() {
   Object.keys(FIELD_MAP).forEach(id => setField(id, ''));
-  // reset checkbox
   const insuredEl = document.getElementById('collateralInsured');
   if (insuredEl) insuredEl.checked = false;
 }
@@ -166,9 +166,9 @@ async function viewRecord() {
 /* ── Save (Insert or Update) ────────────────────────────── */
 async function saveRecord() {
   const rec = formToRecord();
-  if (!rec.collateral_id) { toast('Collateral ID is required.', 'warning'); return; }
-  if (!rec.branch_id)     { toast('Branch is required.', 'warning'); return; }
-  if (!rec.owner_id)      { toast('Owner ID is required.', 'warning'); return; }
+  if (!rec.collateral_id)   { toast('Collateral ID is required.', 'warning'); return; }
+  if (!rec.branch_id)       { toast('Branch is required.', 'warning'); return; }
+  if (!rec.owner_id)        { toast('Owner ID is required.', 'warning'); return; }
   if (!rec.collateral_type) { toast('Collateral Type is required.', 'warning'); return; }
 
   const sb = document.getElementById('statusBar');
@@ -229,17 +229,14 @@ function setMode(mode) {
   const isEdit = mode === 'edit' || mode === 'add';
   const view = document.querySelector('.module-view.active');
   if (view) {
-    view.querySelectorAll('input:not([readonly]), select, textarea').forEach(el => {
-      if (el.dataset.alwaysEnabled !== undefined || el.id === 'collateralBranchId') {
-        el.disabled = false; return;
-      }
+    view.querySelectorAll('input, select, textarea').forEach(el => {
+      // always-enabled fields (branch dropdown)
+      if (el.dataset.alwaysEnabled !== undefined) { el.disabled = false; return; }
+      // readonly fields stay readable but never editable via mode
+      if (el.hasAttribute('readonly')) { el.disabled = false; return; }
       el.disabled = !isEdit;
     });
   }
-  document.querySelectorAll('input[readonly]').forEach(el => el.disabled = false);
-  document.getElementById('collateralBranchId')?.setAttribute('disabled', 'false');
-  const sel = document.getElementById('collateralBranchId');
-  if (sel) sel.disabled = false;
 
   const btnSave   = document.getElementById('btnGlobalSave');
   const btnCancel = document.getElementById('btnGlobalCancel');
@@ -298,8 +295,11 @@ document.getElementById('btnGlobalDelete')?.addEventListener('click', async () =
 });
 document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
 
-// Withdraw inline button
-document.querySelector('.action-btn-inline')?.addEventListener('click', withdrawCollateral);
+// Search icon on Collateral ID field triggers view
+document.getElementById('btnSearchCollateral')?.addEventListener('click', viewRecord);
+
+// Withdraw button
+document.getElementById('btnWithdraw')?.addEventListener('click', withdrawCollateral);
 
 /* ── Init ──────────────────────────────────────────────── */
 async function init() {
