@@ -6,6 +6,7 @@
              loanmasterrecords (account_id)
              ClientMasterRecords (guarantor_id)
 ═══════════════════════════════════════════════════════════ */
+
 'use strict';
 
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
