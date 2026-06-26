@@ -345,13 +345,16 @@
           <!-- ── Search Bar ──────────────────────────── -->
           <div class="ledger-identity-bar">
             <div class="ledger-id-field">
-              <label>Account No.</label>
-              <input type="text" id="lrAccountNo" placeholder="011-004-9823-01" style="width:160px;"/>
+              <label>Application ID / Client ID</label>
+              <input type="text" id="lrSearchId" placeholder="e.g. APP-00123 or CLI-001"
+                style="width:210px;" title="Enter the Application ID or Client ID from Module 01 / 00"/>
             </div>
             <div class="ledger-id-field wide">
               <label>Borrower Name</label>
-              <input type="text" id="lrBorrowerName" placeholder="Auto-filled or manual" style="width:200px;"/>
+              <input type="text" id="lrBorrowerName" placeholder="Auto-filled from CBS" style="width:190px;"/>
             </div>
+            <!-- hidden — populated by enrichHeaderFromRecord -->
+            <input type="hidden" id="lrAccountNo" value=""/>
             <div class="ledger-id-field">
               <label>Status</label>
               <select id="lrStatus" style="width:150px;">
@@ -361,7 +364,7 @@
                 <option value="Closed">Closed</option>
               </select>
             </div>
-            <button class="btn-fetch" id="btnFetchLedger">🔍 Load from DB</button>
+            <button class="btn-fetch" id="btnFetchLedger" title="Search by Application ID or Client ID in CBS records">🔍 Load from CBS</button>
             <div class="ledger-id-sep"></div>
             <button class="btn-generate-local" id="btnToggleParams">⚙ Generate Projection</button>
           </div>
@@ -604,7 +607,7 @@
     </div>
 
     <div class="action-sidebar">
-      <button id="btnLoad"   class="action-btn">🔍 Load</button>
+      <button id="btnLoad"   class="action-btn" title="Search by Application ID or Client ID">🔍 Load</button>
       <button id="btnGenerate" class="action-btn">⚡ Generate</button>
       <button id="btnClose"  class="action-btn">✕ Close</button>
       <div class="sidebar-spacer"></div>
