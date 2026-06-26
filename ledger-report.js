@@ -83,45 +83,105 @@ let _scheduleRows = [];
 
 /* ══════════════════════════════════════════════════════════
    MODE A — Load from DB
+   Search order:
+     1. loanmasterrecords by application_id or client_id
+        → get the canonical application_id
+     2. loan_ledger by application_id (CBS pipeline key)
+     3. fall back to loan_ledger by account_number (legacy)
+     4. fall back to amortization_schedules if no ledger rows
 ══════════════════════════════════════════════════════════ */
 async function loadFromDB() {
-  const accountNo = document.getElementById('lrAccountNo').value.trim();
-  if (!accountNo) { toast('Enter an Account No. to load.', 'warning'); return; }
+  const searchVal = document.getElementById('lrSearchId').value.trim();
+  if (!searchVal) { toast('Enter an Application ID or Client ID to search.', 'warning'); return; }
 
-  setSB('Loading ledger…');
+  setSB('Searching CBS records…');
+  toast('Searching…', '');
 
-  /* Try to enrich from loanmasterrecords first */
+  let lmrRecord = null;
+
+  // Step 1: look up loanmasterrecords by application_id OR client_id
   try {
-    const lmr = await sbFetch(
-      `loanmasterrecords?account_number=eq.${encodeURIComponent(accountNo)}&limit=1`
+    // Try application_id first (exact match)
+    let rows = await sbFetch(
+      `loanmasterrecords?application_id=eq.${encodeURIComponent(searchVal)}&limit=1`
     );
-    if (lmr && lmr[0]) enrichHeaderFromRecord(lmr[0]);
-  } catch { /* non-fatal — just use what's in the form */ }
+    if (!rows || !rows[0]) {
+      // Try client_id — returns most recent loan for that client
+      rows = await sbFetch(
+        `loanmasterrecords?client_id=eq.${encodeURIComponent(searchVal)}&order=application_id.desc&limit=1`
+      );
+    }
+    if (rows && rows[0]) {
+      lmrRecord = rows[0];
+      enrichHeaderFromRecord(lmrRecord);
+    }
+  } catch (e) {
+    console.warn('loanmasterrecords lookup failed:', e.message);
+  }
 
-  /* Load loan_ledger rows */
-  const { data, error } = await _db
+  const appId      = lmrRecord?.application_id || searchVal;
+  const acctNumber = lmrRecord?.account_number  || searchVal;
+
+  // Step 2: fetch loan_ledger by application_id (CBS pipeline rows)
+  let { data, error } = await _db
     .from('loan_ledger')
     .select('*')
-    .eq('account_number', accountNo)
+    .eq('application_id', appId)
     .order('id', { ascending: true });
 
-  if (error) { toast('DB error: ' + error.message, 'error'); setSB('Load failed.'); return; }
+  // Step 3: fall back to account_number (legacy standalone tool rows)
+  if ((!data || data.length === 0) && acctNumber !== appId) {
+    const res2 = await _db
+      .from('loan_ledger')
+      .select('*')
+      .eq('account_number', acctNumber)
+      .order('id', { ascending: true });
+    data  = res2.data;
+    error = res2.error;
+  }
+
+  // Step 4: fall back to amortization_schedules if still empty
   if (!data || data.length === 0) {
-    toast(`No ledger rows found for account ${accountNo}.`, 'warning');
-    setSB('No data found.');
+    try {
+      const schedRows = await sbFetch(
+        `amortization_schedules?application_id=eq.${encodeURIComponent(appId)}&order=installment_no.asc`
+      );
+      if (schedRows && schedRows.length > 0) {
+        toast(`No ledger rows yet — showing amortization schedule (${schedRows.length} installments).`, 'warning');
+        _scheduleRows = schedRows.map((r, i) => ({
+          no:        r.installment_no || i + 1,
+          due_date:  r.due_date,
+          opening:   0,  // not stored in amortization_schedules
+          principal: parseFloat(r.principal_due) || 0,
+          interest:  parseFloat(r.interest_due)  || 0,
+          total_due: (parseFloat(r.principal_due) || 0) + (parseFloat(r.interest_due) || 0),
+          closing:   0,
+          status:    r.status || 'UNPAID'
+        }));
+        _rows = [];
+        renderSchedule(_scheduleRows);
+        showReportTab('schedule');
+        setSB(`No ledger rows — showing amortization schedule for ${appId}`);
+        return;
+      }
+    } catch(e) { console.warn('amortization_schedules fallback failed:', e.message); }
+
+    toast(`No ledger data found for "${searchVal}". Disburse the loan first (Module 10).`, 'warning');
+    setSB('No data found — loan may not be disbursed yet.');
     return;
   }
 
-  /* Reconstruct row_type from description (stripped before insert) */
+  if (error) { toast('DB error: ' + error.message, 'error'); setSB('Load failed.'); return; }
+
+  // Reconstruct row_type from description (stripped before DB insert)
   _rows = data.map(r => ({
     ...r,
-    row_type: r.description === 'Loan Disbursement'     ? 'disbursement'
-            : r.description === 'Admin / Processing Fee'? 'fee'
-            : r.description === 'Late Penalty Fee'      ? 'penalty'
+    row_type: r.description === 'Loan Disbursement'      ? 'disbursement'
+            : r.description === 'Admin / Processing Fee' ? 'fee'
+            : r.description === 'Late Penalty Fee'       ? 'penalty'
             : 'installment'
   }));
 
-  /* Build amortization schedule from installment rows */
   _scheduleRows = buildScheduleFromRows(_rows);
 
   updateHeaderDisplay();
@@ -130,21 +190,33 @@ async function loadFromDB() {
   renderLedger(_rows);
   renderSchedule(_scheduleRows);
   showReports();
-  setSB(`Loaded ${_rows.length} ledger entries for ${accountNo}`);
+  setSB(`Loaded ${_rows.length} ledger entries for ${appId}`);
   toast(`${_rows.length} rows loaded.`, 'success');
 }
 
 function enrichHeaderFromRecord(rec) {
-  if (rec.client_name && !document.getElementById('lrBorrowerName').value)
-    document.getElementById('lrBorrowerName').value = rec.client_name;
-  if (rec.application_date)
-    document.getElementById('lrStartDate').value = rec.application_date;
+  // Populate account card and params panel from loanmasterrecords
+  const borrowerEl = document.getElementById('lrBorrowerName');
+  if (rec.client_name && borrowerEl && !borrowerEl.value)
+    borrowerEl.value = rec.client_name;
+
+  // Show application_id as the reference in account card
+  const acctNoEl = document.getElementById('lrAccountNo');
+  if (acctNoEl) acctNoEl.value = rec.application_id || '';
+
+  if (rec.disbursement_date || rec.application_date)
+    document.getElementById('lrStartDate').value = rec.disbursement_date || rec.application_date;
   if (rec.interest_rate)
     document.getElementById('lrRate').value = rec.interest_rate;
   if (rec.term_months)
     document.getElementById('lrTerm').value = rec.term_months;
-  if (rec.applied_amount)
-    document.getElementById('lrAmount').value = rec.applied_amount;
+  if (rec.applied_amount || rec.sanction_amount)
+    document.getElementById('lrAmount').value = rec.applied_amount || rec.sanction_amount;
+  if (rec.application_status)
+    document.getElementById('lrStatus').value =
+      rec.application_status === 'Disbursed' ? 'Active-Performing' :
+      rec.application_status === 'Closed'    ? 'Closed' :
+      rec.application_status === 'WrittenOff'? 'Defaulted' : 'Active-Performing';
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -488,8 +560,12 @@ function renderSchedule(schedule) {
 /* ── Show reports (hide empty state) ───────────────────── */
 function showReports() {
   document.getElementById('lrEmpty').style.display = 'none';
-  // Show first panel
   switchTab('statement');
+}
+
+function showReportTab(tab) {
+  document.getElementById('lrEmpty').style.display = 'none';
+  switchTab(tab);
 }
 
 /* ── Tab switching ──────────────────────────────────────── */
@@ -577,7 +653,7 @@ document.getElementById('btnClose')?.addEventListener('click', () => {
 });
 document.getElementById('btnExportStatement')?.addEventListener('click', () => exportCSV('statement'));
 document.getElementById('btnPrint')?.addEventListener('click', () => window.print());
-document.getElementById('lrAccountNo')?.addEventListener('keydown', e => { if (e.key === 'Enter') loadFromDB(); });
+document.getElementById('lrSearchId')?.addEventListener('keydown', e => { if (e.key === 'Enter') loadFromDB(); });
 
 /* ── Init ───────────────────────────────────────────────── */
 updateHeaderDisplay();
