@@ -192,8 +192,24 @@ document.getElementById('btnView').addEventListener('click', async () => {
       } catch (_) { /* non-fatal fallback */ }
     }
 
+    /* Resolve customer name: use loanmasterrecords.client_name first,
+       then fall back to ClientMasterRecords lookup for older records where
+       client_name was not saved (the "generated column" bug). */
+    let resolvedName = currentRecord.client_name || '';
+    if (!resolvedName && currentRecord.client_id) {
+      try {
+        const cRows = await sbFetch(
+          `ClientMasterRecords?client_id=eq.${encodeURIComponent(currentRecord.client_id)}&select=client_name&limit=1`
+        );
+        if (cRows && cRows[0]) resolvedName = cRows[0].client_name || '';
+      } catch (_) { /* non-fatal */ }
+    }
+
+    /* Cache resolved name on the record so Add/Edit buttons can re-use it */
+    currentRecord._resolvedName = resolvedName;
+
     /* Populate Form Fields */
-    document.getElementById('fCustomerName').value    = currentRecord.client_name || '';
+    document.getElementById('fCustomerName').value    = resolvedName;
     document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
     document.getElementById('fDisbursementDate').value = currentRecord.disbursement_date || new Date().toISOString().split('T')[0];
     document.getElementById('fPaymentMode').value      = currentRecord.mode_of_disbursement || '';
@@ -228,8 +244,8 @@ document.getElementById('btnAdd').addEventListener('click', () => {
   }
   setMode('add');
   
-  // Force data re-population into the inputs to guarantee validation visibility
-  document.getElementById('fCustomerName').value    = currentRecord.client_name || '';
+  // Force data re-population — use stored name or fall back to in-memory resolved name
+  document.getElementById('fCustomerName').value    = currentRecord.client_name || currentRecord._resolvedName || '';
   document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
   
   showToast('Fields unlocked. Confirm details then click Save.');
@@ -243,7 +259,7 @@ document.getElementById('btnEdit').addEventListener('click', () => {
   setMode('edit');
   
   // Maintain persistence across fields
-  document.getElementById('fCustomerName').value = currentRecord.client_name || '';
+  document.getElementById('fCustomerName').value = currentRecord.client_name || currentRecord._resolvedName || '';
   if (!document.getElementById('fAmountDisbursed').value) {
     document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
   }
@@ -307,7 +323,10 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
 
   /* ── Read current form values ─────────────────────────── */
   const appId         = document.getElementById('fAccountId').value.trim();
-  const customerName  = document.getElementById('fCustomerName').value.trim();
+  const customerName  = document.getElementById('fCustomerName').value.trim()
+                     || currentRecord?._resolvedName
+                     || currentRecord?.client_name
+                     || '';
   const principal     = parseFloat(document.getElementById('fAmountDisbursed').value);
   const disbDate      = document.getElementById('fDisbursementDate').value || new Date().toISOString().split('T')[0];
   const paymentMode   = document.getElementById('fPaymentMode').value;
