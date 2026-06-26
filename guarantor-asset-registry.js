@@ -25,12 +25,15 @@ async function sbFetch(path, opts = {}) {
     }
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+    const errText = await res.text().catch(() => '');
+    let msg = 'HTTP ' + res.status;
+    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
+    throw new Error(msg);
   }
-  const text = await res.text();
-  if (!text || !text.trim()) return null;
-  try { return JSON.parse(text); } catch { return null; }
+  if (res.status === 204) return null;
+  const body = await res.text();
+  if (!body || !body.trim()) return null;
+  try { return JSON.parse(body); } catch { return null; }
 }
 
 /* ── Toast ─────────────────────────────────────────────── */
@@ -184,12 +187,19 @@ async function lookupApplication() {
   if (!appId) { toast('Enter an Application ID to look up.', 'warning'); return; }
 
   try {
-    const rows = await sbFetch(
+    // Try loanapplications first (CBS v2 staging table)
+    let appRows = await sbFetch(
       `loanapplications?application_id=eq.${encodeURIComponent(appId)}&select=application_id,client_id,branch_id&limit=1`
     );
-    if (!rows || !rows[0]) { toast(`Application "${appId}" not found.`, 'warning'); return; }
+    // Fallback to loanmasterrecords if not in staging table
+    if (!appRows || !appRows[0]) {
+      appRows = await sbFetch(
+        `loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}&select=application_id,client_id,branch_id&limit=1`
+      );
+    }
+    if (!appRows || !appRows[0]) { toast(`Application "${appId}" not found.`, 'warning'); return; }
 
-    const app = rows[0];
+    const app = appRows[0];
 
     /* Set branch from application */
     if (app.branch_id) {
@@ -268,11 +278,13 @@ async function lookupGuarantor() {
    full name into a target field id. Throws if not found. */
 async function cascadeClientName(clientId, targetFieldId) {
   const rows = await sbFetch(
-    `ClientMasterRecords?client_id=eq.${encodeURIComponent(clientId)}&select=client_id,first_name,middle_name,last_name&limit=1`
+    `ClientMasterRecords?client_id=eq.${encodeURIComponent(clientId)}&select=client_id,client_name,first_name,middle_name,last_name&limit=1`
   );
   if (rows && rows[0]) {
     const r = rows[0];
-    const fullName = [r.first_name, r.middle_name, r.last_name].filter(Boolean).join(' ');
+    // Use generated client_name column if available, else concat name parts
+    const fullName = r.client_name ||
+      [r.first_name, r.middle_name, r.last_name].filter(Boolean).join(' ');
     setField(targetFieldId, fullName);
   } else {
     setField(targetFieldId, '');
