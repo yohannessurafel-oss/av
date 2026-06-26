@@ -1,96 +1,251 @@
+/* ═══════════════════════════════════════════════════════════
+   Africa Village Microfinance — 13 Delinquency & PAR Dashboard
+   delinquency-dashboard.js  v3.0
+
+   Table: loan_delinquency_registry
+     PK:    delinquency_id  (bigint identity)
+     cols:  application_id, days_past_due, overdue_principal,
+            overdue_interest, accrued_penalties,
+            par_bucket CHECK(PAR-0|PAR-30|PAR-60|PAR-90|NPL),
+            collection_status, last_unannounced_visit_date, remarks
+
+   Features:
+     • Loads all records on DOMContentLoaded
+     • 5 KPI tiles (total, PAR-30, PAR-60, PAR-90, NPL)
+       each showing total overdue ETB + account count
+     • Client-side filter by App ID + PAR bucket + collection status
+     • Click any row → slide-in detail panel to update
+       collection_status, par_bucket, last_visit_date, remarks
+       via PATCH on delinquency_id
+═══════════════════════════════════════════════════════════ */
+
 'use strict';
 
 const SUPABASE_URL = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
+/* ── HTTP Helper ────────────────────────────────────────── */
 async function sbFetch(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
     headers: {
-      'apikey': SUPABASE_KEY,
+      'apikey':        SUPABASE_KEY,
       'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json',
-      ...opts.headers
+      'Content-Type':  'application/json',
+      'Prefer':        opts.prefer || 'return=representation',
+      ...(opts.headers || {})
     }
   });
   if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(txt || res.statusText);
+    const txt = await res.text().catch(() => '');
+    throw new Error(txt || `HTTP ${res.status}`);
   }
   const text = await res.text();
-  return text ? JSON.parse(text) : {};
+  if (!text || !text.trim()) return null;
+  try { return JSON.parse(text); } catch { return null; }
 }
 
-// Global Core State Elements
-let portfolioData = [];
+/* ── Toast ─────────────────────────────────────────────── */
+const toastEl = document.getElementById('toastNotification');
+let _toastTimer = null;
+function toast(msg, type = '', duration = 3200) {
+  if (!toastEl) return;
+  toastEl.textContent = msg;
+  toastEl.className = `toast show ${type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { toastEl.className = 'toast'; }, duration);
+}
 
+/* ── System Date ───────────────────────────────────────── */
+(function initDate() {
+  const el = document.getElementById('systemDate');
+  if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+  });
+})();
+
+/* ── Format helpers ─────────────────────────────────────── */
+const fmt  = n => parseFloat(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtK = n => {
+  const v = parseFloat(n || 0);
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
+  if (v >= 1_000)     return (v / 1_000).toFixed(1) + 'K';
+  return fmt(v);
+};
+
+/* ── Global state ───────────────────────────────────────── */
+let portfolioData = [];
+let _editingId    = null;   // delinquency_id currently in detail panel
+
+/* ── Load all records ───────────────────────────────────── */
 async function loadDelinquencyRecords() {
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = 'Fetching delinquency records…';
+
   try {
-    document.getElementById('statusBar').textContent = 'Fetching delinquency records...';
-    
-    // Read directly from the newly implemented loan_delinquency_registry schema layout
-    portfolioData = await sbFetch('loan_delinquency_registry?select=*&order=days_past_due.desc');
-    renderGrid(portfolioData);
+    portfolioData = await sbFetch(
+      'loan_delinquency_registry?select=*&order=days_past_due.desc'
+    ) || [];
+
     calculateKpis(portfolioData);
-    
-    document.getElementById('statusBar').textContent = `Status: Grid updated with ${portfolioData.length} records.`;
+    applyFiltersAndRender();
+
+    if (sb) sb.textContent = `Status: ${portfolioData.length} records loaded.`;
   } catch (err) {
-    console.error(err);
-    document.getElementById('statusBar').textContent = `Error loading data: ${err.message}`;
+    toast('Load error: ' + err.message, 'error');
+    if (sb) sb.textContent = `Error: ${err.message}`;
   }
 }
 
+/* ── KPI calculation ────────────────────────────────────── */
 function calculateKpis(data) {
-  let par30Sum = 0;
-  let nplSum = 0;
-  
-  data.forEach(row => {
-    const totalOverdue = parseFloat(row.overdue_principal || 0) + parseFloat(row.overdue_interest || 0);
-    if (row.par_bucket === 'PAR-30' || row.par_bucket === 'PAR-60') par30Sum += totalOverdue;
-    if (row.par_bucket === 'NPL') nplSum += totalOverdue;
-  });
+  const bucketSum   = b => data.filter(r => r.par_bucket === b)
+    .reduce((s, r) => s + parseFloat(r.overdue_principal||0) + parseFloat(r.overdue_interest||0) + parseFloat(r.accrued_penalties||0), 0);
+  const bucketCount = b => data.filter(r => r.par_bucket === b).length;
 
-  document.getElementById('kpiTotalActive').textContent = data.length.toString() + ' Accounts';
-  document.getElementById('kpiPAR30').textContent = par30Sum.toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' ETB';
-  document.getElementById('kpiNPL').textContent = nplSum.toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' ETB';
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  set('kpiTotalActive',  data.length + ' Accounts');
+
+  // PAR-30 = PAR-30 + PAR-60 + PAR-90 + NPL (cumulative ≥30 days)
+  const par30Rows  = data.filter(r => ['PAR-30','PAR-60','PAR-90','NPL'].includes(r.par_bucket));
+  const par30Total = par30Rows.reduce((s,r) => s + parseFloat(r.overdue_principal||0) + parseFloat(r.overdue_interest||0), 0);
+  set('kpiPAR30',      fmtK(par30Total) + ' ETB');
+  set('kpiPAR30Count', par30Rows.length + ' accounts');
+
+  set('kpiPAR60',      fmtK(bucketSum('PAR-60') + bucketSum('PAR-90') + bucketSum('NPL')) + ' ETB');
+  set('kpiPAR60Count', (bucketCount('PAR-60') + bucketCount('PAR-90') + bucketCount('NPL')) + ' accounts');
+
+  set('kpiPAR90',      fmtK(bucketSum('PAR-90') + bucketSum('NPL')) + ' ETB');
+  set('kpiPAR90Count', (bucketCount('PAR-90') + bucketCount('NPL')) + ' accounts');
+
+  set('kpiNPL',        fmtK(bucketSum('NPL')) + ' ETB');
+  set('kpiNPLCount',   bucketCount('NPL') + ' accounts');
 }
 
+/* ── Client-side filter ─────────────────────────────────── */
+function applyFiltersAndRender() {
+  const appTerm   = document.getElementById('searchAppId')?.value?.trim()?.toLowerCase() || '';
+  const parFilter = document.getElementById('filterPAR')?.value || '';
+  const colFilter = document.getElementById('filterCollStatus')?.value || '';
+
+  const filtered = portfolioData.filter(row => {
+    if (appTerm && !row.application_id.toLowerCase().includes(appTerm)) return false;
+    if (parFilter && row.par_bucket !== parFilter) return false;
+    if (colFilter && (row.collection_status || '') !== colFilter) return false;
+    return true;
+  });
+
+  renderGrid(filtered);
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = `Showing ${filtered.length} of ${portfolioData.length} records.`;
+}
+
+/* ── Render grid ────────────────────────────────────────── */
 function renderGrid(data) {
   const tbody = document.querySelector('#delinquencyTable tbody');
-  tbody.innerHTML = '';
+  if (!tbody) return;
 
-  if (data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center gray-text italic">No past-due accounts in portfolio. All records clear!</td></tr>`;
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center gray-text italic">No records match the current filter.</td></tr>';
     return;
   }
 
-  data.forEach(row => {
-    let badgeClass = 'badge-par0';
-    if (row.days_past_due > 30) badgeClass = 'badge-par30';
-    if (row.days_past_due > 90) badgeClass = 'badge-par90';
+  tbody.innerHTML = data.map(row => {
+    const total = parseFloat(row.overdue_principal||0)
+                + parseFloat(row.overdue_interest||0)
+                + parseFloat(row.accrued_penalties||0);
 
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><strong>${row.application_id}</strong></td>
-      <td class="text-right">${row.days_past_due} Days</td>
-      <td class="text-right">${parseFloat(row.overdue_principal).toFixed(2)}</td>
-      <td class="text-right">${parseFloat(row.overdue_interest).toFixed(2)}</td>
-      <td class="text-right">${parseFloat(row.accrued_penalties).toFixed(2)}</td>
-      <td><span class="status-badge ${badgeClass}">${row.par_bucket}</span></td>
-      <td><span class="italic gray-text">${row.collection_status || 'UNASSIGNED'}</span></td>
+    return `
+      <tr class="table-row-clickable" data-id="${row.delinquency_id}">
+        <td style="font-family:monospace;font-size:11px;">${row.delinquency_id}</td>
+        <td><strong>${row.application_id}</strong></td>
+        <td class="text-right" style="font-weight:600;">${row.days_past_due}</td>
+        <td class="text-right">${fmt(row.overdue_principal)}</td>
+        <td class="text-right">${fmt(row.overdue_interest)}</td>
+        <td class="text-right">${fmt(row.accrued_penalties)}</td>
+        <td class="text-right" style="font-weight:700;font-family:monospace;">${fmt(total)}</td>
+        <td><span class="par-badge ${row.par_bucket}">${row.par_bucket}</span></td>
+        <td><span class="col-badge">${row.collection_status || 'PENDING_VISIT'}</span></td>
+        <td><small>${row.last_unannounced_visit_date || '—'}</small></td>
+        <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          <small class="gray-text">${row.remarks || ''}</small>
+        </td>
+      </tr>
     `;
-    tbody.appendChild(tr);
+  }).join('');
+
+  // Attach row click listeners
+  tbody.querySelectorAll('tr[data-id]').forEach(tr => {
+    tr.addEventListener('click', () => openDetailPanel(parseInt(tr.dataset.id)));
   });
 }
 
-// Search and UI Event Handling Hooks
-document.getElementById('searchAppId').addEventListener('input', (e) => {
-  const term = e.target.value.trim().toLowerCase();
-  const filtered = portfolioData.filter(row => row.application_id.toLowerCase().includes(term));
-  renderGrid(filtered);
-});
+/* ── Detail / Edit Panel ─────────────────────────────────── */
+function openDetailPanel(delinquencyId) {
+  const row = portfolioData.find(r => r.delinquency_id === delinquencyId);
+  if (!row) return;
 
-document.getElementById('btnRefresh').addEventListener('click', loadDelinquencyRecords);
+  _editingId = delinquencyId;
 
-// Run Initialization Hook
+  const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+  v('detailAppId',      row.application_id);
+  v('detailDPD',        row.days_past_due + ' days');
+  v('detailPARBucket',  row.par_bucket);
+  v('detailCollStatus', row.collection_status || 'PENDING_VISIT');
+  v('detailLastVisit',  row.last_unannounced_visit_date || '');
+  v('detailRemarks',    row.remarks || '');
+
+  document.getElementById('detailPanel')?.classList.add('open');
+}
+
+function closeDetailPanel() {
+  document.getElementById('detailPanel')?.classList.remove('open');
+  _editingId = null;
+}
+
+async function saveDetailPanel() {
+  if (!_editingId) return;
+
+  const getVal = id => { const el = document.getElementById(id); return el ? el.value.trim() || null : null; };
+
+  const payload = {
+    par_bucket:                  getVal('detailPARBucket'),
+    collection_status:           getVal('detailCollStatus'),
+    last_unannounced_visit_date: getVal('detailLastVisit') || null,
+    remarks:                     getVal('detailRemarks'),
+  };
+
+  try {
+    await sbFetch(
+      `loan_delinquency_registry?delinquency_id=eq.${_editingId}`,
+      { method: 'PATCH', prefer: 'return=minimal', body: JSON.stringify(payload) }
+    );
+    toast(`Record ${_editingId} updated.`, 'success');
+    closeDetailPanel();
+    await loadDelinquencyRecords();   // refresh grid
+  } catch (e) {
+    toast('Save error: ' + e.message, 'error');
+  }
+}
+
+/* ── Event wiring ────────────────────────────────────────── */
+// Filter inputs — live filter
+document.getElementById('searchAppId')?.addEventListener('input',  applyFiltersAndRender);
+document.getElementById('filterPAR')?.addEventListener('change',   applyFiltersAndRender);
+document.getElementById('filterCollStatus')?.addEventListener('change', applyFiltersAndRender);
+
+// Refresh
+document.getElementById('btnRefresh')?.addEventListener('click', loadDelinquencyRecords);
+
+// Print
+document.getElementById('btnPrint')?.addEventListener('click', () => window.print());
+document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
+
+// Detail panel buttons
+document.getElementById('btnCloseDetail')?.addEventListener('click',  closeDetailPanel);
+document.getElementById('btnCancelDetail')?.addEventListener('click', closeDetailPanel);
+document.getElementById('btnSaveDetail')?.addEventListener('click',   saveDetailPanel);
+
+/* ── Init ───────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', loadDelinquencyRecords);
