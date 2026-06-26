@@ -548,9 +548,10 @@ document.getElementById('loan-form').addEventListener('submit', async (e) => {
     // application_id is required FK — use accountNumber as surrogate
     const insertRows = rows.map(r => {
         const { row_type, product_name, ...rest } = r;
-        // application_id FK: use the account_number value as the application_id
-        // (standalone ledger tool — FK not enforced at insert level)
-        if (!rest.application_id) rest.application_id = rest.account_number || null;
+        // application_id: set null — this is a standalone projection tool,
+        // not tied to a real loanmasterrecords record.
+        // Run Option A SQL to drop the FK if you want full account_number storage.
+        rest.application_id = null;
         return rest;
     });
 
