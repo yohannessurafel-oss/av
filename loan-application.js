@@ -645,6 +645,7 @@ init();
 
 
 /* ── Data Engine Lookup: Fetch and Display All Records ── */
+/* ── Data Engine Lookup: Fetch Records Joined with Client Master Profile ── */
 async function loadAndDisplayLoanRecords() {
   const tbody = document.querySelector('#viewRecordsModal table tbody');
   const statusBar = document.getElementById('statusBar');
@@ -657,8 +658,10 @@ async function loadAndDisplayLoanRecords() {
   try {
     if (statusBar) statusBar.textContent = 'Loading live loan portfolio matrices...';
     
-    // Fetch records sorted by most recent entry
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/loanmasterrecords?select=*&order=created_at.desc`, {
+    // FIX: We tell Supabase to look up the related profile from ClientMasterRecords using the client_id link!
+    const queryPath = `loanmasterrecords?select=*,ClientMasterRecords(first_name,middle_name,last_name)&order=created_at.desc`;
+    
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${queryPath}`, {
       method: 'GET',
       headers: {
         'apikey': SUPABASE_ANON_KEY,
@@ -675,7 +678,7 @@ async function loadAndDisplayLoanRecords() {
     tbody.innerHTML = '';
 
     if (records.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center gray-text italic">No records found in loanmasterrecords.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center gray-text italic">No records found in portfolio database.</td></tr>`;
       if (statusBar) statusBar.textContent = 'Status: Ready — No entries found.';
       return;
     }
@@ -683,24 +686,37 @@ async function loadAndDisplayLoanRecords() {
     // Populate rows dynamically
     records.forEach((record, index) => {
       const row = document.createElement('tr');
-      row.style.cursor = 'pointer'; // Make row hover interactive
+      row.style.cursor = 'pointer';
       
-      // Determine clean variable fallbacks
       const serialNum = index + 1;
-      const clientId  = record.main_repayment_account_id || record.loan_id || '—';
-      const name      = record.created_by || 'Verified Client Profile';
-      const branch    = record.branch_id || 'Main Branch';
-      const status    = record.till_status || 'Active';
+      const clientId  = record.client_id || record.application_id || '—';
+      
+      // FIX: Compile the real client master names array if it exists, fallback safely otherwise
+      let fullName = '';
+      if (record.ClientMasterRecords) {
+        const fName = record.ClientMasterRecords.first_name || '';
+        const mName = record.ClientMasterRecords.middle_name || '';
+        const lName = record.ClientMasterRecords.last_name || '';
+        fullName = `${fName} ${mName} ${lName}`.replace(/\s+/g, ' ').trim();
+      }
+      
+      // If no joined profile was found, fallback to fallback column names or placeholder text
+      if (!fullName) {
+        fullName = record.client_name || record.created_by || record.customer_name || 'Verified Client Profile';
+      }
+
+      const branch = record.branch_id || 'Main Branch';
+      const status = record.approval_status || record.till_status || 'Active';
 
       row.innerHTML = `
         <td>${serialNum}</td>
         <td><strong>${clientId}</strong></td>
-        <td>${name}</td>
+        <td>${fullName}</td>
         <td>${branch}</td>
         <td><span class="status-badge status-${status.toLowerCase()}">${status}</span></td>
       `;
 
-      // Wire row selection to pull the chosen record back into the main form workspace
+      // Form workspace profile loader setup
       row.addEventListener('click', () => {
         if (typeof fillForm === 'function') {
           fillForm(record);
@@ -721,10 +737,3 @@ async function loadAndDisplayLoanRecords() {
     if (statusBar) statusBar.textContent = 'Status: Connection Exception Encountered.';
   }
 }
-
-/* ── Wire Toolbar View Click Event ─────────────────────── */
-document.getElementById('btnGlobalView')?.addEventListener('click', () => {
-  setMode('view');
-  loadAndDisplayLoanRecords();
-  toast('Refreshing loan portfolio elements...', 'info');
-});
