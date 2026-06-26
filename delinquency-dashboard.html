@@ -3,79 +3,296 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF — Delinquency & PAR Dashboard</title>
+<title>AVMF — 13 Delinquency &amp; PAR Dashboard</title>
 <link rel="stylesheet" href="style2.css"/>
 <style>
-  .kpi-row { display: flex; gap: 12px; margin-bottom: 16px; }
-  .kpi-card { flex: 1; background: #fff; border: 1px solid #c0c0c0; padding: 12px; box-shadow: 2px 2px 0 rgba(0,0,0,0.05); }
-  .kpi-title { font-size: 11px; text-transform: uppercase; color: #555; font-weight: bold; }
-  .kpi-value { font-size: 22px; font-weight: bold; color: #1a365d; margin-top: 4px; }
-  .status-badge { padding: 2px 6px; font-size: 11px; font-weight: bold; border-radius: 2px; text-transform: uppercase; }
-  .badge-par0 { background: #e2e8f0; color: #4a5568; }
-  .badge-par30 { background: #feebc8; color: #c05621; }
-  .badge-par90 { background: #fed7d7; color: #9b2c2c; }
+  /* ── KPI tiles ───────────────────────────────────────── */
+  .kpi-row {
+    display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;
+  }
+  .kpi-card {
+    flex: 1; min-width: 130px;
+    background: #fff;
+    border: 1px solid var(--border, #d0d4da);
+    border-radius: 4px;
+    padding: 10px 14px;
+    box-shadow: 1px 2px 4px rgba(0,0,0,0.06);
+  }
+  .kpi-card.par30  { border-left: 4px solid #e69c24; }
+  .kpi-card.par60  { border-left: 4px solid #e67e22; }
+  .kpi-card.par90  { border-left: 4px solid #e74c3c; }
+  .kpi-card.npl    { border-left: 4px solid #922b21; }
+  .kpi-card.clear  { border-left: 4px solid #27ae60; }
+  .kpi-title { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #777; font-weight: 700; }
+  .kpi-value { font-size: 18px; font-weight: 700; color: var(--accent, #0d3460); font-family: monospace; margin-top: 4px; }
+  .kpi-sub   { font-size: 10px; color: #aaa; margin-top: 2px; }
+
+  /* ── Filter bar ──────────────────────────────────────── */
+  .del-filter-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px;
+    background: var(--bg-alt, #f4f6f9);
+    border: 1px solid var(--border, #d0d4da);
+    border-radius: 4px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .del-filter-bar label { font-size: 11px; font-weight: 600; color: #555; white-space: nowrap; }
+  .del-filter-bar input,
+  .del-filter-bar select {
+    font-size: 12px; padding: 3px 7px;
+    border: 1px solid var(--border, #c8cdd5); border-radius: 3px; height: 26px;
+  }
+  .del-filter-bar input[type="text"] { width: 160px; }
+  .del-filter-bar select { width: 130px; }
+
+  /* ── PAR badges ──────────────────────────────────────── */
+  .par-badge {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 1px 7px; border-radius: 10px; text-transform: uppercase;
+  }
+  .par-badge.PAR-0  { background:#e8f5e9; color:#2e7d32; }
+  .par-badge.PAR-30 { background:#fff8e1; color:#f57f17; }
+  .par-badge.PAR-60 { background:#fff3e0; color:#e65100; }
+  .par-badge.PAR-90 { background:#fce4ec; color:#ad1457; }
+  .par-badge.NPL    { background:#ffebee; color:#b71c1c; }
+
+  /* ── Collection status badges ────────────────────────── */
+  .col-badge {
+    display: inline-block; font-size: 10px; font-weight: 600;
+    padding: 1px 6px; border-radius: 3px; text-transform: uppercase;
+    background: #e8eef8; color: #1b5199;
+  }
+
+  /* ── Edit overlay panel ──────────────────────────────── */
+  .detail-panel {
+    display: none;
+    position: fixed; top: 80px; right: 20px; width: 340px;
+    background: #fff; border: 1px solid var(--accent, #0d3460);
+    border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    z-index: 999; padding: 16px;
+  }
+  .detail-panel.open { display: block; }
+  .detail-panel-title {
+    font-size: 13px; font-weight: 700; color: var(--accent, #0d3460);
+    margin-bottom: 12px; border-bottom: 1px solid var(--border, #d0d4da); padding-bottom: 6px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .detail-panel .form-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .detail-panel label { font-size: 11px; font-weight: 600; color: #555; width: 130px; min-width: 130px; }
+  .detail-panel input,
+  .detail-panel select,
+  .detail-panel textarea {
+    flex: 1; font-size: 12px; padding: 3px 6px;
+    border: 1px solid var(--border, #c8cdd5); border-radius: 3px;
+  }
+  .detail-panel textarea { min-height: 60px; resize: vertical; }
+  .detail-panel .btn-row { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+  .detail-panel .btn-row button { font-size: 12px; padding: 4px 14px; border-radius: 3px; cursor: pointer; }
+  .btn-save-detail { background: var(--accent, #0d3460); color: #fff; border: none; }
+  .btn-cancel-detail { background: #e0e0e0; color: #333; border: none; }
+
+  .table-row-clickable { cursor: pointer; }
+  .table-row-clickable:hover { background: #f0f4fa !important; }
 </style>
 </head>
 <body>
 
 <div class="window-container">
+
   <div class="title-bar">
     <div class="title-branding-block">
-      <div class="title-text-context">
-        <span>Africa Village Microfinance</span>
-        <span>Risk Operations — Portfolio At Risk (PAR) Control Center</span>
+      <svg class="header-logo-svg" viewBox="0 0 100 100">
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
+        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
+        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
+        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
+        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+      </svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance</span>
+        <span class="title-sub">13 — Delinquency &amp; PAR Dashboard</span>
       </div>
     </div>
-    <div class="title-controls"><span title="Close">✕</span></div>
+    <div class="title-meta">
+      <span id="systemDate" class="title-date"></span>
+      <span class="title-user">👤 Risk Officer</span>
+    </div>
+    <div class="window-controls">
+      <span title="Minimize">─</span>
+      <span title="Maximize">▢</span>
+      <span title="Close" class="wc-close">✕</span>
+    </div>
   </div>
 
   <div class="workspace">
-    <div class="main-content">
-      <div class="kpi-row">
-        <div class="kpi-card">
-          <div class="kpi-title">Total Portfolio Outstanding</div>
-          <div class="kpi-value" id="kpiTotalActive">—</div>
-        </div>
-        <div class="kpi-card" style="border-left: 4px solid #dd6b20;">
-          <div class="kpi-title">PAR Portfolio (>30 Days)</div>
-          <div class="kpi-value" id="kpiPAR30">—</div>
-        </div>
-        <div class="kpi-card" style="border-left: 4px solid #e53e3e;">
-          <div class="kpi-title">Non-Performing Loans (NPL)</div>
-          <div class="kpi-value" id="kpiNPL">—</div>
-        </div>
-      </div>
 
-      <div class="action-filter-bar">
-        <div class="search-input-wrapper">
-          <input type="text" id="searchAppId" placeholder="Filter by Application/Account ID..." />
-          <button id="btnRefresh" class="action-btn" style="width:auto; padding:0 12px;">🔄 Refresh Dashboard</button>
-        </div>
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-header-icon">⚙</span>
+        Credit Lifecycle Operations
       </div>
-
-      <div class="table-frame">
-        <table id="delinquencyTable">
-          <thead>
-            <tr>
-              <th>Application ID</th>
-              <th>Days Past Due</th>
-              <th>Overdue Principal</th>
-              <th>Overdue Interest</th>
-              <th>Accrued Penalties</th>
-              <th>Risk Bucket</th>
-              <th>Collection Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td colspan="7" class="text-center gray-text italic">Loading delinquency status ledger matrix...</td></tr>
-          </tbody>
-        </table>
+      <ul class="nav-menu">
+        <li><span class="nav-num">00</span><a href="client-maintenance.html" class="nav-label">Client maintenance</a></li>
+        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
+        <li><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
+        <li><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
+        <li><span class="nav-num">04</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
+        <li><span class="nav-num">05</span><a href="loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
+        <li><span class="nav-num">06</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
+        <li><span class="nav-num">07</span><a href="guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
+        <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
+        <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
+        <li><span class="nav-num">10</span><a href="disbursement.html" class="nav-label">Loan Disbursement</a></li>
+        <li><span class="nav-num">11</span><a href="client-directory.html" class="nav-label">Client Views</a></li>
+        <li><span class="nav-num">12</span><a href="general-ledger.html" class="nav-label">General Ledger</a></li>
+        <li class="active"><span class="nav-num">13</span><a href="delinquency-dashboard.html" class="nav-label">Delinquency Dashboard</a></li>
+      </ul>
+      <div class="sidebar-footer-brand">
+        <svg viewBox="0 0 100 100" width="28" height="28">
+          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
+        </svg>
+        <span>AVMF CBS v2.0</span>
       </div>
-      <div class="sub-footer-token" id="statusBar">Status: Ready</div>
     </div>
+
+    <div class="main-content">
+      <div class="module-view active" id="view-module-13">
+        <div class="context-badge-bar">
+          <span class="badge-icon">⚠️</span>
+          Risk Operations — Portfolio At Risk (PAR) Control Center
+        </div>
+
+        <!-- ── KPI Tiles ─────────────────────────────────── -->
+        <div class="kpi-row">
+          <div class="kpi-card clear">
+            <div class="kpi-title">Total Accounts</div>
+            <div class="kpi-value" id="kpiTotalActive">—</div>
+            <div class="kpi-sub">in registry</div>
+          </div>
+          <div class="kpi-card par30">
+            <div class="kpi-title">PAR &gt; 30 Days</div>
+            <div class="kpi-value" id="kpiPAR30">—</div>
+            <div class="kpi-sub" id="kpiPAR30Count">— accounts</div>
+          </div>
+          <div class="kpi-card par60">
+            <div class="kpi-title">PAR &gt; 60 Days</div>
+            <div class="kpi-value" id="kpiPAR60">—</div>
+            <div class="kpi-sub" id="kpiPAR60Count">— accounts</div>
+          </div>
+          <div class="kpi-card par90">
+            <div class="kpi-title">PAR &gt; 90 Days</div>
+            <div class="kpi-value" id="kpiPAR90">—</div>
+            <div class="kpi-sub" id="kpiPAR90Count">— accounts</div>
+          </div>
+          <div class="kpi-card npl">
+            <div class="kpi-title">Non-Performing (NPL)</div>
+            <div class="kpi-value" id="kpiNPL">—</div>
+            <div class="kpi-sub" id="kpiNPLCount">— accounts</div>
+          </div>
+        </div>
+
+        <!-- ── Filter Bar ─────────────────────────────────── -->
+        <div class="del-filter-bar">
+          <label>Application ID</label>
+          <input type="text" id="searchAppId" placeholder="Filter by app ID…"/>
+          <label>PAR Bucket</label>
+          <select id="filterPAR">
+            <option value="">All Buckets</option>
+            <option value="PAR-0">PAR-0 (Current)</option>
+            <option value="PAR-30">PAR-30</option>
+            <option value="PAR-60">PAR-60</option>
+            <option value="PAR-90">PAR-90</option>
+            <option value="NPL">NPL</option>
+          </select>
+          <label>Collection Status</label>
+          <select id="filterCollStatus">
+            <option value="">All Statuses</option>
+            <option value="PENDING_VISIT">Pending Visit</option>
+            <option value="VISITED">Visited</option>
+            <option value="PROMISE_TO_PAY">Promise to Pay</option>
+            <option value="LEGAL">Legal</option>
+            <option value="WRITTEN_OFF">Written Off</option>
+          </select>
+          <button id="btnRefresh" class="action-btn" style="width:auto;padding:0 12px;height:26px;font-size:12px;">🔄 Refresh</button>
+          <button id="btnPrint"   class="action-btn" style="width:auto;padding:0 12px;height:26px;font-size:12px;">🖨 Print</button>
+        </div>
+
+        <!-- ── Grid ──────────────────────────────────────── -->
+        <div class="table-scroll" style="max-height:420px;overflow-y:auto;">
+          <table class="ledger-grid" id="delinquencyTable">
+            <thead>
+              <tr>
+                <th>Del. ID</th>
+                <th>Application ID</th>
+                <th class="text-right">Days Past Due</th>
+                <th class="text-right">Overdue Principal</th>
+                <th class="text-right">Overdue Interest</th>
+                <th class="text-right">Accrued Penalties</th>
+                <th class="text-right">Total Overdue</th>
+                <th>PAR Bucket</th>
+                <th>Collection Status</th>
+                <th>Last Visit</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="11" class="text-center gray-text italic">Loading delinquency records…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="sub-footer-token" id="statusBar">Status: Ready</div>
+      </div>
+    </div>
+
+    <div class="action-sidebar">
+      <button id="btnGlobalPrint" class="action-btn">🖨 Print</button>
+      <div class="sidebar-footer">AVMF CBS v2.0</div>
+    </div>
+
   </div>
 </div>
 
+<!-- ── Detail / Edit Panel ──────────────────────────────── -->
+<div class="detail-panel" id="detailPanel">
+  <div class="detail-panel-title">
+    <span>Update Collection Record</span>
+    <span id="btnCloseDetail" style="cursor:pointer;font-size:14px;">✕</span>
+  </div>
+  <div class="form-row"><label>Application ID</label><input type="text" id="detailAppId" readonly/></div>
+  <div class="form-row"><label>Days Past Due</label><input type="text" id="detailDPD" readonly/></div>
+  <div class="form-row"><label>PAR Bucket</label>
+    <select id="detailPARBucket">
+      <option value="PAR-0">PAR-0</option>
+      <option value="PAR-30">PAR-30</option>
+      <option value="PAR-60">PAR-60</option>
+      <option value="PAR-90">PAR-90</option>
+      <option value="NPL">NPL</option>
+    </select>
+  </div>
+  <div class="form-row"><label>Collection Status</label>
+    <select id="detailCollStatus">
+      <option value="PENDING_VISIT">Pending Visit</option>
+      <option value="VISITED">Visited</option>
+      <option value="PROMISE_TO_PAY">Promise to Pay</option>
+      <option value="LEGAL">Legal</option>
+      <option value="WRITTEN_OFF">Written Off</option>
+    </select>
+  </div>
+  <div class="form-row"><label>Last Visit Date</label><input type="date" id="detailLastVisit"/></div>
+  <div class="form-row" style="align-items:flex-start;">
+    <label style="padding-top:4px;">Remarks</label>
+    <textarea id="detailRemarks"></textarea>
+  </div>
+  <div class="btn-row">
+    <button class="btn-cancel-detail" id="btnCancelDetail">Cancel</button>
+    <button class="btn-save-detail"   id="btnSaveDetail">💾 Save</button>
+  </div>
+</div>
+
+<div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
 <script src="delinquency-dashboard.js"></script>
 </body>
 </html>
