@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AVMF — 11 Loan Ledger Report</title>
+<link rel="stylesheet" href="style2.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ── Ledger Report Styles (scoped inside .ledger-wrap) ── */
+.ledger-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Search / Identity Bar ──────────────────────────── */
+.ledger-identity-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--color-background-secondary, #f5f6f8);
+  border: 0.5px solid var(--color-border-tertiary, #e0e2e7);
+  border-radius: var(--border-radius-md, 6px);
+  flex-shrink: 0;
+}
+.ledger-id-field { display: flex; flex-direction: column; gap: 4px; }
+.ledger-id-field label { font-size: 11px; font-weight: 500; color: var(--color-text-secondary, #666); text-transform: uppercase; letter-spacing: .04em; }
+.ledger-id-field input, .ledger-id-field select {
+  height: 30px;
+  padding: 0 8px;
+  border: 0.5px solid var(--color-border-secondary, #c8ccd4);
+  border-radius: var(--border-radius-sm, 4px);
+  font-size: 13px;
+  background: var(--color-background-primary, #fff);
+  color: var(--color-text-primary, #111);
+  font-family: var(--font-mono, monospace);
+}
+.ledger-id-field input:focus, .ledger-id-field select:focus {
+  outline: none;
+  border-color: var(--color-primary, #1b5199);
+}
+.ledger-id-field.wide input { min-width: 200px; }
+.btn-fetch {
+  height: 30px;
+  padding: 0 14px;
+  background: linear-gradient(to bottom, var(--navy-600, #1b5199), var(--navy-800, #0f3068));
+  color: #fff;
+  border: none;
+  border-radius: var(--border-radius-sm, 4px);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  align-self: flex-end;
+}
+.btn-fetch:hover { opacity: .9; }
+.btn-fetch:disabled { opacity: .5; cursor: not-allowed; }
+.btn-generate-local {
+  height: 30px;
+  padding: 0 14px;
+  background: linear-gradient(to bottom, #e69c24, #ba7c0f);
+  color: #1a1a1a;
+  border: none;
+  border-radius: var(--border-radius-sm, 4px);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  align-self: flex-end;
+}
+.btn-generate-local:hover { opacity: .9; }
+.ledger-id-sep {
+  width: 1px; height: 30px;
+  background: var(--color-border-tertiary, #e0e2e7);
+  align-self: flex-end;
+  flex-shrink: 0;
+}
+
+/* ── Account Card ───────────────────────────────────── */
+.acct-card {
+  display: flex;
+  align-items: stretch;
+  background: linear-gradient(135deg, var(--navy-900, #0d1f3c) 0%, var(--navy-700, #163162) 60%, #1e4d8c 100%);
+  border-radius: var(--border-radius-lg, 8px);
+  padding: 12px 16px;
+  gap: 20px;
+  flex-shrink: 0;
+}
+.acct-card-left { display: flex; flex-direction: column; gap: 3px; min-width: 180px; }
+.acct-badge { font-size: 9px; font-weight: 700; color: #e69c24; letter-spacing: .12em; text-transform: uppercase; }
+.acct-number { font-size: 18px; font-weight: 700; color: #fff; font-family: var(--font-mono, monospace); letter-spacing: .06em; }
+.acct-borrower { font-size: 12px; color: rgba(255,255,255,.7); margin-top: 2px; }
+.acct-card-right { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; align-items: center; }
+.acct-meta { display: flex; flex-direction: column; gap: 2px; }
+.acct-meta-label { font-size: 9px; color: rgba(255,255,255,.5); text-transform: uppercase; letter-spacing: .06em; }
+.acct-meta-value { font-size: 12px; color: #fff; font-weight: 500; }
+.status-pill {
+  font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 99px;
+  background: rgba(255,255,255,.15); color: #fff;
+}
+.status-pill.performing { background: #16a34a22; color: #86efac; border: 1px solid #16a34a66; }
+.status-pill.watchlist  { background: #d9770622; color: #fcd34d; border: 1px solid #d9770666; }
+.status-pill.defaulted  { background: #dc262622; color: #fca5a5; border: 1px solid #dc262666; }
+.status-pill.closed     { background: rgba(255,255,255,.1); color: rgba(255,255,255,.6); }
+
+/* ── KPI Bar ────────────────────────────────────────── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  flex-shrink: 0;
+}
+.kpi-tile {
+  background: var(--color-background-primary, #fff);
+  border: 0.5px solid var(--color-border-tertiary, #e0e2e7);
+  border-radius: var(--border-radius-md, 6px);
+  padding: 8px 12px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.kpi-tile-label { font-size: 10px; color: var(--color-text-secondary, #666); text-transform: uppercase; letter-spacing: .05em; }
+.kpi-tile-value { font-size: 15px; font-weight: 600; color: var(--color-text-primary, #111); font-family: var(--font-mono, monospace); }
+.kpi-tile-value.orange { color: #b45309; }
+.kpi-tile-value.red    { color: #dc2626; }
+.kpi-tile-value.green  { color: #16a34a; }
+.kpi-tile-value.blue   { color: #1b5199; }
+
+/* ── Tab Bar ────────────────────────────────────────── */
+.ledger-tab-bar {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border-tertiary, #e0e2e7);
+  gap: 0;
+  flex-shrink: 0;
+}
+.ltab {
+  font-size: 12px; font-weight: 500;
+  padding: 7px 16px;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.ltab.active { color: var(--navy-700, #1b5199); border-bottom-color: var(--navy-700, #1b5199); font-weight: 600; }
+.ltab:hover:not(.active) { color: var(--color-text-primary, #111); background: var(--color-background-secondary, #f5f6f8); }
+.ltab-actions { margin-left: auto; display: flex; gap: 6px; padding-right: 4px; }
+.btn-export, .btn-print-rpt {
+  font-size: 11px; padding: 4px 10px;
+  border-radius: var(--border-radius-sm, 4px);
+  cursor: pointer; border: 0.5px solid var(--color-border-secondary, #c8ccd4);
+  background: var(--color-background-primary, #fff);
+  color: var(--color-text-secondary, #666);
+}
+.btn-export:hover, .btn-print-rpt:hover { background: var(--color-background-secondary, #f5f6f8); }
+
+/* ── Tab Panels ─────────────────────────────────────── */
+.ledger-panels { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.lpanel { display: none; flex: 1; overflow: auto; flex-direction: column; }
+.lpanel.active { display: flex; }
+
+/* ── Report header ──────────────────────────────────── */
+.rpt-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 8px 4px 6px;
+  flex-shrink: 0;
+}
+.rpt-title { font-size: 13px; font-weight: 600; color: var(--color-text-primary, #111); }
+.rpt-sub   { font-size: 11px; color: var(--color-text-secondary, #666); margin-top: 2px; }
+.rpt-legend { display: flex; gap: 12px; align-items: center; }
+.leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--color-text-secondary, #666); }
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.leg-dot.green  { background: #16a34a; }
+.leg-dot.red    { background: #dc2626; }
+.leg-dot.orange { background: #d97706; }
+
+/* ── Audit notice ───────────────────────────────────── */
+.audit-note {
+  font-size: 11px; color: #92400e;
+  background: #fffbeb; border: 0.5px solid #fde68a;
+  border-radius: var(--border-radius-sm, 4px);
+  padding: 6px 10px; margin: 0 0 6px;
+  flex-shrink: 0;
+}
+
+/* ── Data Table ─────────────────────────────────────── */
+.tbl-wrap { overflow: auto; flex: 1; }
+.rpt-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 11.5px;
+}
+.rpt-table th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--color-background-secondary, #f5f6f8);
+  border-bottom: 1px solid var(--color-border-secondary, #c8ccd4);
+  padding: 6px 8px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--color-text-secondary, #666);
+  white-space: nowrap;
+}
+.rpt-table th.r, .rpt-table td.r { text-align: right; }
+.rpt-table td {
+  padding: 5px 8px;
+  border-bottom: 0.5px solid var(--color-border-tertiary, #e0e2e7);
+  color: var(--color-text-primary, #111);
+  white-space: nowrap;
+}
+.rpt-table tr:hover td { background: var(--color-background-secondary, #f5f6f8); }
+.rpt-table tr.row-disburse td { background: #eff6ff; }
+.rpt-table tr.row-fee       td { background: #fefce8; }
+.rpt-table tr.row-penalty   td { background: #fff1f2; }
+.rpt-table tfoot td {
+  font-weight: 600;
+  border-top: 1px solid var(--color-border-secondary, #c8ccd4);
+  border-bottom: none;
+  background: var(--color-background-secondary, #f5f6f8);
+  padding: 6px 8px;
+}
+.ref-code {
+  font-family: var(--font-mono, monospace);
+  font-size: 10.5px;
+  background: var(--color-background-secondary, #f5f6f8);
+  padding: 1px 5px; border-radius: 3px;
+}
+.val-neg  { color: #dc2626; }
+.val-pos  { color: #16a34a; }
+.val-bal  { font-weight: 600; font-family: var(--font-mono, monospace); }
+.val-accrual { color: #b45309; }
+
+/* ── Empty / Loading States ─────────────────────────── */
+.ledger-empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 8px; color: var(--color-text-secondary, #666);
+}
+.ledger-empty .empty-icon { font-size: 32px; opacity: .4; }
+.ledger-empty .empty-title { font-size: 14px; font-weight: 500; }
+.ledger-empty .empty-sub { font-size: 12px; text-align: center; max-width: 320px; }
+
+/* ── Loan params panel (manual generation) ──────────── */
+.loan-params-panel {
+  display: none;
+  background: var(--color-background-secondary, #f5f6f8);
+  border: 0.5px solid var(--color-border-tertiary, #e0e2e7);
+  border-radius: var(--border-radius-md, 6px);
+  padding: 12px 14px;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.loan-params-panel.visible { display: flex; }
+.lpf { display: flex; flex-direction: column; gap: 3px; min-width: 110px; }
+.lpf label { font-size: 10px; font-weight: 500; color: var(--color-text-secondary, #666); text-transform: uppercase; letter-spacing: .04em; }
+.lpf input, .lpf select {
+  height: 28px; padding: 0 7px;
+  border: 0.5px solid var(--color-border-secondary, #c8ccd4);
+  border-radius: var(--border-radius-sm, 4px);
+  font-size: 12px;
+  background: var(--color-background-primary, #fff);
+  color: var(--color-text-primary, #111);
+}
+.lpf.wide input { min-width: 160px; }
+
+@media print {
+  .sidebar, .action-sidebar, .title-bar, .ledger-identity-bar,
+  .ltab-actions, .ledger-tab-bar, .loan-params-panel { display: none !important; }
+  .acct-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
+</head>
+<body>
+
+<div class="window-container">
+
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <svg class="header-logo-svg" viewBox="0 0 100 100">
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
+        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
+        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
+        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
+        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+      </svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance</span>
+        <span class="title-sub">11 — Loan Ledger &amp; Amortization Report</span>
+      </div>
+    </div>
+    <div class="title-meta">
+      <span id="systemDate" class="title-date"></span>
+      <span class="title-user">👤 Loan Officer</span>
+    </div>
+    <div class="window-controls">
+      <span title="Minimize">─</span>
+      <span title="Maximize">▢</span>
+      <span title="Close" class="wc-close">✕</span>
+    </div>
+  </div>
+
+  <div class="workspace">
+
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-header-icon">⚙</span>
+        Credit Lifecycle Operations
+      </div>
+      <ul class="nav-menu">
+        <li><span class="nav-num">00</span><a href="client-maintenance.html" class="nav-label">Client Maintenance</a></li>
+        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
+        <li><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
+        <li><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
+        <li><span class="nav-num">04</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
+        <li><span class="nav-num">05</span><a href="loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
+        <li><span class="nav-num">06</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
+        <li><span class="nav-num">07</span><a href="guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
+        <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
+        <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
+        <li><span class="nav-num">10</span><a href="disbursement.html" class="nav-label">Loan Disbursement</a></li>
+        <li><span class="nav-num">00</span><a href="client-directory.html" class="nav-label">Client Views</a></li>
+        <li class="active"><span class="nav-num">11</span><a href="ledger-report.html" class="nav-label">Loan Ledger Report</a></li>
+      </ul>
+      <div class="sidebar-footer-brand">
+        <svg viewBox="0 0 100 100" width="28" height="28">
+          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
+        </svg>
+        <span>AVMF CBS v2.0</span>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="module-view active" id="view-ledger-report">
+        <div class="context-badge-bar">
+          <span class="badge-icon">📊</span>
+          Loan Ledger — Account Statement &amp; Internal Accounting Ledger
+        </div>
+
+        <div class="ledger-wrap">
+
+          <!-- ── Search Bar ──────────────────────────── -->
+          <div class="ledger-identity-bar">
+            <div class="ledger-id-field">
+              <label>Account No.</label>
+              <input type="text" id="lrAccountNo" placeholder="011-004-9823-01" style="width:160px;"/>
+            </div>
+            <div class="ledger-id-field wide">
+              <label>Borrower Name</label>
+              <input type="text" id="lrBorrowerName" placeholder="Auto-filled or manual" style="width:200px;"/>
+            </div>
+            <div class="ledger-id-field">
+              <label>Status</label>
+              <select id="lrStatus" style="width:150px;">
+                <option value="Active-Performing">Active – Performing</option>
+                <option value="Active-Watchlist">Active – Watchlist</option>
+                <option value="Defaulted">Defaulted</option>
+                <option value="Closed">Closed</option>
+              </select>
+            </div>
+            <button class="btn-fetch" id="btnFetchLedger">🔍 Load from DB</button>
+            <div class="ledger-id-sep"></div>
+            <button class="btn-generate-local" id="btnToggleParams">⚙ Generate Projection</button>
+          </div>
+
+          <!-- ── Manual Projection Params Panel ─────── -->
+          <div class="loan-params-panel" id="paramsPanel">
+            <div class="lpf">
+              <label>Product</label>
+              <select id="lrProduct" style="width:180px;">
+                <option>Agri-business Term Loan</option>
+                <option>Standard Term Loan</option>
+                <option>AVMF Women Entrepreneur Loan</option>
+                <option>Micro-Enterprise Credit</option>
+              </select>
+            </div>
+            <div class="lpf">
+              <label>Loan Amount (ETB)</label>
+              <input type="number" id="lrAmount" value="100000" min="1"/>
+            </div>
+            <div class="lpf">
+              <label>Interest Rate (% p.a.)</label>
+              <input type="number" id="lrRate" value="12" step="0.1"/>
+            </div>
+            <div class="lpf">
+              <label>Term (Months)</label>
+              <input type="number" id="lrTerm" value="12" min="1"/>
+            </div>
+            <div class="lpf">
+              <label>Disbursement Date</label>
+              <input type="date" id="lrStartDate"/>
+            </div>
+            <div class="lpf">
+              <label>Frequency</label>
+              <select id="lrFrequency">
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+            <div class="lpf">
+              <label>Grace Period (Days)</label>
+              <input type="number" id="lrGracePeriod" value="5" min="0"/>
+            </div>
+            <div class="lpf">
+              <label>Flat Penalty (ETB)</label>
+              <input type="number" id="lrFlatPenalty" value="150" step="0.01"/>
+            </div>
+            <div class="lpf">
+              <label>Initial Accrued Int.</label>
+              <input type="number" id="lrInitialAccrued" value="0" step="0.01"/>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;justify-content:flex-end;">
+              <label style="font-size:10px;display:flex;gap:5px;align-items:center;cursor:pointer;">
+                <input type="checkbox" id="lrIncludeFee" checked/> Include Processing Fee (ETB 1,000)
+              </label>
+              <label style="font-size:10px;display:flex;gap:5px;align-items:center;cursor:pointer;">
+                <input type="checkbox" id="lrSimulateLate" checked/> Simulate Late Payment (Inst. 1)
+              </label>
+            </div>
+            <button class="btn-generate-local" id="btnRunProjection" style="align-self:flex-end;height:28px;">
+              ⚡ Generate
+            </button>
+          </div>
+
+          <!-- ── Account Card ──────────────────────── -->
+          <div class="acct-card" id="lrAcctCard">
+            <div class="acct-card-left">
+              <div class="acct-badge">AVMF LOAN ACCOUNT</div>
+              <div class="acct-number" id="lrDisplayAcctNo">—</div>
+              <div class="acct-borrower" id="lrDisplayBorrower">—</div>
+            </div>
+            <div class="acct-card-right">
+              <div class="acct-meta">
+                <span class="acct-meta-label">Product</span>
+                <span class="acct-meta-value" id="lrDisplayProduct">—</span>
+              </div>
+              <div class="acct-meta">
+                <span class="acct-meta-label">Status</span>
+                <span class="acct-meta-value"><span class="status-pill performing" id="lrDisplayStatus">—</span></span>
+              </div>
+              <div class="acct-meta">
+                <span class="acct-meta-label">Disbursement</span>
+                <span class="acct-meta-value" id="lrDisplayDate">—</span>
+              </div>
+              <div class="acct-meta">
+                <span class="acct-meta-label">Original Balance</span>
+                <span class="acct-meta-value" id="lrDisplayBalance">—</span>
+              </div>
+              <div class="acct-meta">
+                <span class="acct-meta-label">Rate</span>
+                <span class="acct-meta-value" id="lrDisplayRate">—</span>
+              </div>
+              <div class="acct-meta">
+                <span class="acct-meta-label">Term</span>
+                <span class="acct-meta-value" id="lrDisplayTerm">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── KPI Bar ────────────────────────────── -->
+          <div class="kpi-row" id="lrKpiRow" style="display:none;">
+            <div class="kpi-tile">
+              <div class="kpi-tile-label">Original Principal</div>
+              <div class="kpi-tile-value" id="lrKpiPrincipal">—</div>
+            </div>
+            <div class="kpi-tile">
+              <div class="kpi-tile-label">Total Interest</div>
+              <div class="kpi-tile-value orange" id="lrKpiInterest">—</div>
+            </div>
+            <div class="kpi-tile">
+              <div class="kpi-tile-label">Total Penalties</div>
+              <div class="kpi-tile-value red" id="lrKpiPenalties">—</div>
+            </div>
+            <div class="kpi-tile">
+              <div class="kpi-tile-label">Total Paid</div>
+              <div class="kpi-tile-value green" id="lrKpiPaid">—</div>
+            </div>
+            <div class="kpi-tile">
+              <div class="kpi-tile-label">Closing Balance</div>
+              <div class="kpi-tile-value blue" id="lrKpiBalance">—</div>
+            </div>
+          </div>
+
+          <!-- ── Tab Bar ────────────────────────────── -->
+          <div class="ledger-tab-bar">
+            <button class="ltab active" data-tab="statement">Account Statement</button>
+            <button class="ltab" data-tab="ledger">Internal Accounting Ledger</button>
+            <button class="ltab" data-tab="schedule">Amortization Schedule</button>
+            <div class="ltab-actions">
+              <button class="btn-export" onclick="exportCSV('statement')">↓ CSV</button>
+              <button class="btn-print-rpt" onclick="window.print()">⎙ Print</button>
+            </div>
+          </div>
+
+          <!-- ── Tab Panels ─────────────────────────── -->
+          <div class="ledger-panels">
+
+            <!-- Empty state -->
+            <div class="ledger-empty" id="lrEmpty">
+              <div class="empty-icon">📋</div>
+              <div class="empty-title">No Ledger Loaded</div>
+              <div class="empty-sub">Enter an Account No. and click <strong>Load from DB</strong> to fetch existing ledger data, or use <strong>Generate Projection</strong> to build a new amortization schedule.</div>
+            </div>
+
+            <!-- Account Statement -->
+            <div class="lpanel active" id="lpanel-statement" style="display:none;">
+              <div class="rpt-header">
+                <div>
+                  <div class="rpt-title">Customer Account Statement</div>
+                  <div class="rpt-sub">Loan Account No: <span id="lrRptAcctNo">—</span></div>
+                </div>
+                <div class="rpt-legend">
+                  <span class="leg"><span class="leg-dot green"></span>Credit / Payment</span>
+                  <span class="leg"><span class="leg-dot red"></span>Penalty / Charge</span>
+                </div>
+              </div>
+              <div class="tbl-wrap">
+                <table class="rpt-table" id="tblStatement">
+                  <thead>
+                    <tr>
+                      <th>Post Date</th><th>Value Date</th><th>Ref / Batch</th>
+                      <th>Description</th>
+                      <th class="r">Principal</th><th class="r">Interest</th>
+                      <th class="r">Charges / Penalties</th>
+                      <th class="r">Running Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodyStatement"></tbody>
+                  <tfoot id="tfootStatement"></tfoot>
+                </table>
+              </div>
+            </div>
+
+            <!-- Internal Ledger -->
+            <div class="lpanel" id="lpanel-ledger" style="display:none;">
+              <div class="rpt-header">
+                <div>
+                  <div class="rpt-title">Internal Accounting Ledger</div>
+                  <div class="rpt-sub">Reconciliation view — Zero variance required against Trial Balance</div>
+                </div>
+                <div class="rpt-legend">
+                  <span class="leg"><span class="leg-dot orange"></span>Accrual</span>
+                  <span class="leg"><span class="leg-dot green"></span>Credit</span>
+                </div>
+              </div>
+              <div class="audit-note">
+                <strong>⚑ Audit Checkpoint:</strong> Closing balance must match the corresponding line in the Trial Balance.
+                Payments are split: Interest Income account first, then Loans Receivable (principal reduction).
+              </div>
+              <div class="tbl-wrap">
+                <table class="rpt-table" id="tblLedger">
+                  <thead>
+                    <tr>
+                      <th>Value Date</th><th>Description</th><th>Ref #</th>
+                      <th class="r">Principal (Dr)</th><th class="r">Interest (Dr)</th>
+                      <th class="r">Penalty (Dr)</th>
+                      <th class="r">Accrued Int. Receivable</th>
+                      <th class="r">Total Paid (Cr)</th>
+                      <th class="r">Accrued Unpaid Int.</th>
+                      <th class="r">Principal Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodyLedger"></tbody>
+                  <tfoot id="tfootLedger"></tfoot>
+                </table>
+              </div>
+            </div>
+
+            <!-- Amortization Schedule -->
+            <div class="lpanel" id="lpanel-schedule" style="display:none;">
+              <div class="rpt-header">
+                <div>
+                  <div class="rpt-title">Amortization Schedule</div>
+                  <div class="rpt-sub">Repayment plan — installment-by-installment breakdown</div>
+                </div>
+              </div>
+              <div class="tbl-wrap">
+                <table class="rpt-table" id="tblSchedule">
+                  <thead>
+                    <tr>
+                      <th>#</th><th>Due Date</th>
+                      <th class="r">Opening Balance</th>
+                      <th class="r">Principal</th>
+                      <th class="r">Interest</th>
+                      <th class="r">Total Due</th>
+                      <th class="r">Closing Balance</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodySchedule"></tbody>
+                  <tfoot id="tfootSchedule"></tfoot>
+                </table>
+              </div>
+            </div>
+
+          </div><!-- /ledger-panels -->
+        </div><!-- /ledger-wrap -->
+
+        <div class="sub-footer-token" id="statusBar">Status: Ready</div>
+      </div>
+    </div>
+
+    <div class="action-sidebar">
+      <button id="btnLoad"   class="action-btn">🔍 Load</button>
+      <button id="btnGenerate" class="action-btn">⚡ Generate</button>
+      <button id="btnClose"  class="action-btn">✕ Close</button>
+      <div class="sidebar-spacer"></div>
+      <button id="btnExportStatement" class="action-btn">📄 Export CSV</button>
+      <button id="btnPrint"  class="action-btn">🖨 Print</button>
+      <div class="sidebar-footer">AVMF CBS v2.0</div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
+
+<script src="ledger-report.js"></script>
+</body>
+</html>
