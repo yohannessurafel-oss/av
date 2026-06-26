@@ -479,3 +479,120 @@ document.getElementById('btnClose').addEventListener('click', () => {
 
 /* ── Init ────────────────────────────────────────────────── */
 setMode('view');
+
+/* ── Fetch and Display All Records with Joined Client Profiles ── */
+async function loadAndDisplayDisbursementRecords() {
+  const modal = document.getElementById('viewRecordsModal');
+  const tbody = modal ? modal.querySelector('table tbody') : null;
+  const statusBar = document.getElementById('statusBar');
+  
+  if (!tbody) {
+    console.error("View records modal table or body elements not found in DOM.");
+    return;
+  }
+
+  try {
+    if (statusBar) statusBar.textContent = 'Fetching pipeline applications and master profiles...';
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:12px; color:var(--muted);">Loading database...</td></tr>`;
+    
+    // Join loanmasterrecords with ClientMasterRecords to resolve names alongside fields
+    const queryPath = `loanmasterrecords?select=application_id,sanctioned_amount,application_status,branch_id,ClientMasterRecords(first_name,middle_name,last_name)&order=created_at.desc`;
+    
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${queryPath}`, {
+      method: 'GET',
+      headers: {
+        'apikey':        SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type':  'application/json',
+        'Accept':        'application/json'
+      }
+    });
+
+    if (!res.ok) throw new Error(`Fetch failed with status code ${res.status}`);
+    const records = await res.json();
+
+    tbody.innerHTML = '';
+
+    if (records.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center gray-text italic" style="padding:12px; text-align:center;">No application matrices ready for disbursement.</td></tr>`;
+      if (statusBar) statusBar.textContent = 'Status: Ready — Empty lookup view.';
+      return;
+    }
+
+    records.forEach((record, index) => {
+      const row = document.createElement('tr');
+      row.style.cursor = 'pointer';
+      row.style.borderBottom = '1px solid var(--border)';
+      
+      const serialNum = index + 1;
+      const accountId = record.application_id || '—';
+      
+      // 1. Resolve full name parameters cleanly from the joined table object
+      let fullName = '';
+      if (record.ClientMasterRecords) {
+        const fName = record.ClientMasterRecords.first_name || '';
+        const mName = record.ClientMasterRecords.middle_name || '';
+        const lName = record.ClientMasterRecords.last_name || '';
+        fullName = `${fName} ${mName} ${lName}`.replace(/\s+/g, ' ').trim();
+      }
+      if (!fullName) fullName = 'Verified Client Profile';
+
+      // 2. Format Principal Sanctioned Amount safely
+      const principalAmount = record.sanctioned_amount 
+        ? Number(record.sanctioned_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : '0.00';
+
+      const status = record.application_status || 'Pending';
+
+      row.innerHTML = `
+        <td style="padding:6px;">${serialNum}</td>
+        <td style="padding:6px;"><strong>${accountId}</strong></td>
+        <td style="padding:6px;">${fullName}</td>
+        <td style="padding:6px; text-align:right; font-family:monospace;">${principalAmount}</td>
+        <td style="padding:6px; text-align:center;"><span class="status-badge status-${status.toLowerCase()}">${status}</span></td>
+      `;
+
+      // Interactive Click: Select row, populate into the form layout, and auto-fetch values
+      row.addEventListener('click', () => {
+        const accountInput = document.getElementById('fAccountId');
+        if (accountInput) {
+          accountInput.value = accountId;
+          
+          // Trigger the application's native blur / inquiry function to pull all schedule properties
+          accountInput.dispatchEvent(new Event('blur')); 
+          
+          // Hide modal
+          modal.classList.remove('active');
+          if (typeof showToast === 'function') showToast(`Loaded application context: ${accountId}`, 'success');
+        }
+      });
+
+      tbody.appendChild(row);
+    });
+
+    if (statusBar) statusBar.textContent = `Status: Loaded ${records.length} applications into matrix view.`;
+
+  } catch (error) {
+    console.error("Disbursement Table Loader Error:", error);
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#a00000; padding:12px;">⚠️ Relational tracking link exception: ${error.message}</td></tr>`;
+  }
+}
+
+/* ── Wire Toolbar View Button and Close Events ────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('viewRecordsModal');
+  
+  // Wire global view toolbar action icon
+  document.getElementById('btnGlobalView')?.addEventListener('click', () => {
+    if (modal) {
+      modal.classList.add('active');
+      loadAndDisplayDisbursementRecords();
+    }
+  });
+
+  // Wire close window container trigger
+  document.getElementById('btnViewClose')?.addEventListener('click', () => {
+    if (modal) modal.classList.remove('active');
+  });
+});
+
