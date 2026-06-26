@@ -1,655 +1,160 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF — Client Master Registry</title>
-<link rel="stylesheet" href="style2.css"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
-<body>
+/* ═══════════════════════════════════════════════════════════
+   Africa Village Microfinance — 00 Client Master Registry
+   client-directory.js v2.0
+═══════════════════════════════════════════════════════════ */
 
-<div class="window-container">
+'use strict';
 
-  <!-- ══ Title Bar ══════════════════════════════════════ -->
-  <div class="title-bar">
-    <div class="title-branding-block">
-      <svg class="header-logo-svg" viewBox="0 0 100 100">
-        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
-        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
-        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
-        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
-        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
-        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
-      </svg>
-      <div class="title-text-block">
-        <span class="title-main">Africa Village Microfinance</span>
-        <span class="title-sub">00 — Client Master Registry</span>
-      </div>
-    </div>
-    <div class="title-meta">
-      <span id="systemDate" class="title-date"></span>
-      <span class="title-user">👤 Loan Officer</span>
-    </div>
-    <div class="window-controls">
-      <span title="Minimize">─</span>
-      <span title="Maximize">▢</span>
-      <span title="Close" class="wc-close" onclick="window.location='loan-application.html'">✕</span>
-    </div>
-  </div>
+const TABLE_CLIENTS = 'ClientMasterRecords';
+let clientsData = [];
 
-  <!-- ══ Workspace ══════════════════════════════════════ -->
-  <div class="workspace">
+/* ── Toast Utility ─────────────────────────────────────── */
+const toastEl = document.getElementById('toastNotification');
+let _toastTimer = null;
+function toast(msg, type = '', duration = 3000) {
+  toastEl.textContent = msg;
+  toastEl.className = `toast show ${type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { toastEl.className = 'toast'; }, duration);
+}
 
-    <!-- ── Left Navigation Sidebar ─────────────────────── -->
-    <div class="sidebar">
-      <div class="sidebar-header">
-        <span class="sidebar-header-icon">⚙</span>
-        Credit Lifecycle Operations
-      </div>
-      <ul class="nav-menu">
-        <li class="active"><span class="nav-num">00</span><a href="client-maintenance.html" class="nav-label">Client Maintenance</a></li>
-        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
-        <li><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
-        <li><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
-        <li><span class="nav-num">04</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
-        <li><span class="nav-num">05</span><a href="loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
-        <li><span class="nav-num">06</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
-        <li><span class="nav-num">07</span><a href="guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
-        <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
-        <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
-        <li><span class="nav-num">10</span><a href="disbursement.html" class="nav-label">Loan Disbursement</a></li>
-        <li><span class="nav-num">00</span><a href="client-directory.html" class="nav-label">Client Views</a></li>
-      </ul>
-      <div class="sidebar-footer-brand">
-        <svg viewBox="0 0 100 100" width="28" height="28">
-          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
-        </svg>
-        <span>AVMF CBS v2.0</span>
-      </div>
-    </div>
+/* ── System Date ───────────────────────────────────────── */
+(function initDate() {
+  const el = document.getElementById('systemDate');
+  if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+  });
+})();
 
-    <!-- ── Main Content Canvas ─────────────────────────── -->
-    <div class="main-content">
-      <div class="module-view active" id="view-client-maintenance">
-        <div class="context-badge-bar">
-          <span class="badge-icon">🧾</span>
-          Data Entry — Client Master Registry &amp; KYC Capture
-        </div>
+/* ── Database Fetch ────────────────────────────────────── */
+async function fetchClients() {
+  const tbody = document.getElementById('clientTableBody');
+  const countEl = document.getElementById('recordCount');
+  
+  tbody.innerHTML = '<tr><td colspan="7" class="text-center gray-text italic" style="padding: 20px;">Fetching records from server...</td></tr>';
+  countEl.textContent = 'Loading...';
 
-        <!-- Identity / Search Bar -->
-        <div class="identity-bar">
-          <div class="id-row">
-            <div class="id-field">
-              <label>Client ID</label>
-              <div class="id-input-wrap">
-                <input type="text" id="clientId" class="id-input" placeholder="Auto-generated"/>
-                <button class="lookup-btn" id="lookupClientId" title="Lookup">🔍</button>
-              </div>
-            </div>
-            <div class="id-field">
-              <label>Client Type</label>
-              <select id="clientType" class="id-select">
-                <option>Individual Client</option>
-                <option>Group Client</option>
-                <option>Corporate</option>
-              </select>
-            </div>
-          </div>
-          <div class="id-row">
-            <div class="id-field">
-              <label>Application ID</label>
-              <div class="id-input-wrap">
-                <input type="text" id="applicationId" class="id-input" placeholder=""/>
-                <button class="lookup-btn" id="lookupAppId" title="Lookup by Application ID">🔍</button>
-              </div>
-            </div>
-            <div class="id-field">
-              <label>Base Branch</label>
-              <select id="baseId" class="id-select">
-                <option value="">– Select –</option>
-              </select>
-            </div>
-          </div>
-          <div class="id-row">
-            <div class="id-field full">
-              <label>Client Name</label>
-              <input type="text" id="clientName" class="id-input wide" placeholder="" readonly/>
-            </div>
-          </div>
-        </div>
+  try {
+    const { data, error } = await _supabase
+      .from(TABLE_CLIENTS)
+      .select('id, client_id, client_name, first_name, last_name, client_type, gender, mobile, status, open_date')
+      .order('created_on', { ascending: false });
 
-        <!-- Tabs -->
-        <div class="tab-bar">
-          <button class="tab active" data-tab="personal">Personal</button>
-          <button class="tab" data-tab="address">Address</button>
-          <button class="tab" data-tab="employment">Employment</button>
-          <button class="tab" data-tab="special">Special Offers</button>
-        </div>
+    if (error) throw error;
 
-        <!-- Tab Panels -->
-        <div class="tab-panels">
+    clientsData = data || [];
+    renderTable(clientsData);
+    toast('✔ Records synchronized successfully.', 'success');
 
-          <!-- PERSONAL TAB -->
-          <div id="tab-personal" class="tab-panel active">
-            <div class="card-header-banner">Personal Details</div>
-            <div class="form-grid">
+  } catch (err) {
+    console.error("Fetch Error:", err.message);
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center red-text font-bold" style="padding: 20px;">Database Error: ${err.message}</td></tr>`;
+    countEl.textContent = '0 records found';
+    toast('Database connection failed.', 'error');
+  }
+}
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Title</label>
-                  <select name="title">
-                    <option value="">– Select –</option>
-                    <option>Mr.</option><option>Mrs.</option><option>Ms.</option><option>Dr.</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>First Name <span class="req">*</span></label>
-                  <input type="text" name="firstName"/>
-                </div>
-              </div>
+/* ── Render Data Grid ──────────────────────────────────── */
+function renderTable(data) {
+  const tbody = document.getElementById('clientTableBody');
+  const countEl = document.getElementById('recordCount');
+  const btnEdit = document.getElementById('btnEditClient');
+  
+  btnEdit.disabled = true; // reset edit button
+  countEl.textContent = `${data.length} record(s) found`;
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Middle Name <span class="req">*</span></label>
-                  <input type="text" name="middleName"/>
-                </div>
-                <div class="form-field">
-                  <label>Last Name <span class="req">*</span></label>
-                  <input type="text" name="lastName"/>
-                </div>
-              </div>
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center gray-text italic" style="padding: 20px;">No client records found.</td></tr>';
+    return;
+  }
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Gender</label>
-                  <select name="gender">
-                    <option value="">– Select –</option>
-                    <option>Male</option><option>Female</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Date of Birth <span class="req">*</span></label>
-                  <div class="date-dropdowns">
-                    <select name="dobDay" class="inline-sel"><option value="">Day</option></select>
-                    <select name="dobMonth" class="inline-sel"><option value="">Mon</option></select>
-                    <select name="dobYear" class="inline-sel"><option value="">Year</option></select>
-                  </div>
-                </div>
-              </div>
+  const rowsHtml = data.map(r => {
+    // Construct Name
+    const fullName = r.client_name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'Unknown';
+    
+    // Status Coloring
+    let statusBg = '#eef4fb';
+    let statusColor = '#0d3460';
+    if (r.status === 'Active') { statusBg = '#d4edda'; statusColor = '#155724'; }
+    if (r.status === 'Suspended') { statusBg = '#fde8e8'; statusColor = '#7a0000'; }
+    if (r.status === 'Closed') { statusBg = '#e2e3e5'; statusColor = '#383d41'; }
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Age</label>
-                  <input type="number" name="age" class="short-input" readonly placeholder="Auto"/>
-                </div>
-                <div class="form-field">
-                  <label>Age As On</label>
-                  <select name="ageAsOn">
-                    <option value="">– Select –</option>
-                    <option value="Application Date">Application Date</option>
-                    <option value="System Date">Current System Date</option>
-                  </select>
-                </div>
-              </div>
+    return `
+      <tr class="data-row" data-id="${r.id}" style="cursor: pointer;">
+        <td class="font-bold" style="color: var(--navy-700);">${r.client_id || '—'}</td>
+        <td class="search-target">${fullName}</td>
+        <td>${r.client_type || '—'}</td>
+        <td>${r.gender || '—'}</td>
+        <td class="search-target">${r.mobile || '—'}</td>
+        <td><span style="background:${statusBg}; color:${statusColor}; padding:1px 7px; border-radius:10px; font-weight:700; font-size:9.5px;">${r.status || 'Unknown'}</span></td>
+        <td>${r.open_date ? new Date(r.open_date).toLocaleDateString('en-GB') : '—'}</td>
+      </tr>
+    `;
+  }).join('');
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Nationality</label>
-                  <select name="nationality">
-                    <option value="">– Select –</option>
-                    <option>Ethiopian</option><option>Other</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Resident <span class="req">*</span></label>
-                  <select name="resident">
-                    <option value="">– Select –</option>
-                    <option>Resident</option><option>Non-Resident</option>
-                  </select>
-                </div>
-              </div>
+  tbody.innerHTML = rowsHtml;
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Identification Type <span class="req">*</span></label>
-                  <select name="idType">
-                    <option value="">– Select –</option>
-                    <option>National ID</option><option>Passport</option>
-                    <option>Kebele ID</option><option>Driving License</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Issued By</label>
-                  <input type="text" name="issuedBy"/>
-                </div>
-              </div>
+  // Add click listener for row selection (CBS styling behavior)
+  const rows = tbody.querySelectorAll('.data-row');
+  rows.forEach(row => {
+    row.addEventListener('click', () => {
+      rows.forEach(r => r.classList.remove('selected-row'));
+      row.classList.add('selected-row');
+      btnEdit.disabled = false; // Enable action buttons when row is selected
+    });
+  });
+}
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>ID Expiry Date <span class="req">*</span></label>
-                  <div class="date-dropdowns">
-                    <select name="idExpiryDay" class="inline-sel"><option value="">Day</option></select>
-                    <select name="idExpiryMonth" class="inline-sel"><option value="">Mon</option></select>
-                    <select name="idExpiryYear" class="inline-sel"><option value="">Year</option></select>
-                  </div>
-                </div>
-                <div class="form-field">
-                  <label>Identification No</label>
-                  <input type="text" name="idNo"/>
-                </div>
-              </div>
+/* ── Live Search Filter ────────────────────────────────── */
+const searchInput = document.getElementById('searchClientInput');
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Literacy Level</label>
-                  <select name="literacyLevel">
-                    <option value="">– Select –</option>
-                    <option>Illiterate</option><option>Primary</option>
-                    <option>Secondary</option><option>University</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Marital Status</label>
-                  <select name="maritalStatus">
-                    <option value="">– Select –</option>
-                    <option>Single</option><option>Married</option>
-                    <option>Divorced</option><option>Widowed</option>
-                  </select>
-                </div>
-              </div>
+function applyFilter() {
+  const query = searchInput.value.toLowerCase().trim();
+  const rows = document.querySelectorAll('#clientTableBody .data-row');
+  let visibleCount = 0;
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>No. of Dependants</label>
-                  <input type="number" name="dependents" min="0"/>
-                </div>
-                <div class="form-field">
-                  <label>No. of Children</label>
-                  <input type="number" name="children" min="0"/>
-                </div>
-              </div>
+  rows.forEach(row => {
+    const textData = row.textContent.toLowerCase();
+    if (textData.includes(query)) {
+      row.style.display = '';
+      visibleCount++;
+    } else {
+      row.style.display = 'none';
+      row.classList.remove('selected-row'); // deselect if hidden
+    }
+  });
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>House Members</label>
-                  <input type="number" name="houseMembers" min="0"/>
-                </div>
-                <div class="form-field">
-                  <label>Blood Group</label>
-                  <select name="bloodGroup">
-                    <option value="">– Select –</option>
-                    <option>A+</option><option>A−</option>
-                    <option>B+</option><option>B−</option>
-                    <option>AB+</option><option>AB−</option>
-                    <option>O+</option><option>O−</option>
-                  </select>
-                </div>
-              </div>
+  document.getElementById('recordCount').textContent = `${visibleCount} record(s) found`;
+  document.getElementById('btnEditClient').disabled = true;
+}
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Can Donate Blood</label>
-                  <select name="canDonate">
-                    <option value="">– Select –</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Relationship Manager</label>
-                  <div class="id-input-wrap">
-                    <input type="text" name="relManager"/>
-                    <button class="lookup-btn" type="button" title="Lookup">🔍</button>
-                  </div>
-                </div>
-              </div>
+searchInput.addEventListener('input', applyFilter);
+document.getElementById('btnSearch').addEventListener('click', applyFilter);
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Opened By</label>
-                  <input type="text" name="openedBy"/>
-                </div>
-                <div class="form-field">
-                  <label>Opened On</label>
-                  <input type="date" name="openedOn"/>
-                </div>
-              </div>
+/* ── Toolbar Actions ───────────────────────────────────── */
+document.getElementById('btnRefresh').addEventListener('click', () => {
+  searchInput.value = '';
+  fetchClients();
+});
 
-            </div>
+document.getElementById('btnGlobalPrint').addEventListener('click', () => {
+  window.print();
+});
 
-            <div class="bts-section">
-              <div class="bts-header">Behind The Scene</div>
-              <div class="bts-grid">
-                <div class="bts-field"><label>Status</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Open Date</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Closed Date</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Created By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Modified By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Supervised By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Created On</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Modified On</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Supervised On</label><input type="text" readonly/></div>
-              </div>
-            </div>
-          </div>
+document.getElementById('btnAddClient').addEventListener('click', () => {
+  toast('Redirecting to Client Onboarding Module...', 'info');
+  // Example: window.location.href = 'client-onboarding.html';
+});
 
-          <!-- ADDRESS TAB -->
-          <div id="tab-address" class="tab-panel">
-            <div class="card-header-banner">Address &amp; Contact Details</div>
-            <div class="form-grid">
+document.getElementById('btnEditClient').addEventListener('click', () => {
+  const selected = document.querySelector('.selected-row');
+  if (!selected) {
+    toast('⚠ Select a client record to edit.', 'warning');
+    return;
+  }
+  const clientId = selected.querySelector('td').innerText;
+  toast(`Opening editor for Client ID: ${clientId}`, 'info');
+});
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Address Type</label>
-                  <select name="addressType">
-                    <option value="">– Select –</option>
-                    <option>Residential</option>
-                    <option>Commercial</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Postal Address</label>
-                  <input type="text" name="postalAddress"/>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field full">
-                  <label>Physical Address</label>
-                  <input type="text" name="physicalAddress"/>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>City <span class="req">*</span></label>
-                  <input type="text" name="city"/>
-                </div>
-                <div class="form-field">
-                  <label>Zip / Postal Code</label>
-                  <input type="text" name="zipCode"/>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Country <span class="req">*</span></label>
-                  <select name="country">
-                    <option value="">– Select –</option>
-                    <option>Ethiopia</option>
-                    <option>Kenya</option>
-                    <option>Uganda</option>
-                    <option>Tanzania</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Region</label>
-                  <select name="region">
-                    <option value="">– Select –</option>
-                    <option>Addis Ababa</option><option>Oromia</option>
-                    <option>Amhara</option><option>SNNPR</option><option>Tigray</option>
-                    <option>Afar</option><option>Somali</option><option>Sidama</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Zone / Woreda</label>
-                  <input type="text" name="zone"/>
-                </div>
-                <div class="form-field">
-                  <label>Kebele</label>
-                  <input type="text" name="kebele"/>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>House Number</label>
-                  <input type="text" name="houseNo"/>
-                </div>
-                <div class="form-field">
-                  <label>P.O. Box</label>
-                  <input type="text" name="poBox"/>
-                </div>
-              </div>
-
-              <div class="card-header-banner" style="margin:8px -6px 6px;padding-left:10px;">Contact Numbers</div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Mobile Number</label>
-                  <input type="tel" name="mobile"/>
-                </div>
-                <div class="form-field">
-                  <label>Phone (Home)</label>
-                  <input type="tel" name="phoneHome"/>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Phone (Work) <span class="req">*</span></label>
-                  <input type="tel" name="phoneWork"/>
-                </div>
-                <div class="form-field">
-                  <label>Fax Number</label>
-                  <input type="tel" name="faxNo"/>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Email Address</label>
-                  <input type="email" name="email"/>
-                </div>
-                <div class="form-field"><!-- spacer --></div>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- EMPLOYMENT TAB -->
-          <div id="tab-employment" class="tab-panel">
-            <div class="card-header-banner">Employment Details</div>
-            <div class="em-note">* Select employment type below before filling fields</div>
-            <div class="emp-type-row">
-              <label class="radio-label"><input type="radio" name="empType" value="salaried" checked/> Salaried</label>
-              <label class="radio-label"><input type="radio" name="empType" value="selfEmployed"/> Self Employed</label>
-            </div>
-            <div class="form-grid">
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Occupation <span class="req">*</span></label>
-                  <select name="occupation">
-                    <option value="">– Select –</option>
-                    <option>Government Employee</option><option>Private Employee</option>
-                    <option>Farmer</option><option>Trader</option><option>Self-Employed</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Designation</label>
-                  <input type="text" name="designation"/>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Company Type</label>
-                  <select name="companyType">
-                    <option value="">– Select –</option>
-                    <option>Government</option><option>Private</option><option>NGO</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Working Since (Year)</label>
-                  <select name="workingSince">
-                    <option value="">– Select –</option>
-                  </select>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Company Name</label>
-                  <input type="text" name="companyName"/>
-                </div>
-                <div class="form-field">
-                  <label>Employer Code</label>
-                  <div class="id-input-wrap">
-                    <input type="text" name="employerCode"/>
-                    <button class="lookup-btn" type="button" title="Lookup">🔍</button>
-                  </div>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Employee No</label>
-                  <input type="text" name="employeeNo"/>
-                </div>
-                <div class="form-field">
-                  <label>Gross Income (ETB)</label>
-                  <input type="number" name="grossIncome" step="0.01" min="0"/>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Rent Expenses (ETB)</label>
-                  <input type="number" name="rentExpenses" step="0.01" min="0"/>
-                </div>
-                <div class="form-field">
-                  <label>Family Income (ETB)</label>
-                  <input type="number" name="familyIncome" step="0.01" min="0"/>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Other Expenses (ETB)</label>
-                  <input type="number" name="otherExpenses" step="0.01" min="0"/>
-                </div>
-                <div class="form-field">
-                  <label>Other Income (ETB)</label>
-                  <input type="number" name="otherIncome" step="0.01" min="0"/>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Total Expenses (ETB)</label>
-                  <input type="number" name="totalExpenses" readonly class="computed"/>
-                </div>
-                <div class="form-field">
-                  <label>Total Income (ETB)</label>
-                  <input type="number" name="totalIncome" readonly class="computed"/>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field"></div>
-                <div class="form-field">
-                  <label>Net Savings (ETB)</label>
-                  <input type="number" name="netSavings" readonly class="computed"/>
-                </div>
-              </div>
-            </div>
-
-            <div class="bts-section">
-              <div class="bts-header">Behind The Scene</div>
-              <div class="bts-grid">
-                <div class="bts-field"><label>Status</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Open Date</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Closed Date</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Created By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Modified By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Supervised By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Created On</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Modified On</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Supervised On</label><input type="text" readonly/></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- SPECIAL OFFERS TAB -->
-          <div id="tab-special" class="tab-panel">
-            <div class="card-header-banner">Special Offers</div>
-            <div class="form-grid">
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Offer Type</label>
-                  <select name="offerType">
-                    <option value="">– Select –</option>
-                    <option>Interest Rate Discount</option>
-                    <option>Fee Waiver</option>
-                    <option>Extended Term</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Offer Code</label>
-                  <input type="text" name="offerCode"/>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Valid From</label>
-                  <input type="date" name="validFrom"/>
-                </div>
-                <div class="form-field">
-                  <label>Valid To</label>
-                  <input type="date" name="validTo"/>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field full">
-                  <label>Remarks</label>
-                  <textarea name="remarks" rows="3"></textarea>
-                </div>
-              </div>
-            </div>
-
-            <div class="bts-section">
-              <div class="bts-header">Behind The Scene</div>
-              <div class="bts-grid">
-                <div class="bts-field"><label>Status</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Open Date</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Closed Date</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Created By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Modified By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Supervised By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Created On</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Modified On</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Supervised On</label><input type="text" readonly/></div>
-              </div>
-            </div>
-          </div>
-
-        </div><!-- /tab-panels -->
-
-        <div class="sub-footer-token" id="statusBar">Status: Ready</div>
-      </div>
-    </div><!-- /main-content -->
-
-    <!-- ── Right Action Sidebar ─────────────────────────── -->
-    <div class="action-sidebar">
-      <button id="btnView"   class="action-btn">🔍 View</button>
-      <button id="btnAdd"    class="action-btn">➕ Add</button>
-      <button id="btnEdit"   class="action-btn">✏️ Edit</button>
-      <button id="btnClose"  class="action-btn">✕ Close</button>
-      <div class="nav-arrows">
-        <button id="btnPrev" class="arrow-btn" title="Previous Record">▲</button>
-        <button id="btnNext" class="arrow-btn" title="Next Record">▼</button>
-      </div>
-      <div class="sidebar-spacer"></div>
-      <button id="btnSave"   class="action-btn" disabled>💾 Save</button>
-      <button id="btnCancel" class="action-btn" disabled>🚫 Cancel</button>
-      <button id="btnDelete" class="action-btn" style="background:linear-gradient(to bottom,#f8d0d0,#f0a0a0);border-color:#c06060;color:#7a0000;">🗑 Delete</button>
-      <div class="sidebar-footer">AVMF CBS v2.0</div>
-    </div>
-
-  </div><!-- /workspace -->
-</div><!-- /window-container -->
-
-<div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
-
-<script src="client-maintenance.js"></script>
-</body>
-</html>
+/* ── Init ──────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', fetchClients);
