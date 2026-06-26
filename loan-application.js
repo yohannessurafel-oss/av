@@ -641,3 +641,90 @@ async function init() {
   if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
 }
 init();
+
+
+
+/* ── Data Engine Lookup: Fetch and Display All Records ── */
+async function loadAndDisplayLoanRecords() {
+  const tbody = document.querySelector('#viewRecordsModal table tbody');
+  const statusBar = document.getElementById('statusBar');
+  
+  if (!tbody) {
+    console.error("Target table body element not found.");
+    return;
+  }
+
+  try {
+    if (statusBar) statusBar.textContent = 'Loading live loan portfolio matrices...';
+    
+    // Fetch records sorted by most recent entry
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/loanmasterrecords?select=*&order=created_at.desc`, {
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
+    const records = await res.json();
+
+    // Reset Table Elements
+    tbody.innerHTML = '';
+
+    if (records.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center gray-text italic">No records found in loanmasterrecords.</td></tr>`;
+      if (statusBar) statusBar.textContent = 'Status: Ready — No entries found.';
+      return;
+    }
+
+    // Populate rows dynamically
+    records.forEach((record, index) => {
+      const row = document.createElement('tr');
+      row.style.cursor = 'pointer'; // Make row hover interactive
+      
+      // Determine clean variable fallbacks
+      const serialNum = index + 1;
+      const clientId  = record.main_repayment_account_id || record.loan_id || '—';
+      const name      = record.created_by || 'Verified Client Profile';
+      const branch    = record.branch_id || 'Main Branch';
+      const status    = record.till_status || 'Active';
+
+      row.innerHTML = `
+        <td>${serialNum}</td>
+        <td><strong>${clientId}</strong></td>
+        <td>${name}</td>
+        <td>${branch}</td>
+        <td><span class="status-badge status-${status.toLowerCase()}">${status}</span></td>
+      `;
+
+      // Wire row selection to pull the chosen record back into the main form workspace
+      row.addEventListener('click', () => {
+        if (typeof fillForm === 'function') {
+          fillForm(record);
+          currentRecord = record;
+          setMode('view');
+          toast(`Loaded entry: ${clientId}`, 'success');
+        }
+      });
+
+      tbody.appendChild(row);
+    });
+
+    if (statusBar) statusBar.textContent = `Status: View Mode — Loaded ${records.length} records.`;
+
+  } catch (error) {
+    console.error("Matrix Loader Error:", error);
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center operational-error" style="color: #a00000; padding: 12px;">⚠️ Infrastructure connection failed: ${error.message}</td></tr>`;
+    if (statusBar) statusBar.textContent = 'Status: Connection Exception Encountered.';
+  }
+}
+
+/* ── Wire Toolbar View Click Event ─────────────────────── */
+document.getElementById('btnGlobalView')?.addEventListener('click', () => {
+  setMode('view');
+  loadAndDisplayLoanRecords();
+  toast('Refreshing loan portfolio elements...', 'info');
+});
