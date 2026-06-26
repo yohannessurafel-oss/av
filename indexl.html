@@ -42,18 +42,16 @@
         <form id="loan-form">
 
             <div class="form-section">
-                  <div class="section-label">
-                    <span class="section-num">01</span>
-                    Loan Identity from system 
-                </div>
                 <div class="section-label">
-                    <span class="section-num">02</span>
-                    manual Loan Identity
+                    <span class="section-num">01</span>
+                    Loan Identity
                 </div>
 
                 <div class="field-group">
                     <label>Account Number</label>
-                    <input type="text" id="account_number" value="011-004-9823-01" required>
+                    <input type="text" id="account_number" value="011-004-9823-01" required
+                        onchange="fetchAndRender()"
+                        title="Change to load a different account from the ledger">
                 </div>
 
                 <div class="field-group">
