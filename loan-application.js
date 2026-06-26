@@ -509,9 +509,8 @@ async function commitSave(payload) {
   const appDate   = payload[COL.app_date] || new Date().toISOString().slice(0,10);
   const appStatus = payload[COL.app_status] || 'DataEntry';
 
-  // Strip generated/computed columns — loanmasterrecords rejects writes to these
+  // Build write payload — client_name is a plain varchar column, must be included
   const writePayload = { ...payload };
-  delete writePayload[COL.client_name];   // generated column in loanmasterrecords
 
   try {
     toast('Processing…', 'info');
@@ -546,7 +545,7 @@ async function commitSave(payload) {
       if (!currentAppId) throw new Error('No active record to modify.');
 
       const updatePayload = { ...writePayload };
-      delete updatePayload[COL.application_id]; // never PATCH the PK
+      delete updatePayload[COL.application_id]; // never PATCH the PK — client_name is kept (plain column)
 
       const responseData = await sbFetch(
         `${TABLE_LOANS}?${COL.application_id}=eq.${encodeURIComponent(currentAppId)}`,
@@ -641,99 +640,3 @@ async function init() {
   if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
 }
 init();
-
-
-
-/* ── Data Engine Lookup: Fetch and Display All Records ── */
-/* ── Data Engine Lookup: Fetch Records Joined with Client Master Profile ── */
-async function loadAndDisplayLoanRecords() {
-  const tbody = document.querySelector('#viewRecordsModal table tbody');
-  const statusBar = document.getElementById('statusBar');
-  
-  if (!tbody) {
-    console.error("Target table body element not found.");
-    return;
-  }
-
-  try {
-    if (statusBar) statusBar.textContent = 'Loading live loan portfolio matrices...';
-    
-    // FIX: We tell Supabase to look up the related profile from ClientMasterRecords using the client_id link!
-    const queryPath = `loanmasterrecords?select=*,ClientMasterRecords(first_name,middle_name,last_name)&order=created_at.desc`;
-    
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${queryPath}`, {
-      method: 'GET',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-    });
-
-    if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
-    const records = await res.json();
-
-    // Reset Table Elements
-    tbody.innerHTML = '';
-
-    if (records.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center gray-text italic">No records found in portfolio database.</td></tr>`;
-      if (statusBar) statusBar.textContent = 'Status: Ready — No entries found.';
-      return;
-    }
-
-    // Populate rows dynamically
-    records.forEach((record, index) => {
-      const row = document.createElement('tr');
-      row.style.cursor = 'pointer';
-      
-      const serialNum = index + 1;
-      const clientId  = record.client_id || record.application_id || '—';
-      
-      // FIX: Compile the real client master names array if it exists, fallback safely otherwise
-      let fullName = '';
-      if (record.ClientMasterRecords) {
-        const fName = record.ClientMasterRecords.first_name || '';
-        const mName = record.ClientMasterRecords.middle_name || '';
-        const lName = record.ClientMasterRecords.last_name || '';
-        fullName = `${fName} ${mName} ${lName}`.replace(/\s+/g, ' ').trim();
-      }
-      
-      // If no joined profile was found, fallback to fallback column names or placeholder text
-      if (!fullName) {
-        fullName = record.client_name || record.created_by || record.customer_name || 'Verified Client Profile';
-      }
-
-      const branch = record.branch_id || 'Main Branch';
-      const status = record.approval_status || record.till_status || 'Active';
-
-      row.innerHTML = `
-        <td>${serialNum}</td>
-        <td><strong>${clientId}</strong></td>
-        <td>${fullName}</td>
-        <td>${branch}</td>
-        <td><span class="status-badge status-${status.toLowerCase()}">${status}</span></td>
-      `;
-
-      // Form workspace profile loader setup
-      row.addEventListener('click', () => {
-        if (typeof fillForm === 'function') {
-          fillForm(record);
-          currentRecord = record;
-          setMode('view');
-          toast(`Loaded entry: ${clientId}`, 'success');
-        }
-      });
-
-      tbody.appendChild(row);
-    });
-
-    if (statusBar) statusBar.textContent = `Status: View Mode — Loaded ${records.length} records.`;
-
-  } catch (error) {
-    console.error("Matrix Loader Error:", error);
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center operational-error" style="color: #a00000; padding: 12px;">⚠️ Infrastructure connection failed: ${error.message}</td></tr>`;
-    if (statusBar) statusBar.textContent = 'Status: Connection Exception Encountered.';
-  }
-}
