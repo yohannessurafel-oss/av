@@ -260,7 +260,7 @@ function updateKPI(rows) {
     let origPrincipal   = 0;
 
     rows.forEach(r => {
-        if (r.row_type === 'disbursement') origPrincipal = r.principal;
+        if (r.row_type === 'disbursement' || (!r.row_type && r.description === 'Loan Disbursement')) origPrincipal = r.principal;
         if (r.interest < 0)          totalInterest  += Math.abs(r.interest);
         if (r.charges_penalties > 0) totalPenalties += r.charges_penalties;
         if (r.total_paid > 0)        totalPaid      += r.total_paid;
@@ -477,18 +477,31 @@ function exportCSV(view) {
 
 // ─── 12. Fetch and render from Supabase on load ───────
 async function fetchAndRender() {
+    const accountNumber = document.getElementById('account_number').value.trim();
+    if (!accountNumber) return;
+
     const { data, error } = await db
         .from('loan_ledger')
         .select('*')
+        .eq('account_number', accountNumber)
         .order('id', { ascending: true });
 
     if (error || !data || data.length === 0) return;
 
-    _cachedRows = data;
-    updateKPI(data);
-    renderStatement(data);
-    renderLedger(data);
-    showReports(data);
+    // Reconstruct row_type for KPI (stripped before DB insert)
+    const rows = data.map(r => ({
+        ...r,
+        row_type: r.description === 'Loan Disbursement' ? 'disbursement'
+                : r.description === 'Admin / Processing Fee' ? 'fee'
+                : r.description === 'Late Penalty Fee' ? 'penalty'
+                : 'installment'
+    }));
+
+    _cachedRows = rows;
+    updateKPI(rows);
+    renderStatement(rows);
+    renderLedger(rows);
+    showReports(rows);
     updateHeaderDisplay();
 }
 
@@ -520,17 +533,24 @@ document.getElementById('loan-form').addEventListener('submit', async (e) => {
     // Update header display
     updateHeaderDisplay();
 
-    // Wipe existing data
-    const { error: delErr } = await db.from('loan_ledger').delete().neq('id', 0);
+    // Wipe only rows matching this account_number (never wipe other accounts)
+    const { error: delErr } = await db.from('loan_ledger')
+        .delete()
+        .eq('account_number', params.accountNumber);
     if (delErr) {
         alert('Delete failed: ' + delErr.message);
         showLoading(false);
         return;
     }
 
-    // Insert new rows (strip row_type before inserting — it's UI-only)
+    // Insert new rows — strip UI-only fields not in loan_ledger schema
+    // product_name does not exist in loan_ledger table
+    // application_id is required FK — use accountNumber as surrogate
     const insertRows = rows.map(r => {
-        const { row_type, ...rest } = r;
+        const { row_type, product_name, ...rest } = r;
+        // application_id FK: use the account_number value as the application_id
+        // (standalone ledger tool — FK not enforced at insert level)
+        if (!rest.application_id) rest.application_id = rest.account_number || null;
         return rest;
     });
 
