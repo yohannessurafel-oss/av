@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AVMF — Client Financial Account Maintenance</title>
+  <link rel="stylesheet" href="../style2.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="window-container">
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <span>Client Financial Account Opening</span>
+    </div>
+    <div class="title-controls">
+      <button class="win-min-btn">_</button>
+      <button class="win-max-btn">❑</button>
+      <button class="win-close-btn">✕</button>
+    </div>
+  </div>
+
+  <div class="workspace-area">
+    <div class="main-form-panel">
+      
+      <div class="top-menu-strip">
+        <span class="strip-label">Module: Financial Accounts Ledger</span>
+      </div>
+
+      <form id="accountForm" class="module-form-padding">
+        
+        <div class="form-row-layout structure-4col">
+          <label class="required-field">Branch ID</label>
+          <div class="lookup-input-group">
+            <select id="accBranchId" required>
+              <option value="">-- Select Branch --</option>
+            </select>
+          </div>
+
+          <label class="required-field">Client ID</label>
+          <div class="lookup-input-group">
+            <input type="text" id="accClientId" placeholder="Enter Client ID" required />
+            <button type="button" id="btnVerifyClient" class="inline-util-btn">🔍 Verify</button>
+          </div>
+        </div>
+
+        <div class="form-row-layout structure-2col-stretch">
+          <label>Client Name</label>
+          <input type="text" id="accClientName" readonly placeholder="Verified client name will appear here..." />
+        </div>
+
+        <hr class="section-breaker-line" />
+
+        <div class="form-split-columns-2">
+          <div class="split-column-pane">
+            <div class="form-field-wrapper">
+              <label class="required-field">Account Number</label>
+              <div class="lookup-input-group">
+                <input type="text" id="accountNumber" placeholder="Auto-generated or Manual Input" required />
+                <button type="button" id="btnGenAccNo" class="inline-util-btn">⚙️ Gen</button>
+              </div>
+            </div>
+
+            <div class="form-field-wrapper">
+              <label class="required-field">Account Type</label>
+              <select id="accountType" required>
+                <option value="Savings">Savings Account</option>
+                <option value="Repayment">Repayment Settlement Account</option>
+                <option value="Current">Current Operating Account</option>
+              </select>
+            </div>
+
+            <div class="form-field-wrapper">
+              <label class="required-field">Currency ID</label>
+              <input type="text" id="accCurrencyId" value="ETB" readonly />
+            </div>
+          </div>
+
+          <div class="split-column-pane">
+            <div class="form-field-wrapper">
+              <label class="required-field">Initial Deposit</label>
+              <input type="number" id="initialDeposit" min="0" step="0.01" value="0.00" class="numerical-align-right" required />
+            </div>
+
+            <div class="form-field-wrapper">
+              <label>Account Status</label>
+              <input type="text" id="accountStatus" value="Active" readonly />
+            </div>
+
+            <div class="form-field-wrapper">
+              <label>Remarks / Notes</label>
+              <textarea id="accRemarks" rows="2" placeholder="Account setup details..."></textarea>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <div id="toastNotification" class="toast-popup panel-hidden"></div>
+    </div>
+
+    <div class="action-sidebar">
+      <button id="btnAccNew" class="action-btn">➕ New</button>
+      <button id="btnAccClose" class="action-btn">✕ Close</button>
+      <div class="sidebar-spacer"></div>
+      <button id="btnAccSave" class="action-btn" disabled>💾 Save Account</button>
+      <button id="btnAccCancel" class="action-btn" disabled>🚫 Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="account-maintenance.js"></script>
+</body>
+</html>
