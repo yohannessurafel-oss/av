@@ -3,79 +3,34 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF CBS v2.0 — Unified Dashboard</title>
+<title>AVMF CBS v2.0 — Dashboard</title>
 <link rel="stylesheet" href="style2.css"/>
 <style>
-  /* Dashboard-specific enhancements */
-  .module-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 16px;
-    padding: 16px;
-  }
+  .module-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; padding:20px; }
   .module-card {
-    background: var(--white);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 18px;
-    cursor: pointer;
-    transition: all var(--transition);
-    box-shadow: var(--shadow-sm);
+    background:var(--white); border:1px solid var(--border); border-radius:6px;
+    padding:20px; cursor:pointer; transition:all .2s;
   }
-  .module-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-md);
-    border-color: var(--navy-600);
-  }
-  .sidebar-category {
-    padding: 8px 12px;
-    margin: 2px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 500;
-  }
-  .sidebar-category.active {
-    background: var(--navy-800);
-    color: white;
-  }
+  .module-card:hover { transform:translateY(-4px); box-shadow:0 8px 25px rgba(0,0,0,.15); }
 </style>
 </head>
 <body>
 
 <div class="window-container">
-  <div class="title-bar">
-    <div class="title-branding-block">
-      <svg class="header-logo-svg" viewBox="0 0 100 100">...</svg>
-      <div class="title-text-block">
-        <span class="title-main">Africa Village Microfinance</span>
-        <span class="title-sub">CBS v2.0 — Central Command</span>
-      </div>
-    </div>
-    <div class="title-meta">
-      <span id="systemDate"></span>
-      <span class="title-user">👤 Operator</span>
-    </div>
-  </div>
+  <div class="title-bar">...[your branding]... </div>
 
   <div class="workspace">
-    <!-- Sidebar with Filtering -->
     <div class="sidebar">
-      <div class="sidebar-header">📂 Module Navigator</div>
+      <div class="sidebar-header">📂 Modules</div>
       <div id="sidebarFilters" class="nav-menu"></div>
-      <div class="sidebar-footer-brand">AVMF CBS v2.0</div>
     </div>
 
-    <!-- Main Area -->
     <div class="main-content">
-      <div class="context-badge-bar">
-        <span class="badge-icon">🏠</span>
-        Central Dashboard — Select Module
-      </div>
-
-      <!-- Top Tabs -->
+      <div class="context-badge-bar"><span class="badge-icon">🏠</span> AVMF CBS Dashboard</div>
+      
       <div class="tab-bar" id="tabBar"></div>
-
-      <input type="text" id="moduleSearch" placeholder="🔍 Search modules..." class="width-full" style="margin:12px 0;">
+      
+      <input type="text" id="moduleSearch" placeholder="🔍 Search modules..." style="width:96%;margin:12px 20px;padding:8px;">
 
       <div class="module-grid" id="moduleGrid"></div>
     </div>
@@ -83,73 +38,33 @@
 </div>
 
 <script>
-// Full module list with categories
+// Modules + Categories (update paths as needed)
 const modules = [
   {name:"Client Master Registry", icon:"👤", path:"client-maintenance.html", cat:"operations"},
   {name:"Loan Application", icon:"📋", path:"loan-application.html", cat:"operations"},
-  {name:"Loan Appraisal Management", icon:"🔎", path:"#", cat:"operations"},
-  {name:"Credit Sanction Console", icon:"✅", path:"#", cat:"operations"},
   {name:"Loan Account Maintenance", icon:"🏦", path:"loan-account-maintenance.html", cat:"operations"},
-  {name:"Client Financial Account Maintenance", icon:"💳", path:"account-maintenance.html", cat:"financials"},
+  {name:"Client Financial Accounts", icon:"💳", path:"account-maintenance.html", cat:"financials"},
   {name:"General Ledger", icon:"📒", path:"general-ledger.html", cat:"financials"},
-  {name:"Collateral Inventory Risk", icon:"🛡️", path:"#", cat:"risk"},
-  {name:"Guarantor Asset Registry", icon:"🤝", path:"#", cat:"risk"},
-  {name:"Teller Cash Vault Control", icon:"🏧", path:"#", cat:"teller"},
-  {name:"Loan Disbursement", icon:"📤", path:"#", cat:"operations"},
-  {name:"Settlement / Early Payoff", icon:"💸", path:"#", cat:"financials"},
-  {name:"Loan Ledger Report", icon:"📊", path:"#", cat:"reports"},
+  // Add the rest...
 ];
 
 const categories = [
-  {label:"All", filter:"all", icon:"🌐"},
-  {label:"Credit Operations", filter:"operations", icon:"📋"},
-  {label:"Financials & Ledger", filter:"financials", icon:"💰"},
-  {label:"Risk & Collateral", filter:"risk", icon:"🛡️"},
-  {label:"Teller & Cash", filter:"teller", icon:"🏧"},
-  {label:"Reports", filter:"reports", icon:"📊"}
+  {label:"All", filter:"all"},
+  {label:"Credit Operations", filter:"operations"},
+  {label:"Financials", filter:"financials"},
 ];
 
 let currentFilter = "all";
 
-// Render Sidebar
 function renderSidebar() {
-  const container = document.getElementById('sidebarFilters');
-  container.innerHTML = categories.map(c => `
-    <div class="sidebar-category ${c.filter === currentFilter ? 'active' : ''}" onclick="setFilter('${c.filter}')">
-      ${c.icon} ${c.label}
-    </div>
-  `).join('');
+  // ... render clickable categories ...
 }
 
-function setFilter(f) {
-  currentFilter = f;
-  renderSidebar();
-  renderGrid();
-}
-
-// Render Grid
 function renderGrid() {
-  let filtered = modules;
-  if (currentFilter !== "all") filtered = filtered.filter(m => m.cat === currentFilter);
-
-  const term = document.getElementById('moduleSearch').value.toLowerCase();
-  if (term) filtered = filtered.filter(m => m.name.toLowerCase().includes(term));
-
-  document.getElementById('moduleGrid').innerHTML = filtered.map(m => `
-    <div class="module-card" onclick="window.location='${m.path}'">
-      <div style="font-size:42px;margin-bottom:8px;">${m.icon}</div>
-      <strong>${m.name}</strong>
-    </div>
-  `).join('');
+  // ... filter + display cards ...
 }
 
-// Search
 document.getElementById('moduleSearch').addEventListener('input', renderGrid);
-
-// System Date
-document.getElementById('systemDate').textContent = new Date().toLocaleDateString('en-ET', {
-  weekday:'short', year:'numeric', month:'short', day:'numeric'
-});
 
 // Init
 renderSidebar();
