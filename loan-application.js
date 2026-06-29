@@ -565,6 +565,48 @@ async function commitSave(payload) {
 
 /* ══ TOOLBAR BUTTON HANDLERS ════════════════════════════ */
 
+/* ── Repayment Account Lookup ───────────────────────────────
+   The 🔍 next to Repayment Acc ID verifies the account number
+   exists in clientfinancialaccounts and belongs to the same
+   client. This ensures the FK relationship is valid before save.
+═══════════════════════════════════════════════════════════ */
+document.querySelector('.search-btn[data-lookup="repayment"], #view-loan-app .form-row:has(#fRepaymentAccId) .search-btn')?.addEventListener('click', lookupRepaymentAccount);
+
+// Delegate: find the search-btn sibling of fRepaymentAccId
+(function wireRepaymentLookup() {
+  const input = document.getElementById('fRepaymentAccId');
+  if (!input) return;
+  const btn = input.closest('.input-group')?.querySelector('.search-btn');
+  if (btn) btn.addEventListener('click', lookupRepaymentAccount);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') lookupRepaymentAccount(); });
+})();
+
+async function lookupRepaymentAccount() {
+  const accNo = document.getElementById('fRepaymentAccId')?.value?.trim();
+  const clientId = document.getElementById('fClientId')?.value?.trim();
+  if (!accNo) { toast('Enter a Repayment Account ID first.', 'warning'); return; }
+  try {
+    let q = `clientfinancialaccounts?account_number=eq.${encodeURIComponent(accNo)}&select=account_number,client_id,account_type,account_status,current_balance&limit=1`;
+    const rows = await sbFetch(q);
+    if (!rows || !rows[0]) {
+      toast(`Account "${accNo}" not found in clientfinancialaccounts.`, 'error'); return;
+    }
+    const acc = rows[0];
+    // Warn if account belongs to a different client
+    if (clientId && acc.client_id !== clientId) {
+      toast(`⚠ Account ${accNo} belongs to client ${acc.client_id}, not ${clientId}.`, 'warning');
+    } else if (acc.account_status !== 'Active') {
+      toast(`⚠ Account ${accNo} status is "${acc.account_status}" — not Active.`, 'warning');
+    } else {
+      const bal = parseFloat(acc.current_balance || 0).toLocaleString('en-ET', { minimumFractionDigits: 2 });
+      toast(`✔ Repayment account verified — Type: ${acc.account_type} | Balance: ETB ${bal}`, 'success');
+    }
+  } catch (e) {
+    toast('Repayment account lookup error: ' + e.message, 'error');
+  }
+}
+
+
 document.getElementById('btnGlobalView').addEventListener('click', async () => {
   try {
     toast('Loading records…');
