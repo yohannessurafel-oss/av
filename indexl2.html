@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AVMF CBS v2.0 — Core Banking System</title>
+<link rel="stylesheet" href="style2.css"/>
+<style>
+  .module-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; padding: 20px; }
+  .module-card {
+    background: var(--bg-alt, #f8fafc); border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 20px; cursor: pointer; transition: all 0.2s;
+  }
+  .module-card:hover { transform: translateY(-4px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); border-color: #0d3460; }
+  .module-icon { font-size: 32px; margin-bottom: 12px; }
+  .nav-menu a { text-decoration: none; color: inherit; }
+</style>
+</head>
+<body>
+
+<div class="window-container">
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <svg class="header-logo-svg" viewBox="0 0 100 100" width="48" height="48">... (same logo as others)</svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance</span>
+        <span class="title-sub">Core Banking System v2.0 — Dashboard</span>
+      </div>
+    </div>
+    <div class="title-meta">
+      <span id="systemDate" class="title-date"></span>
+      <span class="title-user">👤 Administrator</span>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <!-- Sidebar -->
+    <div class="sidebar">... (full nav list with all modules) ...</div>
+
+    <!-- Main Dashboard -->
+    <div class="main-content">
+      <div class="context-badge-bar">
+        <span class="badge-icon">🏠</span>
+        Welcome to AVMF CBS — Select a Module
+      </div>
+
+      <input type="text" id="moduleSearch" placeholder="Search modules..." style="width:100%;padding:10px;margin:10px 0;border-radius:4px;">
+
+      <div class="module-grid" id="moduleGrid">
+        <!-- Cards populated by JS -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Module definitions
+const modules = [
+  { name: "Client Master Registry", icon: "👤", path: "client-maintenance.html" },
+  { name: "Loan Application", icon: "📋", path: "loan-application.html" },
+  { name: "Center Loan Application", icon: "👥", path: "#" },
+  { name: "Loan Appraisal Management", icon: "🔎", path: "#" },
+  { name: "Credit Sanction Console", icon: "✅", path: "#" },
+  { name: "Loan Account Maintenance", icon: "🏦", path: "loan-account-maintenance.html" },
+  { name: "Client Financial Account Maintenance", icon: "💰", path: "account-maintenance.html" },
+  { name: "Collateral Inventory Risk", icon: "🏠", path: "#" },
+  { name: "Guarantor Asset Registry", icon: "🤝", path: "#" },
+  { name: "Teller Cash Vault Control", icon: "🗄️", path: "#" },
+  { name: "Settlement / Early Payoff", icon: "💸", path: "#" },
+  { name: "Loan Disbursement", icon: "📤", path: "#" },
+  { name: "General Ledger", icon: "📒", path: "general-ledger.html" },
+  { name: "Loan Ledger Report", icon: "📊", path: "#" },
+  // Add more as files become available
+];
+
+function renderModules(filtered) {
+  const grid = document.getElementById('moduleGrid');
+  grid.innerHTML = filtered.map(m => `
+    <div class="module-card" onclick="window.location.href='${m.path}'">
+      <div class="module-icon">${m.icon}</div>
+      <h3>${m.name}</h3>
+      <small style="color:#64748b;">Click to open</small>
+    </div>
+  `).join('');
+}
+
+// Search
+document.getElementById('moduleSearch').addEventListener('input', (e) => {
+  const term = e.target.value.toLowerCase();
+  const filtered = modules.filter(m => m.name.toLowerCase().includes(term));
+  renderModules(filtered);
+});
+
+renderModules(modules);
+
+// System date
+document.getElementById('systemDate').textContent = new Date().toLocaleDateString('en-ET', { weekday:'short', year:'numeric', month:'short', day:'numeric' });
+</script>
+
+</body>
+</html>
