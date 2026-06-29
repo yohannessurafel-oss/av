@@ -6,118 +6,497 @@
 <title>AVMF CBS v2.0 — Dashboard</title>
 <link rel="stylesheet" href="style2.css"/>
 <style>
-  .module-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; padding:20px; }
-  .module-card { background:var(--white); border:1px solid var(--border); border-radius:6px; padding:20px; cursor:pointer; transition:all .2s; box-shadow:var(--shadow-sm); }
-  .module-card:hover { transform:translateY(-4px); box-shadow:var(--shadow-md); border-color:var(--navy-600); }
-  .sidebar-category { padding:8px 12px; margin:2px 8px; border-radius:4px; cursor:pointer; }
-  .sidebar-category.active { background:var(--navy-800); color:white; }
+/* ── Dashboard-specific styles (extend style2.css) ──────── */
+
+/* Override body padding for full-width dashboard */
+body { padding: 12px; }
+
+/* Dashboard workspace — no sidebar scroll issues */
+.dash-workspace {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Left filter sidebar ─────────────────────────────────── */
+.dash-sidebar {
+  width: 190px;
+  min-width: 190px;
+  background: linear-gradient(to bottom, var(--navy-800), var(--navy-900));
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 8px 0 16px;
+}
+.dash-sidebar-header {
+  padding: 10px 14px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--amber);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  margin-bottom: 6px;
+}
+.dash-cat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  margin: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--navy-100);
+  font-size: 11.5px;
+  font-weight: 500;
+  transition: background 0.15s;
+  user-select: none;
+}
+.dash-cat:hover   { background: rgba(255,255,255,0.1); }
+.dash-cat.active  { background: var(--amber); color: var(--navy-900); font-weight: 700; }
+.dash-cat .cat-icon { font-size: 14px; width: 18px; text-align: center; }
+.dash-cat .cat-count {
+  margin-left: auto;
+  background: rgba(255,255,255,0.15);
+  color: var(--navy-100);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+  min-width: 18px;
+  text-align: center;
+}
+.dash-cat.active .cat-count { background: rgba(0,0,0,0.15); color: var(--navy-900); }
+
+.dash-sidebar-footer {
+  margin-top: auto;
+  padding: 12px 14px 0;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.4);
+  font-size: 10px;
+  text-align: center;
+}
+
+/* ── Main dashboard area ─────────────────────────────────── */
+.dash-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-app);
+}
+
+/* Top KPI strip */
+.dash-kpi-strip {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px 8px;
+  background: var(--navy-50);
+  border-bottom: 1px solid var(--border-light);
+}
+.kpi-pill {
+  flex: 1;
+  background: var(--white);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  padding: 7px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kpi-pill-icon { font-size: 18px; }
+.kpi-pill-body { display: flex; flex-direction: column; }
+.kpi-pill-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); font-weight: 700; }
+.kpi-pill-value { font-size: 14px; font-weight: 700; color: var(--navy-800); font-family: monospace; }
+
+/* Search bar */
+.dash-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-form);
+  border-bottom: 1px solid var(--border-light);
+}
+.dash-search-bar input {
+  flex: 1;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--white);
+  color: var(--text-dark);
+  outline: none;
+}
+.dash-search-bar input:focus { border-color: var(--navy-600); box-shadow: 0 0 0 2px var(--navy-100); }
+.dash-search-bar .search-icon { color: var(--text-muted); font-size: 14px; }
+
+/* Section label */
+.dash-section-label {
+  padding: 6px 16px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Module grid */
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  padding: 8px 16px 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Module card */
+.module-card {
+  background: var(--white);
+  border: 1px solid var(--border-light);
+  border-radius: 5px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  text-decoration: none;
+}
+.module-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--navy-600);
+  background: var(--navy-50);
+}
+.module-card .mc-icon {
+  font-size: 28px;
+  line-height: 1;
+  width: 36px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.module-card .mc-body { display: flex; flex-direction: column; gap: 3px; }
+.module-card .mc-num {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--amber-600);
+}
+.module-card .mc-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--navy-800);
+  line-height: 1.3;
+}
+.module-card .mc-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+.module-card .mc-badge {
+  margin-left: auto;
+  align-self: flex-start;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.mc-badge.operations { background: #e3f2fd; color: #0277bd; }
+.mc-badge.risk       { background: #fff3e0; color: #e65100; }
+.mc-badge.teller     { background: #e8f5e9; color: #2e7d32; }
+.mc-badge.financials { background: #f3e5f5; color: #6a1b9a; }
+.mc-badge.reports    { background: #fce4ec; color: #ad1457; }
+.mc-badge.accounts   { background: #e0f7fa; color: #006064; }
+
+.no-results {
+  grid-column: 1/-1;
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Tab bar (category filter as tabs on mobile) */
+.dash-tabs {
+  display: none;
+}
+
+/* Quick-launch recent bar */
+.dash-recent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: var(--amber-ghost);
+  border-bottom: 1px solid var(--amber-pale);
+  overflow-x: auto;
+}
+.dash-recent-label { font-size: 10px; font-weight: 700; color: var(--amber-700); white-space: nowrap; }
+.recent-chip {
+  background: var(--white);
+  border: 1px solid var(--amber);
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--navy-800);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+.recent-chip:hover { background: var(--amber-pale); }
 </style>
 </head>
 <body>
 
 <div class="window-container">
+
+  <!-- ══ Title Bar ════════════════════════════════════════ -->
   <div class="title-bar">
     <div class="title-branding-block">
-      <svg class="header-logo-svg" viewBox="0 0 100 100" width="42" height="42">...</svg>
+      <svg class="header-logo-svg" viewBox="0 0 100 100">
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
+        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
+        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
+        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
+        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+      </svg>
       <div class="title-text-block">
         <span class="title-main">Africa Village Microfinance</span>
-        <span class="title-sub">Core Banking System v2.0</span>
+        <span class="title-sub">Core Banking System v2.0 — Operations Dashboard</span>
       </div>
     </div>
     <div class="title-meta">
       <span id="systemDate" class="title-date"></span>
       <span class="title-user">👤 Operator</span>
     </div>
+    <div class="window-controls">
+      <span title="Minimize">─</span>
+      <span title="Maximize">▢</span>
+      <span title="Close" class="wc-close">✕</span>
+    </div>
   </div>
 
-  <div class="workspace">
-    <div class="sidebar">
-      <div class="sidebar-header">📂 All Modules</div>
-      <div id="sidebarFilters" class="nav-menu"></div>
-      <div class="sidebar-footer-brand">AVMF CBS v2.0</div>
+  <!-- ══ Workspace ════════════════════════════════════════ -->
+  <div class="dash-workspace">
+
+    <!-- ── Category Sidebar ────────────────────────────── -->
+    <div class="dash-sidebar">
+      <div class="dash-sidebar-header">⚙ Modules</div>
+      <div id="sidebarCats"></div>
+      <div class="dash-sidebar-footer">AVMF CBS v2.0</div>
     </div>
 
-    <div class="main-content">
-      <div class="context-badge-bar">
-        <span class="badge-icon">🏠</span>
-        Central Dashboard — Select a Module
+    <!-- ── Main Panel ─────────────────────────────────── -->
+    <div class="dash-main">
+
+      <!-- KPI strip -->
+      <div class="dash-kpi-strip">
+        <div class="kpi-pill">
+          <span class="kpi-pill-icon">📦</span>
+          <div class="kpi-pill-body">
+            <span class="kpi-pill-label">Total Modules</span>
+            <span class="kpi-pill-value" id="kpiTotal">16</span>
+          </div>
+        </div>
+        <div class="kpi-pill">
+          <span class="kpi-pill-icon">📋</span>
+          <div class="kpi-pill-body">
+            <span class="kpi-pill-label">Credit Operations</span>
+            <span class="kpi-pill-value">7</span>
+          </div>
+        </div>
+        <div class="kpi-pill">
+          <span class="kpi-pill-icon">💰</span>
+          <div class="kpi-pill-body">
+            <span class="kpi-pill-label">Financials & Ledger</span>
+            <span class="kpi-pill-value">4</span>
+          </div>
+        </div>
+        <div class="kpi-pill">
+          <span class="kpi-pill-icon">🛡️</span>
+          <div class="kpi-pill-body">
+            <span class="kpi-pill-label">Risk & Collateral</span>
+            <span class="kpi-pill-value">2</span>
+          </div>
+        </div>
+        <div class="kpi-pill">
+          <span class="kpi-pill-icon">📅</span>
+          <div class="kpi-pill-body">
+            <span class="kpi-pill-label">Today</span>
+            <span class="kpi-pill-value" id="kpiDate">—</span>
+          </div>
+        </div>
       </div>
 
-      <input type="text" id="moduleSearch" placeholder="🔍 Search modules..." style="width:96%; margin:12px 20px; padding:10px; border-radius:4px;">
+      <!-- Recent quick-launch -->
+      <div class="dash-recent" id="recentBar" style="display:none;">
+        <span class="dash-recent-label">⚡ Recent:</span>
+        <div id="recentChips"></div>
+      </div>
 
+      <!-- Search -->
+      <div class="dash-search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="moduleSearch" placeholder="Search modules by name or number…" autofocus/>
+      </div>
+
+      <!-- Section label -->
+      <div class="dash-section-label" id="sectionLabel">All Modules</div>
+
+      <!-- Module grid -->
       <div class="module-grid" id="moduleGrid"></div>
+
     </div>
   </div>
 </div>
 
 <script>
-// ALL MODULES WITH REAL PATHS
-const modules = [
-  {name: "00 Client Master Registry", icon: "👤", path: "client-maintenance.html", cat: "operations"},
-  {name: "01 Loan Application", icon: "📋", path: "loan-application.html", cat: "operations"},
-  {name: "02 Center Loan Application", icon: "👥", path: "group-loan-projection.html", cat: "operations"},
-  {name: "03 Loan Appraisal Management", icon: "🔎", path: "loan-appraisal-management.html", cat: "operations"},
-  {name: "04 Credit Sanction Console", icon: "✅", path: "credit-sanction-console.html", cat: "operations"},
-  {name: "05 Loan Account Maintenance", icon: "🏦", path: "loan-account-maintenance.html", cat: "operations"},
-  {name: "06 Collateral Inventory Risk", icon: "🏠", path: "collateral-inventory-risk.html", cat: "risk"},
-  {name: "07 Guarantor Asset Registry", icon: "🤝", path: "guarantor-asset-registry.html", cat: "risk"},
-  {name: "08 Teller Cash Vault Control", icon: "🗄️", path: "teller-cash-vault-control.html", cat: "teller"},
-  {name: "09 Settlement / Early Payoff", icon: "💸", path: "settlement-early-payoff.html", cat: "financials"},
-  {name: "10 Loan Disbursement", icon: "📤", path: "disbursement.html", cat: "operations"},
-  {name: "11 Loan Ledger Report", icon: "📊", path: "ledger-report.html", cat: "reports"},
-  {name: "12 General Ledger", icon: "📒", path: "general-ledger.html", cat: "financials"},
-  {name: "13 Delinquency Dashboard", icon: "⚠️", path: "delinquency-dashboard.html", cat: "risk"},
-  {name: "14 Client Financial Account Maintenance", icon: "💳", path: "account-maintenance.html", cat: "financials"}
+'use strict';
+
+// ── Module registry ──────────────────────────────────────
+const MODULES = [
+  { num:'00', name:'Client Master Registry',          icon:'👤', path:'client-maintenance.html',       cat:'operations', desc:'Register and manage all borrower and contact profiles.' },
+  { num:'AM', name:'Client Financial Account',         icon:'💳', path:'account-maintenance.html',       cat:'accounts',   desc:'Open and maintain client savings and repayment accounts.' },
+  { num:'01', name:'Loan Application',                 icon:'📋', path:'loan-application.html',          cat:'operations', desc:'Capture individual loan applications and compute live summaries.' },
+  { num:'02', name:'Group / Center Loan Application',  icon:'👥', path:'group-loan-projection.html',     cat:'operations', desc:'Register solidarity group and center-based loan applications.' },
+  { num:'03', name:'Loan Appraisal Management',        icon:'🔎', path:'loan-appraisal-management.html', cat:'operations', desc:'Conduct credit risk assessment and set recommended amounts.' },
+  { num:'04', name:'Credit Sanction Console',          icon:'✅', path:'credit-sanction-console.html',   cat:'operations', desc:'Formal committee approval and disbursement term setting.' },
+  { num:'05', name:'Loan Account Maintenance',         icon:'🏦', path:'loan-account-maintenance.html',  cat:'operations', desc:'Update health codes, repayment method, and maintenance fields.' },
+  { num:'06', name:'Collateral Inventory Risk',        icon:'🏠', path:'collateral-inventory-risk.html', cat:'risk',       desc:'Register and track pledged collateral assets and valuations.' },
+  { num:'07', name:'Guarantor Asset Registry',         icon:'🤝', path:'guarantor-asset-registry.html',  cat:'risk',       desc:'Record personal and corporate guarantors for loan accounts.' },
+  { num:'08', name:'Teller Cash Vault Control',        icon:'🗄️', path:'teller-cash-vault-control.html', cat:'teller',     desc:'Manage teller tills, denomination postings and running balances.' },
+  { num:'09', name:'Settlement & Early Payoff',        icon:'💸', path:'settlement-early-payoff.html',   cat:'financials', desc:'Process full and partial early loan settlements.' },
+  { num:'10', name:'Loan Disbursement',                icon:'📤', path:'disbursement.html',              cat:'operations', desc:'Execute fund disbursement and generate amortization schedules.' },
+  { num:'11', name:'Client Directory (Views)',          icon:'📂', path:'client-directory.html',          cat:'reports',    desc:'Read-only searchable client portfolio and loan history.' },
+  { num:'12', name:'General Ledger Engine',            icon:'📒', path:'general-ledger.html',            cat:'financials', desc:'COA balances, GL journal postings and per-loan ledger.' },
+  { num:'13', name:'Delinquency & PAR Dashboard',      icon:'⚠️', path:'delinquency-dashboard.html',     cat:'financials', desc:'Monitor PAR buckets, update collection status per account.' },
+  { num:'14', name:'Loan Ledger Report',               icon:'📊', path:'ledger-report.html',             cat:'reports',    desc:'Detailed loan-by-loan ledger report and export.' },
 ];
 
-const categories = [
-  {label: "All Modules", filter: "all", icon: "🌐"},
-  {label: "Credit Operations", filter: "operations", icon: "📋"},
-  {label: "Financials & Ledger", filter: "financials", icon: "💰"},
-  {label: "Risk & Collateral", filter: "risk", icon: "🛡️"},
-  {label: "Teller & Cash", filter: "teller", icon: "🏧"},
-  {label: "Reports", filter: "reports", icon: "📊"}
+// ── Category registry ────────────────────────────────────
+const CATEGORIES = [
+  { filter:'all',        label:'All Modules',        icon:'🌐' },
+  { filter:'operations', label:'Credit Operations',  icon:'📋' },
+  { filter:'accounts',   label:'Financial Accounts', icon:'💳' },
+  { filter:'financials', label:'Financials & Ledger',icon:'💰' },
+  { filter:'risk',       label:'Risk & Collateral',  icon:'🛡️' },
+  { filter:'teller',     label:'Teller & Cash',      icon:'🏧' },
+  { filter:'reports',    label:'Reports & Views',    icon:'📊' },
 ];
 
-let currentFilter = "all";
+let currentFilter = 'all';
+const MAX_RECENT  = 5;
 
+// ── Recent modules (localStorage) ───────────────────────
+function getRecent() {
+  try { return JSON.parse(localStorage.getItem('avmf_recent') || '[]'); } catch { return []; }
+}
+function addRecent(num) {
+  let r = getRecent().filter(n => n !== num);
+  r.unshift(num);
+  if (r.length > MAX_RECENT) r = r.slice(0, MAX_RECENT);
+  try { localStorage.setItem('avmf_recent', JSON.stringify(r)); } catch {}
+}
+function renderRecent() {
+  const recent = getRecent();
+  const bar = document.getElementById('recentBar');
+  const chips = document.getElementById('recentChips');
+  if (!recent.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  chips.innerHTML = recent.map(num => {
+    const m = MODULES.find(x => x.num === num);
+    if (!m) return '';
+    return `<span class="recent-chip" onclick="navigate('${m.path}','${m.num}')">${m.icon} ${m.num} — ${m.name}</span>`;
+  }).join('');
+}
+
+// ── Navigate with recent tracking ───────────────────────
+function navigate(path, num) {
+  addRecent(num);
+  window.location.href = path;
+}
+
+// ── Sidebar render ───────────────────────────────────────
 function renderSidebar() {
-  const container = document.getElementById('sidebarFilters');
-  container.innerHTML = categories.map(c => `
-    <div class="sidebar-category ${c.filter === currentFilter ? 'active' : ''}" onclick="setFilter('${c.filter}')">
-      ${c.icon} ${c.label}
+  const el = document.getElementById('sidebarCats');
+  el.innerHTML = CATEGORIES.map(c => {
+    const count = c.filter === 'all' ? MODULES.length : MODULES.filter(m => m.cat === c.filter).length;
+    return `
+      <div class="dash-cat ${c.filter === currentFilter ? 'active' : ''}"
+           onclick="setFilter('${c.filter}')">
+        <span class="cat-icon">${c.icon}</span>
+        <span>${c.label}</span>
+        <span class="cat-count">${count}</span>
+      </div>`;
+  }).join('');
+}
+
+// ── Module grid render ───────────────────────────────────
+function renderModules() {
+  const term  = (document.getElementById('moduleSearch')?.value || '').toLowerCase();
+  const label = document.getElementById('sectionLabel');
+
+  let list = MODULES;
+  if (currentFilter !== 'all') list = list.filter(m => m.cat === currentFilter);
+  if (term) list = list.filter(m =>
+    m.name.toLowerCase().includes(term) ||
+    m.num.toLowerCase().includes(term)  ||
+    m.desc.toLowerCase().includes(term)
+  );
+
+  const catLabel = CATEGORIES.find(c => c.filter === currentFilter)?.label || 'All Modules';
+  label.textContent = term ? `Search results for "${term}" (${list.length})` : `${catLabel} — ${list.length} module${list.length !== 1 ? 's' : ''}`;
+
+  const grid = document.getElementById('moduleGrid');
+  if (!list.length) {
+    grid.innerHTML = `<div class="no-results">No modules found for "${term}".<br><small>Try a different search term.</small></div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(m => `
+    <div class="module-card" onclick="navigate('${m.path}','${m.num}')">
+      <div class="mc-icon">${m.icon}</div>
+      <div class="mc-body">
+        <span class="mc-num">Module ${m.num}</span>
+        <span class="mc-name">${m.name}</span>
+        <span class="mc-desc">${m.desc}</span>
+      </div>
+      <span class="mc-badge ${m.cat}">${m.cat}</span>
     </div>
   `).join('');
 }
 
+// ── Set category filter ──────────────────────────────────
 function setFilter(filter) {
   currentFilter = filter;
+  document.getElementById('moduleSearch').value = '';
   renderSidebar();
   renderModules();
 }
 
-function renderModules() {
-  let filtered = modules;
-  if (currentFilter !== "all") filtered = filtered.filter(m => m.cat === currentFilter);
+// ── System date ──────────────────────────────────────────
+const now = new Date();
+document.getElementById('systemDate').textContent =
+  now.toLocaleDateString('en-ET', { weekday:'short', year:'numeric', month:'short', day:'numeric' });
+document.getElementById('kpiDate').textContent =
+  now.toLocaleDateString('en-ET', { month:'short', day:'numeric' });
+document.getElementById('kpiTotal').textContent = MODULES.length;
 
-  const term = document.getElementById('moduleSearch').value.toLowerCase();
-  if (term) filtered = filtered.filter(m => m.name.toLowerCase().includes(term));
-
-  const grid = document.getElementById('moduleGrid');
-  grid.innerHTML = filtered.map(m => `
-    <div class="module-card" onclick="window.location.href='${m.path}'">
-      <div style="font-size:42px;margin-bottom:10px;">${m.icon}</div>
-      <strong>${m.name}</strong>
-    </div>
-  `).join('');
-}
-
+// ── Search listener ──────────────────────────────────────
 document.getElementById('moduleSearch').addEventListener('input', renderModules);
-document.getElementById('systemDate').textContent = new Date().toLocaleDateString('en-ET', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
 
-// Init
+// ── Init ─────────────────────────────────────────────────
 renderSidebar();
 renderModules();
+renderRecent();
 </script>
 </body>
 </html>
