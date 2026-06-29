@@ -4,70 +4,63 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>AVMF CBS v2.0 — Dashboard</title>
-<link rel="stylesheet" href="style2.css"/>
+<link rel="stylesheet" href="style2 (12).css"/>
 <style>
   .module-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; padding:20px; }
-  .module-card {
-    background:var(--white); border:1px solid var(--border); border-radius:6px;
-    padding:20px; cursor:pointer; transition:all .2s;
-  }
+  .module-card { background:var(--white); border:1px solid var(--border); border-radius:6px; padding:20px; cursor:pointer; transition:all .2s; }
   .module-card:hover { transform:translateY(-4px); box-shadow:0 8px 25px rgba(0,0,0,.15); }
 </style>
 </head>
 <body>
 
 <div class="window-container">
-  <div class="title-bar">...[your branding]... </div>
-
+  <div class="title-bar">AVMF CBS v2.0 — Central Dashboard</div>
   <div class="workspace">
-    <div class="sidebar">
-      <div class="sidebar-header">📂 Modules</div>
-      <div id="sidebarFilters" class="nav-menu"></div>
-    </div>
-
+    <div class="sidebar">...[nav]...</div>
     <div class="main-content">
-      <div class="context-badge-bar"><span class="badge-icon">🏠</span> AVMF CBS Dashboard</div>
-      
-      <div class="tab-bar" id="tabBar"></div>
-      
-      <input type="text" id="moduleSearch" placeholder="🔍 Search modules..." style="width:96%;margin:12px 20px;padding:8px;">
-
+      <input type="text" id="moduleSearch" placeholder="🔍 Search modules..." style="width:96%;margin:12px 20px;padding:10px;">
       <div class="module-grid" id="moduleGrid"></div>
     </div>
   </div>
 </div>
 
 <script>
-// Modules + Categories (update paths as needed)
+// All real modules from your attachments
 const modules = [
-  {name:"Client Master Registry", icon:"👤", path:"client-maintenance.html", cat:"operations"},
-  {name:"Loan Application", icon:"📋", path:"loan-application.html", cat:"operations"},
-  {name:"Loan Account Maintenance", icon:"🏦", path:"loan-account-maintenance.html", cat:"operations"},
-  {name:"Client Financial Accounts", icon:"💳", path:"account-maintenance.html", cat:"financials"},
-  {name:"General Ledger", icon:"📒", path:"general-ledger.html", cat:"financials"},
-  // Add the rest...
+  {name:"Client Master Registry",       icon:"👤", path:"client-maintenance (12).html"},
+  {name:"Loan Application",             icon:"📋", path:"loan-application (10).html"},
+  {name:"Center Loan Application",      icon:"👥", path:"group-loan-projection (8).html"},
+  {name:"Loan Appraisal Management",    icon:"🔎", path:"loan-appraisal-management (5).html"},
+  {name:"Credit Sanction Console",      icon:"✅", path:"credit-sanction-console (3).html"},
+  {name:"Loan Account Maintenance",     icon:"🏦", path:"loan-account-maintenance (4).html"},
+  {name:"Collateral Inventory Risk",    icon:"🏠", path:"collateral-inventory-risk (4).html"},
+  {name:"Guarantor Asset Registry",     icon:"🤝", path:"guarantor-asset-registry (4).html"},
+  {name:"Teller Cash Vault Control",    icon:"🗄️", path:"teller-cash-vault-control (3).html"},
+  {name:"Settlement / Early Payoff",    icon:"💸", path:"settlement-early-payoff (4).html"},
+  {name:"Loan Disbursement",            icon:"📤", path:"disbursement (9).html"},
+  {name:"Client Directory",             icon:"📋", path:"client-directory (1).html"},
+  {name:"General Ledger",               icon:"📒", path:"general-ledger (2).html"},
+  {name:"Delinquency Dashboard",        icon:"⚠️", path:"delinquency-dashboard (1).html"},
+  {name:"Loan Ledger Report",           icon:"📊", path:"ledger-report.html"},
+  {name:"Account Maintenance",          icon:"💳", path:"account-maintenance (1).html"}
 ];
-
-const categories = [
-  {label:"All", filter:"all"},
-  {label:"Credit Operations", filter:"operations"},
-  {label:"Financials", filter:"financials"},
-];
-
-let currentFilter = "all";
-
-function renderSidebar() {
-  // ... render clickable categories ...
-}
 
 function renderGrid() {
-  // ... filter + display cards ...
+  const term = document.getElementById('moduleSearch').value.toLowerCase();
+  const filtered = term 
+    ? modules.filter(m => m.name.toLowerCase().includes(term))
+    : modules;
+
+  const grid = document.getElementById('moduleGrid');
+  grid.innerHTML = filtered.map(m => `
+    <div class="module-card" onclick="window.location.href='${m.path}'">
+      <div style="font-size:42px;margin-bottom:10px;">${m.icon}</div>
+      <strong>${m.name}</strong>
+    </div>
+  `).join('');
 }
 
 document.getElementById('moduleSearch').addEventListener('input', renderGrid);
-
-// Init
-renderSidebar();
 renderGrid();
 </script>
 </body>
