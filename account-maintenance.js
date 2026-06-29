@@ -1,452 +1,327 @@
-/* ═══════════════════════════════════════════════════════════
-   Africa Village Microfinance — 12 Client Financial Account Maintenance
-   account-maintenance.js  v1.1
-   Table : clientfinancialaccounts
-   FK    : client_id → clients(client_id)
-           branch_id → branchregistry(branch_id)
-   CHECK : account_type  ∈ {Savings, Repayment, Current}
-           account_status ∈ {Active, Dormant, Closed}
-═══════════════════════════════════════════════════════════ */
+/**
+ * Africa Village Microfinance — Core Banking System v2.0
+ * account-maintenance.js
+ * Core logic for Module 12: Client Financial Account Maintenance
+ */
 
-'use strict';
+// --- 1. CONFIGURATION & STATE MANAGMENT ---
+// Assumes Supabase CDN script is loaded in html header
+let supabaseClient = null; 
+let isEditMode = false;
+let currentSelectedAccount = null;
 
-const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
+// Form DOM Elements
+const branchSelect      = document.getElementById('accBranchId');
+const branchNameInput   = document.getElementById('accBranchName');
+const clientIdInput     = document.getElementById('accClientId');
+const clientNameInput   = document.getElementById('accClientName');
+const accountNoInput    = document.getElementById('accountNumber');
+const accountTypeSelect = document.getElementById('accountType');
+const currencySelect    = document.getElementById('accCurrencyId');
+const initDepositInput  = document.getElementById('initialDeposit');
+const currBalanceInput  = document.getElementById('currentBalance');
+const statusSelect      = document.getElementById('accountStatus');
+const remarksTextarea   = document.getElementById('accRemarks');
+const createdByInput    = document.getElementById('accCreatedBy');
+const createdOnInput    = document.getElementById('accCreatedOn');
+const accountTableBody  = document.getElementById('tbodyAccountList');
+const statusBar         = document.getElementById('statusBar');
 
-const TABLE = 'clientfinancialaccounts';
+// Action Sidebar Buttons
+const btnView   = document.getElementById('btnGlobalView');
+const btnAdd    = document.getElementById('btnGlobalAdd');
+const btnEdit   = document.getElementById('btnGlobalEdit');
+const btnClose  = document.getElementById('btnGlobalClose');
+const btnSave   = document.getElementById('btnGlobalSave');
+const btnCancel = document.getElementById('btnGlobalCancel');
+const btnDelete = document.getElementById('btnGlobalDelete');
+const btnPrint  = document.getElementById('btnGlobalPrint');
 
-/* ── HTTP Helper ────────────────────────────────────────── */
-async function sbFetch(path, opts = {}) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...opts,
-    headers: {
-      'apikey':        SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      'Content-Type':  'application/json',
-      'Prefer':        opts.prefer || 'return=representation',
-      ...(opts.headers || {})
-    }
-  });
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    let msg = 'HTTP ' + res.status;
-    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
-    throw new Error(msg);
-  }
-  if (res.status === 204) return null;
-  const body = await res.text();
-  if (!body || !body.trim()) return null;
-  try { return JSON.parse(body); } catch { return null; }
-}
+// Inline Utility Buttons
+const btnVerifyClient = document.getElementById('btnVerifyClient');
+const btnLookupAcc    = document.getElementById('btnLookupAccount');
+const btnGenAccNo     = document.getElementById('btnGenAccNo');
 
-/* ── Toast ─────────────────────────────────────────────── */
-const toastEl = document.getElementById('toastNotification');
-let _toastTimer = null;
-function toast(msg, type = '', duration = 3200) {
-  if (!toastEl) return;
-  toastEl.textContent = msg;
-  toastEl.className = `toast show ${type}`;
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => { toastEl.className = 'toast'; }, duration);
-}
-
-/* ── System Date ───────────────────────────────────────── */
-(function initDate() {
-  const el = document.getElementById('systemDate');
-  if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
-    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
-  });
-})();
-
-/* ── Field Map: HTML id → DB column ─────────────────────
-   created_on is set by DB DEFAULT now() — never written.
-   current_balance mirrors initial_deposit on new accounts.
-═══════════════════════════════════════════════════════════ */
-const FIELD_MAP = {
-  accBranchId:     'branch_id',
-  accClientId:     'client_id',
-  accountNumber:   'account_number',
-  accountType:     'account_type',
-  accCurrencyId:   'currency_id',
-  initialDeposit:  'initial_deposit_amount',
-  currentBalance:  'current_balance',
-  accountStatus:   'account_status',
-  accRemarks:      'remarks',
-  accCreatedBy:    'created_by',
-  accCreatedOn:    'created_on',           // display only — set by DB
-};
-
-/* Read-only display fields — never sent to DB */
-const READ_ONLY = new Set(['accCreatedOn', 'accClientName', 'accBranchName']);
-// currentBalance is writable — must be sent to DB (not generated, not readonly in schema)
-
-let currentMode = 'view';
-let _currentAccountNumber = null; // PK of loaded record
-
-/* ── Helpers ────────────────────────────────────────────── */
-function getField(id) {
-  const el = document.getElementById(id);
-  if (!el) return undefined;
-  return el.value.trim() || null;
-}
-
-function setField(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.value = val ?? '';
-}
-
-function clearForm() {
-  Object.keys(FIELD_MAP).forEach(id => {
-    if (id === 'accountType')   { setField(id, 'Savings'); return; }
-    if (id === 'accountStatus') { setField(id, 'Active');  return; }
-    if (id === 'accCurrencyId') { setField(id, 'ETB');     return; }
-    if (id === 'initialDeposit' || id === 'currentBalance') { setField(id, '0'); return; }
-    setField(id, '');
-  });
-  setField('accClientName', '');
-  setField('accBranchName', '');
-  _currentAccountNumber = null;
-  renderAccountGrid([]);
-}
-
-function formToRecord() {
-  const rec = {};
-  Object.entries(FIELD_MAP).forEach(([htmlId, dbCol]) => {
-    if (READ_ONLY.has(htmlId)) return;
-    const val = getField(htmlId);
-    if (val !== undefined) rec[dbCol] = val;
-  });
-  // Numeric coercion
-  if (rec.initial_deposit_amount) rec.initial_deposit_amount = parseFloat(rec.initial_deposit_amount) || 0;
-  if (rec.current_balance)        rec.current_balance        = parseFloat(rec.current_balance)        || 0;
-  return rec;
-}
-
-function recordToForm(rec) {
-  Object.entries(FIELD_MAP).forEach(([htmlId, dbCol]) => {
-    setField(htmlId, rec[dbCol] ?? '');
-  });
-  _currentAccountNumber = rec.account_number ?? null;
-  // Format created_on for display
-  if (rec.created_on) {
-    const d = new Date(rec.created_on);
-    setField('accCreatedOn', d.toLocaleDateString('en-ET', {
-      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-    }));
-  }
-}
-
-/* ── Branch Dropdown ───────────────────────────────────── */
-let _branchCache = [];
-
-async function loadBranches() {
-  const sel = document.getElementById('accBranchId');
-  if (sel) { sel.innerHTML = '<option value="">Loading…</option>'; sel.disabled = true; }
-  try {
-    // Note: branchregistry has no is_operational_active column — removed that filter
-    const rows = await sbFetch('branchregistry?select=branch_id,branch_name&order=branch_id');
-    _branchCache = Array.isArray(rows) ? rows : [];
-    if (!sel) return;
-    sel.innerHTML = '<option value="">-- Select Branch --</option>';
-    _branchCache.forEach(r => {
-      const o = document.createElement('option');
-      o.value = r.branch_id;
-      o.textContent = r.branch_id + (r.branch_name ? ' — ' + r.branch_name : '');
-      sel.appendChild(o);
-    });
-    sel.disabled = false;
-  } catch {
-    toast('Could not load branch list.', 'error');
-    if (sel) { sel.innerHTML = '<option value="">-- Select Branch --</option>'; sel.disabled = false; }
-  }
-}
-
-document.getElementById('accBranchId')?.addEventListener('change', function () {
-  const chosen = _branchCache.find(b => b.branch_id === this.value);
-  setField('accBranchName', chosen?.branch_name || '');
+// --- 2. INITIALIZATION ---
+document.addEventListener("DOMContentLoaded", () => {
+    initializeSupabase();
+    loadBranches();
+    setupEventListeners();
+    resetFormState();
 });
 
-/* ── Client Lookup ──────────────────────────────────────── */
-async function verifyClient(clientId) {
-  const val = (clientId || document.getElementById('accClientId')?.value || '').trim();
-  if (!val) { toast('Enter a Client ID first.', 'warning'); return false; }
-
-  try {
-    // Try ClientMasterRecords first (richer name data)
-    let name = null;
-    // clientfinancialaccounts.client_id FK → ClientMasterRecords(client_id)
-    // ONLY look up from ClientMasterRecords — using the 'clients' table as fallback
-    // would find IDs not in ClientMasterRecords and cause a FK violation on save.
-    const cmr = await sbFetch(
-      `ClientMasterRecords?client_id=eq.${encodeURIComponent(val)}&select=client_name,first_name,middle_name,last_name&limit=1`
-    );
-    if (cmr && cmr[0]) {
-      const r = cmr[0];
-      name = r.client_name || [r.first_name, r.middle_name, r.last_name].filter(Boolean).join(' ');
-    }
-
-    if (name) {
-      setField('accClientName', name);
-      document.getElementById('accClientId')?.classList.remove('input-invalid');
-      toast(`Client ${val} verified — ${name}`, 'success');
-      // Load all accounts for this client
-      await loadClientAccounts(val);
-      return true;
+function initializeSupabase() {
+    // Replace placeholder strings with actual project secrets if not globally set
+    if (window.supabase) {
+        supabaseClient = window.supabase.createClient(
+            'YOUR_SUPABASE_URL', 
+            'YOUR_SUPABASE_ANON_KEY'
+        );
+        updateStatus("Ready (Connected to Supabase)");
     } else {
-      setField('accClientName', '');
-      document.getElementById('accClientId')?.classList.add('input-invalid');
-      toast(`Client ID "${val}" not found in registry.`, 'warning');
-      renderAccountGrid([]);
-      return false;
+        updateStatus("Error: Supabase SDK missing", true);
     }
-  } catch (e) {
-    toast('Client lookup error: ' + e.message, 'error');
-    return false;
-  }
 }
 
-document.getElementById('btnVerifyClient')?.addEventListener('click', () => verifyClient());
-document.getElementById('accClientId')?.addEventListener('blur', () => {
-  const val = document.getElementById('accClientId')?.value.trim();
-  if (val) verifyClient(val);
-});
-document.getElementById('accClientId')?.addEventListener('keydown', e => {
-  if (e.key === 'Enter') verifyClient();
-});
-
-/* ── Load client's existing accounts into grid ──────────── */
-async function loadClientAccounts(clientId) {
-  try {
-    const rows = await sbFetch(
-      `${TABLE}?client_id=eq.${encodeURIComponent(clientId)}&select=account_number,account_type,current_balance,account_status&order=account_number`
-    );
-    renderAccountGrid(Array.isArray(rows) ? rows : []);
-  } catch {
-    renderAccountGrid([]);
-  }
-}
-
-function renderAccountGrid(rows) {
-  const tbody = document.getElementById('tbodyAccountList');
-  if (!tbody) return;
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center gray-text italic">No accounts found for this client.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = '';
-  rows.forEach(r => {
-    const tr = document.createElement('tr');
-    tr.style.cursor = 'pointer';
-    tr.title = 'Click to load this account';
-    const bal = parseFloat(r.current_balance || 0).toLocaleString('en-ET', { minimumFractionDigits: 2 });
-    const statusColor = r.account_status === 'Active' ? '#16a34a'
-                      : r.account_status === 'Dormant' ? '#b45309' : '#dc2626';
-    tr.innerHTML = `
-      <td style="font-family:monospace;font-size:11px;">${r.account_number}</td>
-      <td>${r.account_type}</td>
-      <td class="text-right">${bal}</td>
-      <td style="color:${statusColor};font-weight:600;font-size:11px;">${r.account_status}</td>
-    `;
-    tr.addEventListener('click', () => viewAccountByNumber(r.account_number));
-    tbody.appendChild(tr);
-  });
-}
-
-/* ── Account Number Generator ───────────────────────────── */
-document.getElementById('btnGenAccNo')?.addEventListener('click', () => {
-  const branch  = document.getElementById('accBranchId')?.value;
-  const client  = document.getElementById('accClientId')?.value.trim();
-  const type    = document.getElementById('accountType')?.value;
-  if (!branch || !client) {
-    toast('Select Branch and enter Client ID before generating.', 'warning'); return;
-  }
-  const typeCode = type === 'Savings' ? 'SAV' : type === 'Repayment' ? 'REP' : 'CUR';
-  // Collision-safe: timestamp suffix instead of Math.random
-  const suffix = Date.now().toString(36).toUpperCase().slice(-4);
-  const acctNo = `${branch}-${client.slice(0,6).toUpperCase()}-${typeCode}-${suffix}`;
-  setField('accountNumber', acctNo);
-});
-
-/* ── Initial deposit → mirror to current balance ────────── */
-document.getElementById('initialDeposit')?.addEventListener('input', function () {
-  setField('currentBalance', this.value || '0');
-});
-
-/* ── View account by number (from grid click) ────────────── */
-async function viewAccountByNumber(accountNumber) {
-  try {
-    const rows = await sbFetch(
-      `${TABLE}?account_number=eq.${encodeURIComponent(accountNumber)}&limit=1`
-    );
-    if (rows && rows[0]) {
-      recordToForm(rows[0]);
-      // Cascade branch name
-      const bSel = document.getElementById('accBranchId');
-      if (bSel) bSel.dispatchEvent(new Event('change'));
-      setMode('view');
-      toast(`Account ${accountNumber} loaded.`, 'success');
-      setSB(`Loaded — ${accountNumber}`);
-    }
-  } catch (e) {
-    toast('Load error: ' + e.message, 'error');
-  }
-}
-
-/* ── View (search by account number) ────────────────────── */
-async function viewRecord() {
-  const acctNo = getField('accountNumber');
-  const clientId = getField('accClientId');
-
-  if (!acctNo && !clientId) {
-    toast('Enter an Account Number or Client ID to search.', 'warning'); return;
-  }
-
-  try {
-    if (acctNo) {
-      await viewAccountByNumber(acctNo);
-    } else {
-      // Search by client — verify and load accounts
-      await verifyClient(clientId);
-    }
-  } catch (e) {
-    toast('Search error: ' + e.message, 'error');
-  }
-}
-
-/* ── Save ──────────────────────────────────────────────── */
-async function saveRecord() {
-  const rec = formToRecord();
-
-  if (!rec.account_number) { toast('Account Number is required.', 'warning'); document.getElementById('accountNumber')?.focus(); return; }
-  if (!rec.client_id)      { toast('Client ID is required.', 'warning'); document.getElementById('accClientId')?.focus(); return; }
-  if (!rec.branch_id)      { toast('Branch is required.', 'warning'); return; }
-  if (!rec.account_type)   { toast('Account Type is required.', 'warning'); return; }
-
-  setSB('Saving…');
-
-  try {
-    if (currentMode === 'add' || !_currentAccountNumber) {
-      await sbFetch(TABLE, {
-        method: 'POST',
-        prefer: 'return=minimal',
-        body: JSON.stringify(rec)
-      });
-      toast(`Account ${rec.account_number} opened successfully.`, 'success');
-    } else {
-      const { account_number, client_id, ...updateFields } = rec;
-      // Never PATCH the PK or FK client_id
-      await sbFetch(`${TABLE}?account_number=eq.${encodeURIComponent(_currentAccountNumber)}`, {
-        method: 'PATCH',
-        prefer: 'return=minimal',
-        body: JSON.stringify(updateFields)
-      });
-      toast(`Account ${_currentAccountNumber} updated.`, 'success');
-    }
-    setMode('view');
-    // Reload client accounts grid
-    const cid = getField('accClientId');
-    if (cid) await loadClientAccounts(cid);
-    setSB(`Saved — ${rec.account_number}`);
-  } catch (e) {
-    toast('Save error: ' + e.message, 'error');
-    setSB('Save failed.');
-  }
-}
-
-/* ── Delete (status → Closed) ───────────────────────────── */
-async function deleteRecord() {
-  if (!_currentAccountNumber) { toast('Load an account first.', 'warning'); return; }
-  const bal = parseFloat(document.getElementById('currentBalance')?.value || 0);
-  if (bal > 0) {
-    toast(`Cannot close account with balance of ETB ${bal.toFixed(2)}. Withdraw funds first.`, 'warning');
-    return;
-  }
-  if (!confirm(`Close account ${_currentAccountNumber}?\nThis sets status to Closed and cannot be undone easily.`)) return;
-  try {
-    await sbFetch(`${TABLE}?account_number=eq.${encodeURIComponent(_currentAccountNumber)}`, {
-      method: 'PATCH',
-      prefer: 'return=minimal',
-      body: JSON.stringify({ account_status: 'Closed' })
+// Populate sample operational branches
+function loadBranches() {
+    const branches = [
+        { id: "001", name: "Addis Ababa Main" },
+        { id: "002", name: "Arada Sub-Branch" },
+        { id: "003", name: "Bole Area Branch" }
+    ];
+    
+    branchSelect.innerHTML = branches.map(b => `<option value="${b.id}">${b.id} — ${b.name}</option>`).join('');
+    branchNameInput.value = branches[0].name;
+    
+    branchSelect.addEventListener('change', (e) => {
+        const selected = branches.find(b => b.id === e.target.value);
+        branchNameInput.value = selected ? selected.name : '';
     });
-    toast(`Account ${_currentAccountNumber} closed.`, 'success');
-    setField('accountStatus', 'Closed');
-    setMode('view');
-    const cid = getField('accClientId');
-    if (cid) await loadClientAccounts(cid);
-  } catch (e) {
-    toast('Close error: ' + e.message, 'error');
-  }
 }
 
-/* ── Mode Control ──────────────────────────────────────── */
-function setMode(mode) {
-  currentMode = mode;
-  const isEdit = mode === 'edit' || mode === 'add';
-  const view = document.querySelector('.module-view.active');
-  if (view) {
-    view.querySelectorAll('input, select, textarea').forEach(el => {
-      if (el.dataset.alwaysEnabled !== undefined) { el.disabled = false; return; }
-      if (el.readOnly) { el.disabled = false; return; }
-      el.disabled = !isEdit;
+// --- 3. EVENT BINDINGS ---
+function setupEventListeners() {
+    // Inline Actions
+    btnVerifyClient.addEventListener('click', verifyClientFromRegistry);
+    btnGenAccNo.addEventListener('click', generateEthiopianAccountNumber);
+    btnLookupAcc.addEventListener('click', lookupSpecificAccount);
+    
+    // Sidebar Controls
+    btnAdd.addEventListener('click', () => setFormEditMode(true, 'add'));
+    btnEdit.addEventListener('click', () => setFormEditMode(true, 'edit'));
+    btnCancel.addEventListener('click', () => {
+        resetFormState();
+        updateStatus("Operation cancelled.");
     });
-  }
-
-  document.getElementById('btnGlobalSave').disabled   = !isEdit;
-  document.getElementById('btnGlobalCancel').disabled = !isEdit;
-  document.getElementById('btnGlobalAdd').disabled    = isEdit;
-  document.getElementById('btnGlobalEdit').disabled   = isEdit || !_currentAccountNumber;
-  document.getElementById('btnGlobalDelete').disabled = !_currentAccountNumber;
-  document.getElementById('btnGlobalClose').disabled  = isEdit;
-
-  setSB(`Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)} — Ready`);
+    btnSave.addEventListener('click', handleSaveAccount);
+    btnDelete.addEventListener('click', handleDeleteAccount);
+    btnClose.addEventListener('click', () => window.location.href = 'index.html'); // Back to dashboard
+    btnPrint.addEventListener('click', () => window.print());
 }
 
-function setSB(msg) {
-  const sb = document.getElementById('statusBar');
-  if (sb) sb.textContent = msg;
+// --- 4. ENGINE LOGIC & CORE DATABASE CALLS ---
+
+// Verify Client Existence in Registry & Fetch Current Linked Accounts
+async function verifyClientFromRegistry() {
+    const clientId = clientIdInput.value.trim();
+    if (!clientId) return showToast("Please input a valid Client ID", "warning");
+
+    updateStatus(`Verifying client ${clientId}...`);
+    
+    try {
+        // Querying assuming a table named 'clients' exists
+        const { data: client, error } = await supabaseClient
+            .from('clients')
+            .select('first_name, last_name')
+            .eq('id', clientId)
+            .single();
+
+        if (error || !client) {
+            clientNameInput.value = "";
+            showToast("Client record not found in system registry.", "error");
+            updateStatus("Verification failed.", true);
+            return;
+        }
+
+        clientNameInput.value = `${client.first_name} ${client.last_name}`;
+        showToast("Client valid and verified.", "success");
+        
+        // Pull account array
+        fetchClientAccountList(clientId);
+
+    } catch (err) {
+        console.error(err);
+        updateStatus("Verification infrastructure error.", true);
+    }
 }
 
-/* ── Account number lookup (🔍) ─────────────────────────── */
-document.getElementById('btnLookupAccount')?.addEventListener('click', viewRecord);
-document.getElementById('accountNumber')?.addEventListener('keydown', e => {
-  if (e.key === 'Enter') viewRecord();
-});
+// Pull active financial ledgers into the UI table grid
+async function fetchClientAccountList(clientId) {
+    accountTableBody.innerHTML = `<tr><td colspan="4" class="text-center gray-text italic">Loading accounts...</td></tr>`;
+    
+    const { data: accounts, error } = await supabaseClient
+        .from('financial_accounts')
+        .select('*')
+        .eq('client_id', clientId);
 
-/* ── Toolbar Buttons ────────────────────────────────────── */
-document.getElementById('btnGlobalView')?.addEventListener('click', viewRecord);
+    if (error || !accounts || accounts.length === 0) {
+        accountTableBody.innerHTML = `<tr><td colspan="4" class="text-center gray-text italic">No accounts mapped to this client profile.</td></tr>`;
+        return;
+    }
 
-document.getElementById('btnGlobalAdd')?.addEventListener('click', () => {
-  clearForm();
-  setMode('add');
-  document.getElementById('accClientId')?.focus();
-  toast('Add mode — verify Client ID, then fill account details and Save.');
-});
-
-document.getElementById('btnGlobalEdit')?.addEventListener('click', () => {
-  setMode('edit');
-  toast('Edit mode — make changes then Save.');
-});
-
-document.getElementById('btnGlobalSave')?.addEventListener('click', saveRecord);
-
-document.getElementById('btnGlobalCancel')?.addEventListener('click', () => {
-  setMode('view');
-  toast('Changes discarded.');
-});
-
-document.getElementById('btnGlobalClose')?.addEventListener('click', () => {
-  clearForm();
-  setMode('view');
-  toast('Record closed.');
-});
-
-document.getElementById('btnGlobalDelete')?.addEventListener('click', deleteRecord);
-
-document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
-
-/* ── Init ──────────────────────────────────────────────── */
-async function init() {
-  setMode('view');
-  await loadBranches();
+    accountTableBody.innerHTML = accounts.map(acc => `
+        <tr onclick="populateFormFromRow(${JSON.stringify(acc).replace(/"/g, '&quot;')})">
+            <td>${acc.account_number}</td>
+            <td>${acc.account_type}</td>
+            <td class="text-right font-bold">${parseFloat(acc.current_balance).toFixed(2)}</td>
+            <td><span class="status-badge" style="padding:1px 6px;">${acc.account_status}</span></td>
+        </tr>
+    `).join('');
+    updateStatus(`Fetched ${accounts.length} linked account records.`);
 }
-init();
+
+// Format template standard parameters for standard bank identification accounts
+function generateEthiopianAccountNumber() {
+    const branchCode = branchSelect.value;
+    const typeMap = { "Savings": "10", "Repayment": "20", "Current": "30" };
+    const typeCode = typeMap[accountTypeSelect.value] || "10";
+    const uniqueSequence = Math.floor(100000 + Math.random() * 900000); // 6 random operational digits
+    
+    // Structure format matching localized core models: AVMF-BRANCH-TYPE-SEQ
+    accountNoInput.value = `AVMF-${branchCode}-${typeCode}-${uniqueSequence}`;
+    showToast("Generated unique account number structure", "success");
+}
+
+// Look up unique targeted single profile parameters
+async function lookupSpecificAccount() {
+    const accNo = accountNoInput.value.trim();
+    if (!accNo) return showToast("Enter account number to fetch", "warning");
+
+    const { data: acc, error } = await supabaseClient
+        .from('financial_accounts')
+        .select('*')
+        .eq('account_number', accNo)
+        .single();
+
+    if (error || !acc) {
+        showToast("Account number not registered.", "error");
+        return;
+    }
+    populateFormFromRow(acc);
+}
+
+function populateFormFromRow(acc) {
+    currentSelectedAccount = acc;
+    clientIdInput.value = acc.client_id;
+    clientNameInput.value = acc.client_name || "Verified Client Profile";
+    accountNoInput.value = acc.account_number;
+    accountTypeSelect.value = acc.account_type;
+    currencySelect.value = acc.currency || "ETB";
+    initDepositInput.value = acc.initial_deposit || 0;
+    currBalanceInput.value = acc.current_balance;
+    statusSelect.value = acc.account_status;
+    remarksTextarea.value = acc.remarks || "";
+    createdByInput.value = acc.created_by || "";
+    createdOnInput.value = acc.created_at ? new Date(acc.created_at).toLocaleDateString() : "";
+    
+    // Enable workflow update paths
+    btnEdit.disabled = false;
+    btnDelete.disabled = false;
+    updateStatus(`Active account context selected: ${acc.account_number}`);
+}
+
+// Commit payload arrays back upstream to data tables
+async function handleSaveAccount() {
+    const payload = {
+        branch_id: branchSelect.value,
+        client_id: clientIdInput.value.trim(),
+        account_number: accountNoInput.value.trim(),
+        account_type: accountTypeSelect.value,
+        currency: currencySelect.value,
+        initial_deposit: parseFloat(initDepositInput.value) || 0,
+        current_balance: isEditMode && currentSelectedAccount ? parseFloat(currBalanceInput.value) : parseFloat(initDepositInput.value),
+        account_status: statusSelect.value,
+        remarks: remarksTextarea.value.trim(),
+        created_by: createdByInput.value.trim()
+    };
+
+    // Validations
+    if (!payload.client_id || !payload.account_number) {
+        showToast("Missing required structural data validation points (*)", "error");
+        return;
+    }
+
+    updateStatus("Committing records to remote core structures...");
+
+    let response;
+    if (currentSelectedAccount && isEditMode) {
+        // Handle database mutation update pathway
+        response = await supabaseClient
+            .from('financial_accounts')
+            .update(payload)
+            .eq('account_number', currentSelectedAccount.account_number);
+    } else {
+        // Handle database generation append entry record
+        response = await supabaseClient
+            .from('financial_accounts')
+            .insert([payload]);
+    }
+
+    if (response.error) {
+        showToast(`Transaction Write Rejected: ${response.error.message}`, "error");
+        updateStatus("Database commit exception encountered.", true);
+    } else {
+        showToast("Account entry structurally synchronized successfully.", "success");
+        resetFormState();
+        clientIdInput.value = payload.client_id;
+        verifyClientFromRegistry(); // Re-index matching list automatically
+    }
+}
+
+async function handleDeleteAccount() {
+    if (!currentSelectedAccount) return;
+    if (!confirm(`Are you absolutely sure you want to delete account ${currentSelectedAccount.account_number}?`)) return;
+
+    updateStatus("Purging operational sequence record...");
+    const { error } = await supabaseClient
+        .from('financial_accounts')
+        .delete()
+        .eq('account_number', currentSelectedAccount.account_number);
+
+    if (error) {
+        showToast(`Error removing account: ${error.message}`, "error");
+    } else {
+        showToast("Account entry cleanly purged from records.", "success");
+        resetFormState();
+    }
+}
+
+// --- 5. INTERFACE CONFIGURATION UTILITIES ---
+function setFormEditMode(enabled, mode = 'add') {
+    isEditMode = enabled;
+    
+    // Input state matrix toggle management
+    const formFields = [clientIdInput, accountNoInput, accountTypeSelect, currencySelect, initDepositInput, statusSelect, remarksTextarea, createdByInput];
+    formFields.forEach(field => field.disabled = !enabled);
+
+    if (mode === 'add') {
+        const memoizedClientId = clientIdInput.value; // Keep current ID active
+        document.querySelector(".module-form").reset();
+        clientIdInput.value = memoizedClientId;
+        currBalanceInput.value = "0.00";
+        createdOnInput.value = new Date().toLocaleDateString();
+        btnDelete.disabled = true;
+    }
+
+    // Toggle Action bar configurations safely
+    btnAdd.disabled = enabled;
+    btnEdit.disabled = enabled;
+    btnSave.disabled = !enabled;
+    btnCancel.disabled = !enabled;
+}
+
+function resetFormState() {
+    setFormEditMode(false);
+    document.querySelector(".module-form").reset();
+    accountTableBody.innerHTML = `<tr><td colspan="4" class="text-center gray-text italic">Verify a Client ID to see their accounts.</td></tr>`;
+    btnEdit.disabled = true;
+    btnDelete.disabled = true;
+    currentSelectedAccount = null;
+    updateStatus("Ready");
+}
+
+function updateStatus(text, isError = false) {
+    statusBar.textContent = `Status: ${text}`;
+    statusBar.style.color = isError ? "var(--red)" : "var(--text-muted)";
+}
+
+function showToast(message, type = "success") {
+    const toast = document.getElementById('toastNotification');
+    toast.className = `toast show ${type}`; // Maps cleanly directly down into toast.success/toast.error classes[cite: 1]
+    toast.textContent = message;
+    
+    setTimeout(() => {
+        toast.className = 'toast';
+    }, 4000);
+}
