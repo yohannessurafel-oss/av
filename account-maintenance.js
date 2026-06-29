@@ -77,7 +77,8 @@ const FIELD_MAP = {
 };
 
 /* Read-only display fields — never sent to DB */
-const READ_ONLY = new Set(['accCreatedOn', 'accClientName', 'accBranchName', 'currentBalance']);
+const READ_ONLY = new Set(['accCreatedOn', 'accClientName', 'accBranchName']);
+// currentBalance is writable — must be sent to DB (not generated, not readonly in schema)
 
 let currentMode = 'view';
 let _currentAccountNumber = null; // PK of loaded record
