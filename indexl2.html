@@ -6,50 +6,102 @@
 <title>AVMF CBS v2.0 — Dashboard</title>
 <link rel="stylesheet" href="style2 (12).css"/>
 <style>
-  .module-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; padding:20px; }
-  .module-card { background:var(--white); border:1px solid var(--border); border-radius:6px; padding:20px; cursor:pointer; transition:all .2s; }
-  .module-card:hover { transform:translateY(-4px); box-shadow:0 8px 25px rgba(0,0,0,.15); }
+  .module-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; padding:20px; }
+  .module-card { background:var(--white); border:1px solid var(--border); border-radius:6px; padding:20px; cursor:pointer; transition:all .2s; box-shadow:var(--shadow-sm); }
+  .module-card:hover { transform:translateY(-4px); box-shadow:var(--shadow-md); border-color:var(--navy-600); }
+  .sidebar-category { padding:8px 12px; margin:2px 8px; border-radius:4px; cursor:pointer; }
+  .sidebar-category.active { background:var(--navy-800); color:white; }
 </style>
 </head>
 <body>
 
 <div class="window-container">
-  <div class="title-bar">AVMF CBS v2.0 — Central Dashboard</div>
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <svg class="header-logo-svg" viewBox="0 0 100 100" width="42" height="42">...</svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance</span>
+        <span class="title-sub">Core Banking System v2.0</span>
+      </div>
+    </div>
+    <div class="title-meta">
+      <span id="systemDate" class="title-date"></span>
+      <span class="title-user">👤 Operator</span>
+    </div>
+  </div>
+
   <div class="workspace">
-    <div class="sidebar">...[nav]...</div>
+    <div class="sidebar">
+      <div class="sidebar-header">📂 All Modules</div>
+      <div id="sidebarFilters" class="nav-menu"></div>
+      <div class="sidebar-footer-brand">AVMF CBS v2.0</div>
+    </div>
+
     <div class="main-content">
-      <input type="text" id="moduleSearch" placeholder="🔍 Search modules..." style="width:96%;margin:12px 20px;padding:10px;">
+      <div class="context-badge-bar">
+        <span class="badge-icon">🏠</span>
+        Central Dashboard — Select a Module
+      </div>
+
+      <input type="text" id="moduleSearch" placeholder="🔍 Search modules..." style="width:96%; margin:12px 20px; padding:10px; border-radius:4px;">
+
       <div class="module-grid" id="moduleGrid"></div>
     </div>
   </div>
 </div>
 
 <script>
-// All real modules from your attachments
+// ALL MODULES WITH REAL PATHS
 const modules = [
-  {name:"Client Master Registry",       icon:"👤", path:"client-maintenance (12).html"},
-  {name:"Loan Application",             icon:"📋", path:"loan-application (10).html"},
-  {name:"Center Loan Application",      icon:"👥", path:"group-loan-projection (8).html"},
-  {name:"Loan Appraisal Management",    icon:"🔎", path:"loan-appraisal-management (5).html"},
-  {name:"Credit Sanction Console",      icon:"✅", path:"credit-sanction-console (3).html"},
-  {name:"Loan Account Maintenance",     icon:"🏦", path:"loan-account-maintenance (4).html"},
-  {name:"Collateral Inventory Risk",    icon:"🏠", path:"collateral-inventory-risk (4).html"},
-  {name:"Guarantor Asset Registry",     icon:"🤝", path:"guarantor-asset-registry (4).html"},
-  {name:"Teller Cash Vault Control",    icon:"🗄️", path:"teller-cash-vault-control (3).html"},
-  {name:"Settlement / Early Payoff",    icon:"💸", path:"settlement-early-payoff (4).html"},
-  {name:"Loan Disbursement",            icon:"📤", path:"disbursement (9).html"},
-  {name:"Client Directory",             icon:"📋", path:"client-directory (1).html"},
-  {name:"General Ledger",               icon:"📒", path:"general-ledger (2).html"},
-  {name:"Delinquency Dashboard",        icon:"⚠️", path:"delinquency-dashboard (1).html"},
-  {name:"Loan Ledger Report",           icon:"📊", path:"ledger-report.html"},
-  {name:"Account Maintenance",          icon:"💳", path:"account-maintenance (1).html"}
+  {name: "00 Client Master Registry", icon: "👤", path: "client-maintenance (12).html", cat: "operations"},
+  {name: "01 Loan Application", icon: "📋", path: "loan-application (10).html", cat: "operations"},
+  {name: "02 Center Loan Application", icon: "👥", path: "group-loan-projection (8).html", cat: "operations"},
+  {name: "03 Loan Appraisal Management", icon: "🔎", path: "loan-appraisal-management (5).html", cat: "operations"},
+  {name: "04 Credit Sanction Console", icon: "✅", path: "credit-sanction-console (3).html", cat: "operations"},
+  {name: "05 Loan Account Maintenance", icon: "🏦", path: "loan-account-maintenance (4).html", cat: "operations"},
+  {name: "06 Collateral Inventory Risk", icon: "🏠", path: "collateral-inventory-risk (4).html", cat: "risk"},
+  {name: "07 Guarantor Asset Registry", icon: "🤝", path: "guarantor-asset-registry (4).html", cat: "risk"},
+  {name: "08 Teller Cash Vault Control", icon: "🗄️", path: "teller-cash-vault-control (3).html", cat: "teller"},
+  {name: "09 Settlement / Early Payoff", icon: "💸", path: "settlement-early-payoff (4).html", cat: "financials"},
+  {name: "10 Loan Disbursement", icon: "📤", path: "disbursement (9).html", cat: "operations"},
+  {name: "11 Loan Ledger Report", icon: "📊", path: "ledger-report.html", cat: "reports"},
+  {name: "12 General Ledger", icon: "📒", path: "general-ledger (2).html", cat: "financials"},
+  {name: "13 Delinquency Dashboard", icon: "⚠️", path: "delinquency-dashboard (1).html", cat: "risk"},
+  {name: "14 Client Financial Account Maintenance", icon: "💳", path: "account-maintenance (1).html", cat: "financials"}
 ];
 
-function renderGrid() {
+const categories = [
+  {label: "All Modules", filter: "all", icon: "🌐"},
+  {label: "Credit Operations", filter: "operations", icon: "📋"},
+  {label: "Financials & Ledger", filter: "financials", icon: "💰"},
+  {label: "Risk & Collateral", filter: "risk", icon: "🛡️"},
+  {label: "Teller & Cash", filter: "teller", icon: "🏧"},
+  {label: "Reports", filter: "reports", icon: "📊"}
+];
+
+let currentFilter = "all";
+
+function renderSidebar() {
+  const container = document.getElementById('sidebarFilters');
+  container.innerHTML = categories.map(c => `
+    <div class="sidebar-category ${c.filter === currentFilter ? 'active' : ''}" onclick="setFilter('${c.filter}')">
+      ${c.icon} ${c.label}
+    </div>
+  `).join('');
+}
+
+function setFilter(filter) {
+  currentFilter = filter;
+  renderSidebar();
+  renderModules();
+}
+
+function renderModules() {
+  let filtered = modules;
+  if (currentFilter !== "all") filtered = filtered.filter(m => m.cat === currentFilter);
+
   const term = document.getElementById('moduleSearch').value.toLowerCase();
-  const filtered = term 
-    ? modules.filter(m => m.name.toLowerCase().includes(term))
-    : modules;
+  if (term) filtered = filtered.filter(m => m.name.toLowerCase().includes(term));
 
   const grid = document.getElementById('moduleGrid');
   grid.innerHTML = filtered.map(m => `
@@ -60,8 +112,12 @@ function renderGrid() {
   `).join('');
 }
 
-document.getElementById('moduleSearch').addEventListener('input', renderGrid);
-renderGrid();
+document.getElementById('moduleSearch').addEventListener('input', renderModules);
+document.getElementById('systemDate').textContent = new Date().toLocaleDateString('en-ET', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+
+// Init
+renderSidebar();
+renderModules();
 </script>
 </body>
 </html>
