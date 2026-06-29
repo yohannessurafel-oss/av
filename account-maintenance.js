@@ -173,18 +173,15 @@ async function verifyClient(clientId) {
   try {
     // Try ClientMasterRecords first (richer name data)
     let name = null;
+    // clientfinancialaccounts.client_id FK → ClientMasterRecords(client_id)
+    // ONLY look up from ClientMasterRecords — using the 'clients' table as fallback
+    // would find IDs not in ClientMasterRecords and cause a FK violation on save.
     const cmr = await sbFetch(
       `ClientMasterRecords?client_id=eq.${encodeURIComponent(val)}&select=client_name,first_name,middle_name,last_name&limit=1`
     );
     if (cmr && cmr[0]) {
       const r = cmr[0];
       name = r.client_name || [r.first_name, r.middle_name, r.last_name].filter(Boolean).join(' ');
-    } else {
-      // Fallback to clients table (the FK table for clientfinancialaccounts)
-      const cl = await sbFetch(
-        `clients?client_id=eq.${encodeURIComponent(val)}&select=client_name&limit=1`
-      );
-      if (cl && cl[0]) name = cl[0].client_name;
     }
 
     if (name) {
