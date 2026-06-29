@@ -4,52 +4,76 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>AVMF CBS v2.0 — Dashboard</title>
-<link rel="stylesheet" href="style2.css"/>
+<link rel="stylesheet" href="style2 (12).css"/>
 <style>
-  .tab-bar {
-    display: flex; gap: 2px; border-bottom: 3px solid #0d3460; margin: 10px 20px 0;
-  }
-  .tab {
-    padding: 10px 20px; font-weight: 600; cursor: pointer; border-radius: 4px 4px 0 0;
-    background: #f1f5f9; border: 1px solid #e2e8f0; border-bottom: none;
-  }
-  .tab.active {
-    background: #0d3460; color: white; border-color: #0d3460;
-  }
   .module-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
     padding: 20px;
   }
   .module-card {
-    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
-    padding: 18px; transition: all 0.2s; cursor: pointer;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: var(--shadow-sm);
   }
   .module-card:hover {
-    transform: translateY(-3px); box-shadow: 0 8px 25px rgba(13,52,96,0.15);
-    border-color: #0d3460;
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--navy-600);
+  }
+  .sidebar-category {
+    padding: 8px 12px;
+    margin: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .sidebar-category.active {
+    background: var(--navy-800);
+    color: white;
   }
 </style>
 </head>
 <body>
 
 <div class="window-container">
-  <div class="title-bar">... (same branding) ...</div>
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <svg class="header-logo-svg" viewBox="0 0 100 100" width="42" height="42">...</svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance</span>
+        <span class="title-sub">Core Banking System v2.0</span>
+      </div>
+    </div>
+    <div class="title-meta">
+      <span id="systemDate" class="title-date"></span>
+      <span class="title-user">👤 Operator</span>
+    </div>
+  </div>
 
   <div class="workspace">
-    <!-- Sidebar (unchanged) -->
-    <div class="sidebar">... full module list ...</div>
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">📂 All Modules</div>
+      <div id="sidebarFilters" class="nav-menu"></div>
+      <div class="sidebar-footer-brand">AVMF CBS v2.0</div>
+    </div>
 
+    <!-- Main Content -->
     <div class="main-content">
       <div class="context-badge-bar">
-        <span class="badge-icon">🏦</span>
-        AVMF Core Banking System — Unified Dashboard
+        <span class="badge-icon">🏠</span>
+        Central Dashboard — Select a Module
       </div>
 
-      <!-- Tabbed Navigation -->
+      <!-- Top Tabs -->
       <div class="tab-bar" id="tabBar"></div>
 
-      <input type="text" id="moduleSearch" placeholder="🔍 Search modules..." 
-             style="width:96%; margin:15px 20px; padding:10px; border-radius:6px; font-size:15px;">
+      <input type="text" id="moduleSearch" placeholder="🔍 Search modules..." style="width:96%; margin:12px 20px; padding:10px; border-radius:4px;">
 
       <div class="module-grid" id="moduleGrid"></div>
     </div>
@@ -57,73 +81,77 @@
 </div>
 
 <script>
-// Modules with categories for tabs
-const allModules = [
-  { name: "Client Master Registry", icon: "👤", path: "client-maintenance.html", category: "operations" },
-  { name: "Loan Application", icon: "📋", path: "loan-application.html", category: "operations" },
-  { name: "Loan Appraisal", icon: "🔎", path: "#", category: "operations" },
-  { name: "Credit Sanction Console", icon: "✅", path: "#", category: "operations" },
-  { name: "Loan Account Maintenance", icon: "🏦", path: "loan-account-maintenance.html", category: "operations" },
-  { name: "Client Financial Accounts", icon: "💳", path: "account-maintenance.html", category: "financials" },
-  { name: "General Ledger", icon: "📒", path: "general-ledger.html", category: "financials" },
-  { name: "Collateral Registry", icon: "🏠", path: "#", category: "risk" },
-  { name: "Guarantor Registry", icon: "🤝", path: "#", category: "risk" },
-  { name: "Teller Cash Vault", icon: "🗄️", path: "#", category: "teller" },
-  { name: "Loan Disbursement", icon: "📤", path: "#", category: "operations" },
-  { name: "Settlement & Payoff", icon: "💸", path: "#", category: "financials" },
-  { name: "Loan Ledger Report", icon: "📊", path: "#", category: "reports" },
+// All Modules with real paths where available
+const modules = [
+  {name: "00 Client Master Registry", icon: "👤", path: "client-maintenance.html", cat: "operations"},
+  {name: "01 Loan Application", icon: "📋", path: "loan-application.html", cat: "operations"},
+  {name: "02 Center Loan Application", icon: "👥", path: "#", cat: "operations"},
+  {name: "03 Loan Appraisal Management", icon: "🔎", path: "#", cat: "operations"},
+  {name: "04 Credit Sanction Console", icon: "✅", path: "#", cat: "operations"},
+  {name: "05 Loan Account Maintenance", icon: "🏦", path: "loan-account-maintenance.html", cat: "operations"},
+  {name: "06 Collateral Inventory Risk", icon: "🏠", path: "#", cat: "risk"},
+  {name: "07 Guarantor Asset Registry", icon: "🤝", path: "#", cat: "risk"},
+  {name: "08 Teller Cash Vault Control", icon: "🗄️", path: "#", cat: "teller"},
+  {name: "09 Settlement Early Payoff", icon: "💸", path: "#", cat: "financials"},
+  {name: "10 Loan Disbursement", icon: "📤", path: "#", cat: "operations"},
+  {name: "11 Loan Ledger Report", icon: "📊", path: "#", cat: "reports"},
+  {name: "12 General Ledger", icon: "📒", path: "general-ledger.html", cat: "financials"},
+  {name: "12 Client Financial Account Maintenance", icon: "💳", path: "account-maintenance.html", cat: "financials"}
 ];
 
-const tabs = [
-  { label: "All Modules", filter: "all" },
-  { label: "Credit Operations", filter: "operations" },
-  { label: "Financials & Ledger", filter: "financials" },
-  { label: "Risk & Collateral", filter: "risk" },
-  { label: "Teller & Cash", filter: "teller" },
-  { label: "Reports", filter: "reports" }
+const categories = [
+  {label: "All Modules", filter: "all", icon: "🌐"},
+  {label: "Credit Operations", filter: "operations", icon: "📋"},
+  {label: "Financials & Ledger", filter: "financials", icon: "💰"},
+  {label: "Risk & Collateral", filter: "risk", icon: "🛡️"},
+  {label: "Teller & Cash", filter: "teller", icon: "🏧"},
+  {label: "Reports", filter: "reports", icon: "📊"}
 ];
 
 let currentFilter = "all";
 
-function renderTabs() {
-  const bar = document.getElementById('tabBar');
-  bar.innerHTML = tabs.map(tab => `
-    <div class="tab ${tab.filter === currentFilter ? 'active' : ''}" 
-         onclick="switchTab('${tab.filter}')">${tab.label}</div>
+function renderSidebar() {
+  const container = document.getElementById('sidebarFilters');
+  container.innerHTML = categories.map(c => `
+    <div class="sidebar-category ${c.filter === currentFilter ? 'active' : ''}" onclick="setFilter('${c.filter}')">
+      ${c.icon} ${c.label}
+    </div>
   `).join('');
 }
 
-function switchTab(filter) {
+function setFilter(filter) {
   currentFilter = filter;
-  renderTabs();
+  renderSidebar();
   renderModules();
 }
 
 function renderModules() {
-  let filtered = allModules;
+  let filtered = modules;
   if (currentFilter !== "all") {
-    filtered = allModules.filter(m => m.category === currentFilter);
+    filtered = filtered.filter(m => m.cat === currentFilter);
   }
-  // Apply search if any
-  const searchTerm = document.getElementById('moduleSearch').value.toLowerCase();
-  if (searchTerm) {
-    filtered = filtered.filter(m => m.name.toLowerCase().includes(searchTerm));
-  }
+  const term = document.getElementById('moduleSearch').value.toLowerCase();
+  if (term) filtered = filtered.filter(m => m.name.toLowerCase().includes(term));
 
   const grid = document.getElementById('moduleGrid');
   grid.innerHTML = filtered.map(m => `
-    <div class="module-card" onclick="window.open('${m.path}', '_self')">
-      <div style="font-size:36px;margin-bottom:8px;">${m.icon}</div>
+    <div class="module-card" onclick="window.location.href='${m.path}'">
+      <div style="font-size:42px;margin-bottom:10px;">${m.icon}</div>
       <strong>${m.name}</strong>
     </div>
   `).join('');
 }
 
-// Search handler
+// Search
 document.getElementById('moduleSearch').addEventListener('input', renderModules);
 
+// System Date
+document.getElementById('systemDate').textContent = new Date().toLocaleDateString('en-ET', {
+  weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+});
+
 // Init
-renderTabs();
+renderSidebar();
 renderModules();
 </script>
 </body>
