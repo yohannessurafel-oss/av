@@ -43,9 +43,9 @@
           <span class="badge-icon">🏦</span>
           Client Financial Account Opening &amp; Maintenance
         </div>
+          <form class="module-form grid-two-column" autocomplete="off">
 
-        <form class="module-form grid-two-column" autocomplete="off">
-          <!-- LEFT COLUMN -->
+          <!-- ── LEFT COLUMN ───────────────────────────── -->
           <div class="sub-column">
             <div class="card-header-banner">Account Identity</div>
 
@@ -65,7 +65,8 @@
 
             <div class="form-row">
               <label>Client Name</label>
-              <input type="text" id="accClientName" class="width-full" readonly placeholder="Auto-filled from registry"/>
+              <input type="text" id="accClientName" class="width-full" readonly
+                     placeholder="Auto-filled from registry"/>
             </div>
 
             <div class="section-divider"></div>
@@ -99,16 +100,20 @@
 
             <div class="form-row">
               <label>Initial Deposit (ETB)</label>
-              <input type="number" id="initialDeposit" class="text-right width-full" min="0" step="0.01" value="0"/>
+              <input type="number" id="initialDeposit" class="text-right width-full"
+                     min="0" step="0.01" value="0"/>
             </div>
 
             <div class="form-row">
               <label>Current Balance (ETB)</label>
-              <input type="number" id="currentBalance" class="text-right width-full" min="0" step="0.01" value="0" readonly/>
+              <input type="number" id="currentBalance" class="text-right width-full"
+                     min="0" step="0.01" value="0" readonly
+                     placeholder="Mirrors initial deposit — editable after opening"/>
             </div>
+
           </div>
 
-          <!-- RIGHT COLUMN -->
+          <!-- ── RIGHT COLUMN ──────────────────────────── -->
           <div class="sub-column">
             <div class="card-header-banner">Account Status &amp; Remarks</div>
 
@@ -123,7 +128,8 @@
 
             <div class="form-row">
               <label class="shifted-label">Remarks / Notes</label>
-              <textarea id="accRemarks" class="width-full" rows="3" placeholder="Account setup details, purpose, notes…"></textarea>
+              <textarea id="accRemarks" class="width-full" rows="3"
+                        placeholder="Account setup details, purpose, notes…"></textarea>
             </div>
 
             <div class="form-row">
@@ -133,9 +139,11 @@
 
             <div class="form-row">
               <label class="shifted-label">Created On</label>
-              <input type="text" id="accCreatedOn" class="width-full" readonly placeholder="Auto-set on save"/>
+              <input type="text" id="accCreatedOn" class="width-full" readonly
+                     placeholder="Auto-set on save"/>
             </div>
 
+            <!-- ── Search Results Grid ─────────────────── -->
             <div class="card-header-banner" style="margin-top:14px;">Client Account List</div>
             <div class="grid-container" style="height:160px;">
               <table class="ledger-grid" id="tblAccountList">
@@ -149,30 +157,161 @@
                 </thead>
                 <tbody id="tbodyAccountList">
                   <tr>
-                    <td colspan="4" class="text-center gray-text italic">Verify a Client ID to see their accounts.</td>
+                    <td colspan="4" class="text-center gray-text italic">
+                      Verify a Client ID to see their accounts.
+                    </td>
                   </tr>
                 </tbody>
               </table>
             </div>
+
           </div>
         </form>
+        <form class="module-form grid-two-column" autocomplete="off">
+          <form class="module-form grid-two-column" autocomplete="off">
 
+          <!-- ── LEFT COLUMN ───────────────────────────── -->
+          <div class="sub-column">
+            <div class="card-header-banner">Account Identity</div>
+
+            <div class="form-row">
+              <label>Branch ID *</label>
+              <select id="accBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select>
+              <input type="text" id="accBranchName" class="width-remaining" placeholder="Branch name" readonly/>
+            </div>
+
+            <div class="form-row">
+              <label>Client ID *</label>
+              <div class="input-group width-full">
+                <input type="text" id="accClientId" placeholder="Enter Client ID"/>
+                <span class="search-btn" id="btnVerifyClient" title="Verify client in registry">🔍</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label>Client Name</label>
+              <input type="text" id="accClientName" class="width-full" readonly
+                     placeholder="Auto-filled from registry"/>
+            </div>
+
+            <div class="section-divider"></div>
+            <div class="card-header-banner">Account Parameters</div>
+
+            <div class="form-row">
+              <label>Account Number *</label>
+              <div class="input-group width-full">
+                <input type="text" id="accountNumber" placeholder="Auto-generated or manual"/>
+                <span class="search-btn" id="btnLookupAccount" title="Look up existing account">🔍</span>
+                <span class="search-btn" id="btnGenAccNo" title="Auto-generate account number">⚙</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label>Account Type *</label>
+              <select id="accountType" class="width-full">
+                <option value="Savings">Savings Account</option>
+                <option value="Repayment">Repayment Settlement Account</option>
+                <option value="Current">Current Operating Account</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label>Currency</label>
+              <select id="accCurrencyId" class="width-full">
+                <option value="ETB" selected>ETB — Ethiopian Birr</option>
+                <option value="USD">USD — US Dollar</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label>Initial Deposit (ETB)</label>
+              <input type="number" id="initialDeposit" class="text-right width-full"
+                     min="0" step="0.01" value="0"/>
+            </div>
+
+            <div class="form-row">
+              <label>Current Balance (ETB)</label>
+              <input type="number" id="currentBalance" class="text-right width-full"
+                     min="0" step="0.01" value="0" readonly
+                     placeholder="Mirrors initial deposit — editable after opening"/>
+            </div>
+
+          </div>
+
+          <!-- ── RIGHT COLUMN ──────────────────────────── -->
+          <div class="sub-column">
+            <div class="card-header-banner">Account Status &amp; Remarks</div>
+
+            <div class="form-row">
+              <label class="shifted-label">Account Status</label>
+              <select id="accountStatus" class="width-full">
+                <option value="Active">Active</option>
+                <option value="Dormant">Dormant</option>
+                <option value="Closed">Closed</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Remarks / Notes</label>
+              <textarea id="accRemarks" class="width-full" rows="3"
+                        placeholder="Account setup details, purpose, notes…"></textarea>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Created By</label>
+              <input type="text" id="accCreatedBy" class="width-full" placeholder="Officer name"/>
+            </div>
+
+            <div class="form-row">
+              <label class="shifted-label">Created On</label>
+              <input type="text" id="accCreatedOn" class="width-full" readonly
+                     placeholder="Auto-set on save"/>
+            </div>
+
+            <!-- ── Search Results Grid ─────────────────── -->
+            <div class="card-header-banner" style="margin-top:14px;">Client Account List</div>
+            <div class="grid-container" style="height:160px;">
+              <table class="ledger-grid" id="tblAccountList">
+                <thead>
+                  <tr>
+                    <th>Account No.</th>
+                    <th>Type</th>
+                    <th class="text-right">Balance (ETB)</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyAccountList">
+                  <tr>
+                    <td colspan="4" class="text-center gray-text italic">
+                      Verify a Client ID to see their accounts.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </form>
+        </form>
         <div class="sub-footer-token" id="statusBar">Status: Ready</div>
       </div>
     </div>
 
-    <!-- Right Action Sidebar -->
     <div class="action-sidebar">
-      <button id="btnGlobalView" class="action-btn">🔍 View</button>
-      <button id="btnGlobalAdd" class="action-btn">➕ Add</button>
-      <button id="btnGlobalEdit" class="action-btn">✏️ Edit</button>
-      <button id="btnGlobalClose" class="action-btn">✕ Close</button>
+      <div class="action-sidebar">
+      <button id="btnGlobalView"   class="action-btn">🔍 View</button>
+      <button id="btnGlobalAdd"    class="action-btn">➕ Add</button>
+      <button id="btnGlobalEdit"   class="action-btn">✏️ Edit</button>
+      <button id="btnGlobalClose"  class="action-btn">✕ Close</button>
       <div class="sidebar-spacer"></div>
-      <button id="btnGlobalSave" class="action-btn" disabled>💾 Save</button>
+      <button id="btnGlobalSave"   class="action-btn" disabled>💾 Save</button>
       <button id="btnGlobalCancel" class="action-btn" disabled>🚫 Cancel</button>
-      <button id="btnGlobalDelete" class="action-btn" style="background:linear-gradient(to bottom,#f8d0d0,#f0a0a0);border-color:#c06060;color:#7a0000;" disabled>🗑 Delete</button>
-      <button id="btnGlobalPrint" class="action-btn">🖨 Print</button>
+      <button id="btnGlobalDelete" class="action-btn"
+        style="background:linear-gradient(to bottom,#f8d0d0,#f0a0a0);border-color:#c06060;color:#7a0000;"
+        disabled>🗑 Delete</button>
+      <button id="btnGlobalPrint"  class="action-btn">🖨 Print</button>
       <div class="sidebar-footer">AVMF CBS v2.0</div>
+    </div>
     </div>
   </div>
 </div>
@@ -180,7 +319,12 @@
 <div id="toastNotification" class="toast"></div>
 
 <script>
-// Category Sidebar
+// Category Sidebar (same as dashboard)
+const modules = [
+  {name: "00 Client Master Registry", path: "client-maintenance.html", cat: "operations"},
+  // ... add all others
+];
+
 const categories = [
   {label: "All Modules", filter: "all", icon: "🌐"},
   {label: "Credit Operations", filter: "operations", icon: "📋"},
@@ -206,11 +350,15 @@ function setFilter(filter) {
   renderSidebar();
 }
 
+function highlightActiveModule() {
+  const current = window.location.pathname.split('/').pop();
+  // Logic to highlight
+}
+
 // Init
-document.getElementById('systemDate').textContent = new Date().toLocaleDateString('en-ET', {
-  weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
-});
+document.getElementById('systemDate').textContent = new Date().toLocaleDateString('en-ET', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
 renderSidebar();
+highlightActiveModule();
 </script>
 
 <script src="account-maintenance.js"></script>
