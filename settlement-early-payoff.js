@@ -1,17 +1,10 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 09 Settlement / Early Payoff
-   settlement-early-payoff.js  v1.0
-
+   settlement-early-payoff.js  v1.1 — SYSTEM BALANCED
    Tables:
      loanmasterrecords      — loan master record (read)
      loan_ledger            — transaction history (read, write on settle)
      amortization_schedules — installment schedule (read)
-
-   Workflow:
-     1. Enter Application ID → 🔍 loads loan, schedule, ledger, history
-     2. Pay-off Components tab shows computed settlement breakdown
-     3. Process Settlement posts a final payoff entry to loan_ledger
-        and sets loanmasterrecords.application_status = 'Settled'
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -19,7 +12,7 @@
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-/* ── HTTP Helper ────────────────────────────────────────── */
+/* ── HTTP Helper — Hardened raw text parsing ────────────────── */
 async function sbFetch(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
@@ -32,12 +25,15 @@ async function sbFetch(path, opts = {}) {
     }
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+    const errText = await res.text().catch(() => '');
+    let msg = 'HTTP ' + res.status;
+    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
+    throw new Error(msg);
   }
-  const text = await res.text();
-  if (!text || !text.trim()) return null;
-  try { return JSON.parse(text); } catch { return null; }
+  if (res.status === 204) return null;
+  const body = await res.text();
+  if (!body || !body.trim()) return null;
+  try { return JSON.parse(body); } catch { return null; }
 }
 
 /* ── Toast ─────────────────────────────────────────────── */
@@ -130,7 +126,6 @@ async function loadPayoffRecord() {
     _loanRecord = loanRows[0];
     _loadedAppId = _loanRecord.application_id;
 
-    // Populate header fields
     const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
     v('payoffClientId',   _loanRecord.client_id);
     v('payoffLoanSeries', _loanRecord.loan_series_no);
@@ -146,20 +141,17 @@ async function loadPayoffRecord() {
       brSel.dispatchEvent(new Event('change'));
     }
 
-    // Load amortization schedule
     _scheduleRows = await sbFetch(
       `amortization_schedules?application_id=eq.${encodeURIComponent(appId)}&select=*&order=installment_no.asc`
     ) || [];
     renderSchedule(_scheduleRows);
 
-    // Load loan ledger (statement)
     _ledgerRows = await sbFetch(
       `loan_ledger?application_id=eq.${encodeURIComponent(appId)}&select=*&order=id.asc`
     ) || [];
     renderStatement(_ledgerRows);
     renderHistory(_loanRecord);
 
-    // Compute pay-off components
     computePayoff();
 
     toast(`Loaded: ${_loadedAppId}`);
@@ -233,46 +225,52 @@ function renderHistory(loan) {
   `;
 }
 
-/* ── Compute Pay-off Components ─────────────────────────── */
+/* ── Compute Pay-off Components — Excludes unearned future interest ── */
 function computePayoff() {
   if (!_loanRecord) return;
 
-  // Outstanding balance from latest ledger entry, fallback to applied amount
   let outstandingBalance = _loanRecord.applied_amount || 0;
   if (_ledgerRows.length) {
     outstandingBalance = parseFloat(_ledgerRows[_ledgerRows.length - 1].running_balance || 0);
   }
 
-  // Sum unpaid principal/interest from schedule
+  const settlementDateStr = document.getElementById('payoffSettlementDate')?.value;
+  const settlementDateObj = settlementDateStr ? new Date(settlementDateStr) : new Date();
+
   let unpaidPrincipal = 0, unpaidInterest = 0;
+  
   _scheduleRows.forEach(r => {
     if (r.status !== 'PAID') {
       unpaidPrincipal += (parseFloat(r.principal_due||0) - parseFloat(r.principal_paid||0));
-      unpaidInterest  += (parseFloat(r.interest_due||0)  - parseFloat(r.interest_paid||0));
+      
+      // Standard Financial Protection:
+      // Exclude future unearned interest [1]. Only accrued/overdue interest is billed [1].
+      const dueDateObj = new Date(r.due_date);
+      if (dueDateObj <= settlementDateObj) {
+        unpaidInterest += (parseFloat(r.interest_due||0) - parseFloat(r.interest_paid||0));
+      }
     }
   });
+
   if (unpaidPrincipal < 0) unpaidPrincipal = 0;
   if (unpaidInterest  < 0) unpaidInterest  = 0;
 
-  // If no schedule, fall back to outstanding balance as principal-only
   if (!_scheduleRows.length) {
     unpaidPrincipal = outstandingBalance;
     unpaidInterest  = 0;
   }
 
-  // Early settlement penalty: flat 2% of outstanding principal (configurable policy)
   const penaltyRate = 0.02;
   const penalty = unpaidPrincipal * penaltyRate;
 
   const waiver = parseFloat(document.getElementById('payoffWaiver')?.value || 0) || 0;
   const netSettlement = unpaidPrincipal + unpaidInterest + penalty - waiver;
 
-  // Render components grid
   const tbody = document.querySelector('#dynamicPayoffGrid tbody');
   if (tbody) {
     tbody.innerHTML = `
       <tr><td>Outstanding Principal</td><td class="text-right">${fmt(unpaidPrincipal)}</td></tr>
-      <tr><td>Accrued / Unpaid Interest</td><td class="text-right">${fmt(unpaidInterest)}</td></tr>
+      <tr><td>Accrued / Overdue Interest</td><td class="text-right">${fmt(unpaidInterest)}</td></tr>
       <tr><td>Early Settlement Penalty (2%)</td><td class="text-right">${fmt(penalty)}</td></tr>
       <tr><td>Less: Approved Waiver</td><td class="text-right">−${fmt(waiver)}</td></tr>
       <tr style="border-top:2px solid var(--accent,#0d3460);">
@@ -289,6 +287,7 @@ function computePayoff() {
 }
 
 document.getElementById('payoffWaiver')?.addEventListener('input', computePayoff);
+document.getElementById('payoffSettlementDate')?.addEventListener('change', computePayoff);
 
 /* ── Process Settlement ─────────────────────────────────── */
 async function processSettlement() {
@@ -309,7 +308,7 @@ async function processSettlement() {
   if (sb) sb.textContent = 'Processing settlement…';
 
   try {
-    // 1. Post final payoff entry to loan_ledger
+    // 1. Post final payoff entry to loan_ledger — repayments set as negative to reduce balance [1]
     await sbFetch('loan_ledger', {
       method: 'POST',
       prefer: 'return=minimal',
@@ -320,8 +319,8 @@ async function processSettlement() {
         value_date:     settlementDate,
         description:    `Full settlement / early payoff via ${paymentMode}`,
         ref_batch:      `SETTLE-${_loadedAppId}-${Date.now()}`,
-        principal:      components.unpaidPrincipal,
-        interest:       components.unpaidInterest,
+        principal:      -components.unpaidPrincipal, // negative repayment [1]
+        interest:       -components.unpaidInterest,  // negative repayment [1]
         charges_penalties: components.penalty - components.waiver,
         total_paid:     components.netSettlement,
         running_balance: 0,
@@ -343,7 +342,6 @@ async function processSettlement() {
     toast(`✔ Loan ${_loadedAppId} settled. Net amount: ETB ${fmt(components.netSettlement)}`, 'success');
     if (sb) sb.textContent = `Settled — ${_loadedAppId}`;
 
-    // Refresh view
     await loadPayoffRecord();
   } catch (e) {
     toast('Settlement error: ' + e.message, 'error');
@@ -351,7 +349,7 @@ async function processSettlement() {
   }
 }
 
-/* ── Mode Control (view-only module, minimal mode logic) ──── */
+/* ── Mode Control ──────────────────────────────────────── */
 function setMode(mode) {
   const sb = document.getElementById('statusBar');
   if (sb && mode) sb.textContent = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)} — Ready`;
