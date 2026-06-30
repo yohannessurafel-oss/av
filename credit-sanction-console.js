@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 04 Credit Sanction Console
-   credit-sanction-console.js  v2.1
+   credit-sanction-console.js  v2.2 — RESOLVED SCHEDULING & PERSISTENCE
    Tables: loanapplications · loanmasterrecords · branchregistry
 
    Workflow:
@@ -18,7 +18,7 @@
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-/* ── HTTP Helper ────────────────────────────────────────── */
+/* ── HTTP Helper — Hardened raw text parsing ────────────────── */
 async function sbFetch(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
@@ -31,8 +31,10 @@ async function sbFetch(path, opts = {}) {
     }
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+    const errText = await res.text().catch(() => '');
+    let msg = 'HTTP ' + res.status;
+    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
+    throw new Error(msg);
   }
   const text = await res.text();
   if (!text || !text.trim()) return null;
@@ -88,12 +90,37 @@ document.getElementById('sanctionBranchId')?.addEventListener('change', function
   if (nameEl) nameEl.value = chosen ? (chosen.branch_name || '') : '';
 });
 
+/* ── Auto-Compute Sanction Schedule — reducing balance installment ── */
+function computeSanctionSchedule() {
+  const principal = parseFloat(document.getElementById('sanctionApprovedAmount')?.value) || 0;
+  const rate      = parseFloat(document.getElementById('sanctionInterestRate')?.value)   || 0;
+  const term      = parseInt(document.getElementById('sanctionRepaymentTerm')?.value)     || 0;
+
+  if (!principal || !term) return;
+
+  const monthlyRate = (rate / 100) / 12;
+  let installment;
+  if (monthlyRate === 0) {
+    installment = principal / term;
+  } else {
+    installment = principal * (monthlyRate * Math.pow(1 + monthlyRate, term)) /
+                  (Math.pow(1 + monthlyRate, term) - 1);
+  }
+
+  const instEl = document.getElementById('sanctionInstallmentAmt');
+  if (instEl) instEl.value = installment.toFixed(2);
+}
+
+// Bind live schedule calculation to UI inputs [1]
+['sanctionApprovedAmount', 'sanctionInterestRate', 'sanctionRepaymentTerm'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', computeSanctionSchedule);
+});
+
 /* ── Track loaded record ───────────────────────────────── */
 let _loadedAppId = null;
 
 /* ── Application Lookup ─────────────────────────────────── */
 async function lookupApplication() {
-  // Read from the APPLICATION ID input field (editable, top of form)
   const appId = document.getElementById('sanctionApplicationId')?.value?.trim();
   if (!appId) { toast('Enter an Application ID to search.', 'warning'); return; }
 
@@ -145,7 +172,6 @@ async function lookupApplication() {
     set('sanctionAppDate',          lmr.application_date);
     set('sanctionBaseRate',         lmr.base_rate);
 
-    // Set branch dropdown to match the loaded record
     const brSel = document.getElementById('sanctionBranchId');
     if (brSel && lmr.branch_id) {
       brSel.value = lmr.branch_id;
@@ -167,7 +193,6 @@ async function lookupApplication() {
     toast(`Application ${_loadedAppId} loaded.`);
     if (sb) sb.textContent = `Application ${_loadedAppId} — click Edit to sanction`;
 
-    // Enable Edit button now that a record is loaded
     const btnEdit = document.getElementById('btnGlobalEdit');
     if (btnEdit) btnEdit.disabled = false;
 
@@ -189,6 +214,9 @@ async function saveSanction() {
   const getNum  = id => { const v = parseFloat(getVal(id)); return isNaN(v) ? null : v; };
   const getInt  = id => { const v = parseInt(getVal(id));   return isNaN(v) ? null : v; };
 
+  // Calculate standard installment terms before mapping [1]
+  computeSanctionSchedule();
+
   const payload = {
     approved_amount:         getNum('sanctionApprovedAmount'),
     no_of_disbursements:     getInt('sanctionNoOfDisbursements') || 1,
@@ -200,11 +228,11 @@ async function saveSanction() {
     first_disbursement_date: getVal('sanctionFirstDisbDate'),
     interest_rate_type:      getVal('sanctionInterestRateType'),
     marking_rate:            getNum('sanctionMarkingRate2'),
+    installment_amount:      getNum('sanctionInstallmentAmt'), // Save expected installment [1]
     application_status:      'Sanctioned',
     modified_on:             new Date().toISOString(),
   };
 
-  // Remove null dates — PostgREST rejects null for date columns
   if (!payload.installment_start_date)  delete payload.installment_start_date;
   if (!payload.first_disbursement_date) delete payload.first_disbursement_date;
 
@@ -226,7 +254,6 @@ async function saveSanction() {
       body: JSON.stringify({ application_status: 'Sanctioned' })
     });
 
-    // Reflect new status in the read-only field
     const statusEl = document.getElementById('sanctionAppStatus');
     if (statusEl) statusEl.value = 'Sanctioned';
 
@@ -255,7 +282,6 @@ function setMode(mode) {
     });
   }
 
-  // Application ID input always enabled so user can type a new ID
   const appIdEl = document.getElementById('sanctionApplicationId');
   if (appIdEl) appIdEl.disabled = false;
 
@@ -270,7 +296,7 @@ function setMode(mode) {
   if (btnCancel) btnCancel.disabled = !isEdit;
   if (btnAdd)    btnAdd.disabled    = isEdit;
   if (btnEdit)   btnEdit.disabled   = isEdit || !_loadedAppId;
-  if (btnDelete) btnDelete.disabled = true;    // no hard-delete on sanctions
+  if (btnDelete) btnDelete.disabled = true;
   if (btnClose)  btnClose.disabled  = isEdit;
 
   const sb = document.getElementById('statusBar');
@@ -280,10 +306,7 @@ function setMode(mode) {
 }
 
 /* ── Toolbar ─────────────────────────────────────────────── */
-// View button: look up whatever is in the Application ID field
 document.getElementById('btnGlobalView')?.addEventListener('click', lookupApplication);
-
-// 🔍 icon next to Application ID input
 document.getElementById('btnSearchAppId')?.addEventListener('click', lookupApplication);
 
 document.getElementById('btnGlobalEdit')?.addEventListener('click', () => {
@@ -295,7 +318,7 @@ document.getElementById('btnGlobalEdit')?.addEventListener('click', () => {
 document.getElementById('btnGlobalSave')?.addEventListener('click', saveSanction);
 
 document.getElementById('btnGlobalCancel')?.addEventListener('click', () => {
-  if (_loadedAppId) lookupApplication();  // reload fresh from DB
+  if (_loadedAppId) lookupApplication();
   else setMode('view');
   toast('Changes discarded.');
 });
