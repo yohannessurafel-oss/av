@@ -1,11 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 12 General Ledger Engine
-   general-ledger.js  v3.0
-
-   Tables:
-     chart_of_accounts      — COA master (gl_account_code PK)
-     gl_transaction_journal — double-entry journal postings
-     loan_ledger            — per-loan running ledger
+   general-ledger.js  v3.1 — RESOLVED SUMMARY TILES FILTER BUG
+   Tables: chart_of_accounts, gl_transaction_journal, loan_ledger
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -94,14 +90,19 @@ async function loadLedger() {
   }
 }
 
-/* ── 1. Chart of Accounts ───────────────────────────────── */
+/* ── 1. Chart of Accounts — Always computes totals from full COA ── */
 async function loadCOA(f) {
-  let q = 'chart_of_accounts?select=*&order=gl_account_code.asc';
-  if (f.accountType) q += `&account_type=eq.${encodeURIComponent(f.accountType)}`;
+  // Fetch complete COA to update tiles correctly, regardless of UI filtering [1]
+  const allAccounts = await sbFetch('chart_of_accounts?select=*&order=gl_account_code.asc');
+  updateSummaryTiles(allAccounts);
 
-  const accounts = await sbFetch(q);
-  renderCOA(accounts);
-  updateSummaryTiles(accounts);
+  // Apply UI filter only for table generation [1]
+  let filteredAccounts = allAccounts;
+  if (f.accountType) {
+    filteredAccounts = allAccounts.filter(a => a.account_type === f.accountType);
+  }
+  
+  renderCOA(filteredAccounts);
 }
 
 function renderCOA(accounts) {
