@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF — 00 Client Master Registry</title>
+<title>AVMF — Client Master Directory</title>
 <link rel="stylesheet" href="style2.css"/>
+<!-- Include Supabase JS SDK [1] -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -24,47 +25,35 @@
       </svg>
       <div class="title-text-block">
         <span class="title-main">Africa Village Microfinance</span>
-        <span class="title-sub">00 — Client Master Registry</span>
+        <span class="title-sub">00 — Client Master Directory</span>
       </div>
     </div>
     <div class="title-meta">
       <span id="systemDate" class="title-date"></span>
-      <span class="title-user">👤 Desk Officer</span>
+      <span class="title-user">👤 Loan Officer</span>
     </div>
     <div class="window-controls">
       <span title="Minimize">─</span>
       <span title="Maximize">▢</span>
-      <span title="Close" class="wc-close">✕</span>
+      <span title="Close" class="wc-close" onclick="window.location='indexll.html'">✕</span>
     </div>
   </div>
 
   <!-- ══ Workspace ══════════════════════════════════════ -->
   <div class="workspace">
 
-    <!-- ── Left Navigation Sidebar ─────────────────────── -->
+    <!-- ── Left Navigation Sidebar (Category View) ──────── -->
     <div class="sidebar">
-      <div class="sidebar-header">
-        <span class="sidebar-header-icon">⚙</span>
-        System Operations
+      <div class="sidebar-header" style="cursor: pointer; background: var(--navy-900);" title="Return to Dashboard" onclick="window.location='indexll.html'">
+        🏠 Main Dashboard
       </div>
- <ul class="nav-menu">
-        <li><span class="nav-num">00</span><a href="client-maintenance.html" class="nav-label">Client maintenance</a></li>
-      <li><span class="nav-num">012</span><a href="account-maintenance.html" class="nav-label">account-maintenance</a></li>
-        <li><span class="nav-num">01</span><a href="loan-application.html" class="nav-label">Loan Application</a></li>
-        <li><span class="nav-num">02</span><a href="group-loan-projection.html" class="nav-label">Group Loan Projection</a></li>
-        <li><span class="nav-num">03</span><a href="loan-appraisal-management.html" class="nav-label">Loan Appraisal Management</a></li>
-        <li class="active"><span class="nav-num">04</span><a href="credit-sanction-console.html" class="nav-label">Credit Sanction Console</a></li>
-        <li><span class="nav-num">05</span><a href="loan-account-maintenance.html" class="nav-label">Loan Account Maintenance</a></li>
-        <li><span class="nav-num">06</span><a href="collateral-inventory-risk.html" class="nav-label">Collateral Inventory Risk</a></li>
-        <li><span class="nav-num">07</span><a href="guarantor-asset-registry.html" class="nav-label">Guarantor Asset Registry</a></li>
-        <li><span class="nav-num">08</span><a href="teller-cash-vault-control.html" class="nav-label">Teller Cash Vault Control</a></li>
-        <li><span class="nav-num">09</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
-        <li><span class="nav-num">10</span><a href="disbursement.html" class="nav-label">Loan Disbursement</a></li>
-        <li><span class="nav-num">11</span><a href="client-directory.html" class="nav-label">Client Views</a></li>
-        <li><span class="nav-num">12</span><a href="general-ledger.html" class="nav-label">general-ledger</a></li>
-        <li><span class="nav-num">13</span><a href="delinquency-dashboard.html" class="nav-label">delinquency-dashboard</a></li>
-        <li><span class="nav-num">14</span><a href="ledger-report.html" class="nav-label">Loan Ledger Report</a></li>
-        <li class="active"><span class="nav-num">15</span><a href="account-maintenance.html" class="nav-label">Account Maintenance</a></li>
+      <ul class="nav-menu">
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🌐</span><a href="indexll.html" class="nav-label">All Modules</a></li>
+        <li class="active"><span class="nav-num" style="background:none;font-size:14px;padding:0;">📋</span><a href="indexll.html" class="nav-label">Credit Operations</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">💰</span><a href="indexll.html" class="nav-label">Financials & Ledger</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🛡️</span><a href="indexll.html" class="nav-label">Risk & Collateral</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🏧</span><a href="indexll.html" class="nav-label">Teller & Cash</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📊</span><a href="indexll.html" class="nav-label">Reports</a></li>
       </ul>
       <div class="sidebar-footer-brand">
         <svg viewBox="0 0 100 100" width="28" height="28">
@@ -75,54 +64,66 @@
     </div>
 
     <!-- ── Main Content Canvas ─────────────────────────── -->
-    <div class="main-content" style="display: flex; flex-direction: column;">
-      
-      <div class="context-badge-bar">
-        <span class="badge-icon">👥</span>
-        Data View — Central Client Database
-      </div>
-
-      <!-- Search Toolbar -->
-      <div style="background: var(--bg-panel); border: 1px solid var(--border); padding: 8px; border-radius: 3px; display: flex; gap: 10px; align-items: center; margin-bottom: 8px; flex-shrink: 0;">
-        <label style="font-weight: 700; color: var(--navy-800); font-size: 11px;">Search Records:</label>
-        <div class="input-group" style="flex: 1; max-width: 400px;">
-          <input type="text" id="searchClientInput" placeholder="Filter by ID, Name, or Phone..." style="width: 100%;"/>
-          <span class="search-btn" id="btnSearch">🔍</span>
+    <div class="main-content">
+      <div class="module-view active" id="view-client-directory">
+        <div class="context-badge-bar">
+          <span class="badge-icon">📁</span>
+          Client Directory — Search and Filter Active Profiles
         </div>
-        <span style="color: var(--text-muted); font-size: 10px; font-style: italic;" id="recordCount">0 records found</span>
-      </div>
 
-      <!-- Data Grid -->
-      <div class="grid-container" style="flex: 1; overflow-y: auto;">
-        <table class="ledger-grid" id="tblClients">
-          <thead>
-            <tr>
-              <th style="width: 120px;">Client ID</th>
-              <th>Full Name</th>
-              <th>Client Type</th>
-              <th>Gender</th>
-              <th>Mobile No.</th>
-              <th>Status</th>
-              <th>Open Date</th>
-            </tr>
-          </thead>
-          <tbody id="clientTableBody">
-            <tr><td colspan="7" class="text-center gray-text italic" style="padding: 20px;">Initializing database connection...</td></tr>
-          </tbody>
-        </table>
-      </div>
+        <!-- Directory Search Bar -->
+        <div class="identity-bar" style="margin-bottom:12px;">
+          <div class="id-row" style="display:flex; gap:10px; align-items:center;">
+            <div class="id-field" style="flex:1;">
+              <label>Search Client Registry</label>
+              <div class="id-input-wrap">
+                <!-- Matches "searchClientInput" in script [1] -->
+                <input type="text" id="searchClientInput" class="id-input" placeholder="Search by Client ID, full name, or mobile number..."/>
+                <button class="lookup-btn" id="btnSearch" title="Search">🔍</button>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      <div class="sub-footer-token" id="statusBar">Status: Synchronized</div>
+        <!-- Ledger Table Grid -->
+        <div class="grid-container" style="flex:1; overflow-y:auto; border:1px solid var(--border); border-radius:4px; background:#fff; min-height:300px;">
+          <table class="ledger-grid">
+            <thead>
+              <tr>
+                <th>Client ID</th>
+                <th>Full Name</th>
+                <th>Client Type</th>
+                <th>Gender</th>
+                <th>Mobile</th>
+                <th>Status</th>
+                <th>Open Date</th>
+              </tr>
+            </thead>
+            <!-- Dynamic Injection [1] -->
+            <tbody id="clientTableBody">
+              <tr>
+                <td colspan="7" class="text-center gray-text italic" style="padding: 20px;">Initializing registry connection...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="sub-footer-token" style="display:flex; justify-content:space-between; align-items:center; padding:5px 8px;">
+          <span id="statusBar">Status: Synchronized</span>
+          <!-- Dynamic Counter [1] -->
+          <span id="recordCount" style="font-weight:700; color:var(--accent);">0 records found</span>
+        </div>
+      </div>
     </div><!-- /main-content -->
 
     <!-- ── Right Action Sidebar ─────────────────────────── -->
     <div class="action-sidebar">
-      <div class="action-sidebar-header">ACTIONS</div>
-      <button id="btnRefresh" class="action-btn">🔄 Refresh</button>
+      <!-- Standard Action Toolbar [1] -->
+      <button id="btnRefresh" class="action-btn">🔄 Sync Directory</button>
       <button id="btnAddClient" class="action-btn">➕ New Client</button>
-      <button id="btnEditClient" class="action-btn" disabled>✏️ Edit</button>
+      <button id="btnEditClient" class="action-btn" disabled>✏️ Edit Profile</button>
       <div class="sidebar-spacer"></div>
-      <button id="btnGlobalPrint" class="action-btn">🖨 Print List</button>
+      <button id="btnGlobalPrint" class="action-btn">🖨️ Print Registry</button>
       <div class="sidebar-footer">AVMF CBS v2.0</div>
     </div>
 
@@ -131,7 +132,7 @@
 
 <div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
 
-<script src="config.js"></script>
+<!-- Controller Connection [1] -->
 <script src="client-directory.js"></script>
 </body>
 </html>
