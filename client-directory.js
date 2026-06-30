@@ -1,9 +1,15 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 00 Client Master Registry
-   client-directory.js v2.0
+   client-directory.js v2.1 — RESOLVED CONNECTION & ONBOARDING LINKAGE
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
+
+const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
+
+// Initialize Supabase client globally [1]
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const TABLE_CLIENTS = 'ClientMasterRecords';
 let clientsData = [];
@@ -12,6 +18,7 @@ let clientsData = [];
 const toastEl = document.getElementById('toastNotification');
 let _toastTimer = null;
 function toast(msg, type = '', duration = 3000) {
+  if (!toastEl) return;
   toastEl.textContent = msg;
   toastEl.className = `toast show ${type}`;
   clearTimeout(_toastTimer);
@@ -26,13 +33,17 @@ function toast(msg, type = '', duration = 3000) {
   });
 })();
 
-/* ── Database Fetch ────────────────────────────────────── */
+/* ── Database Fetch — Safe execution ────────────────────── */
 async function fetchClients() {
   const tbody = document.getElementById('clientTableBody');
   const countEl = document.getElementById('recordCount');
   
-  tbody.innerHTML = '<tr><td colspan="7" class="text-center gray-text italic" style="padding: 20px;">Fetching records from server...</td></tr>';
-  countEl.textContent = 'Loading...';
+  if (tbody) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center gray-text italic" style="padding: 20px;">Fetching records from server...</td></tr>';
+  }
+  if (countEl) {
+    countEl.textContent = 'Loading...';
+  }
 
   try {
     const { data, error } = await _supabase
@@ -48,8 +59,12 @@ async function fetchClients() {
 
   } catch (err) {
     console.error("Fetch Error:", err.message);
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center red-text font-bold" style="padding: 20px;">Database Error: ${err.message}</td></tr>`;
-    countEl.textContent = '0 records found';
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center red-text font-bold" style="padding: 20px;">Database Error: ${err.message}</td></tr>`;
+    }
+    if (countEl) {
+      countEl.textContent = '0 records found';
+    }
     toast('Database connection failed.', 'error');
   }
 }
@@ -60,8 +75,10 @@ function renderTable(data) {
   const countEl = document.getElementById('recordCount');
   const btnEdit = document.getElementById('btnEditClient');
   
-  btnEdit.disabled = true; // reset edit button
-  countEl.textContent = `${data.length} record(s) found`;
+  if (btnEdit) btnEdit.disabled = true;
+  if (countEl) countEl.textContent = `${data.length} record(s) found`;
+
+  if (!tbody) return;
 
   if (data.length === 0) {
     tbody.innerHTML = '<tr><td colspan="7" class="text-center gray-text italic" style="padding: 20px;">No client records found.</td></tr>';
@@ -69,10 +86,8 @@ function renderTable(data) {
   }
 
   const rowsHtml = data.map(r => {
-    // Construct Name
     const fullName = r.client_name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'Unknown';
     
-    // Status Coloring
     let statusBg = '#eef4fb';
     let statusColor = '#0d3460';
     if (r.status === 'Active') { statusBg = '#d4edda'; statusColor = '#155724'; }
@@ -94,13 +109,12 @@ function renderTable(data) {
 
   tbody.innerHTML = rowsHtml;
 
-  // Add click listener for row selection (CBS styling behavior)
   const rows = tbody.querySelectorAll('.data-row');
   rows.forEach(row => {
     row.addEventListener('click', () => {
       rows.forEach(r => r.classList.remove('selected-row'));
       row.classList.add('selected-row');
-      btnEdit.disabled = false; // Enable action buttons when row is selected
+      if (btnEdit) btnEdit.disabled = false;
     });
   });
 }
@@ -120,40 +134,49 @@ function applyFilter() {
       visibleCount++;
     } else {
       row.style.display = 'none';
-      row.classList.remove('selected-row'); // deselect if hidden
+      row.classList.remove('selected-row');
     }
   });
 
-  document.getElementById('recordCount').textContent = `${visibleCount} record(s) found`;
-  document.getElementById('btnEditClient').disabled = true;
+  const countEl = document.getElementById('recordCount');
+  if (countEl) countEl.textContent = `${visibleCount} record(s) found`;
+  
+  const btnEdit = document.getElementById('btnEditClient');
+  if (btnEdit) btnEdit.disabled = true;
 }
 
-searchInput.addEventListener('input', applyFilter);
-document.getElementById('btnSearch').addEventListener('click', applyFilter);
+if (searchInput) searchInput.addEventListener('input', applyFilter);
+document.getElementById('btnSearch')?.addEventListener('click', applyFilter);
 
-/* ── Toolbar Actions ───────────────────────────────────── */
-document.getElementById('btnRefresh').addEventListener('click', () => {
-  searchInput.value = '';
+/* ── Toolbar Actions — Linked directly to onboarding view ── */
+document.getElementById('btnRefresh')?.addEventListener('click', () => {
+  if (searchInput) searchInput.value = '';
   fetchClients();
 });
 
-document.getElementById('btnGlobalPrint').addEventListener('click', () => {
+document.getElementById('btnGlobalPrint')?.addEventListener('click', () => {
   window.print();
 });
 
-document.getElementById('btnAddClient').addEventListener('click', () => {
-  toast('Redirecting to Client Onboarding Module...', 'info');
-  // Example: window.location.href = 'client-onboarding.html';
+document.getElementById('btnAddClient')?.addEventListener('click', () => {
+  toast('Redirecting to Client Maintenance & Onboarding...', 'info');
+  setTimeout(() => {
+    window.location.href = 'client-maintenance.html'; // Load onboarding page [1]
+  }, 1000);
 });
 
-document.getElementById('btnEditClient').addEventListener('click', () => {
+document.getElementById('btnEditClient')?.addEventListener('click', () => {
   const selected = document.querySelector('.selected-row');
   if (!selected) {
     toast('⚠ Select a client record to edit.', 'warning');
     return;
   }
   const clientId = selected.querySelector('td').innerText;
-  toast(`Opening editor for Client ID: ${clientId}`, 'info');
+  toast(`Opening Client Profile ${clientId}...`, 'info');
+  setTimeout(() => {
+    // Navigate with query parameters to populate directly [1]
+    window.location.href = `client-maintenance.html?clientId=${encodeURIComponent(clientId)}`;
+  }, 1000);
 });
 
 /* ── Init ──────────────────────────────────────────────── */
