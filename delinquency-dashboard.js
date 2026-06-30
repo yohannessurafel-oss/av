@@ -1,22 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 13 Delinquency & PAR Dashboard
-   delinquency-dashboard.js  v3.0
-
+   delinquency-dashboard.js  v3.1 — RESOLVED KPI INCONSISTENCY
    Table: loan_delinquency_registry
-     PK:    delinquency_id  (bigint identity)
-     cols:  application_id, days_past_due, overdue_principal,
-            overdue_interest, accrued_penalties,
-            par_bucket CHECK(PAR-0|PAR-30|PAR-60|PAR-90|NPL),
-            collection_status, last_unannounced_visit_date, remarks
-
-   Features:
-     • Loads all records on DOMContentLoaded
-     • 5 KPI tiles (total, PAR-30, PAR-60, PAR-90, NPL)
-       each showing total overdue ETB + account count
-     • Client-side filter by App ID + PAR bucket + collection status
-     • Click any row → slide-in detail panel to update
-       collection_status, par_bucket, last_visit_date, remarks
-       via PATCH on delinquency_id
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -75,7 +60,7 @@ const fmtK = n => {
 
 /* ── Global state ───────────────────────────────────────── */
 let portfolioData = [];
-let _editingId    = null;   // delinquency_id currently in detail panel
+let _editingId    = null;
 
 /* ── Load all records ───────────────────────────────────── */
 async function loadDelinquencyRecords() {
@@ -97,7 +82,7 @@ async function loadDelinquencyRecords() {
   }
 }
 
-/* ── KPI calculation ────────────────────────────────────── */
+/* ── KPI calculation — Standardized sum components ────────────────── */
 function calculateKpis(data) {
   const bucketSum   = b => data.filter(r => r.par_bucket === b)
     .reduce((s, r) => s + parseFloat(r.overdue_principal||0) + parseFloat(r.overdue_interest||0) + parseFloat(r.accrued_penalties||0), 0);
@@ -107,9 +92,9 @@ function calculateKpis(data) {
 
   set('kpiTotalActive',  data.length + ' Accounts');
 
-  // PAR-30 = PAR-30 + PAR-60 + PAR-90 + NPL (cumulative ≥30 days)
+  // PAR-30 (cumulative ≥30 days) — Corrected to include accrued penalties consistently [1]
   const par30Rows  = data.filter(r => ['PAR-30','PAR-60','PAR-90','NPL'].includes(r.par_bucket));
-  const par30Total = par30Rows.reduce((s,r) => s + parseFloat(r.overdue_principal||0) + parseFloat(r.overdue_interest||0), 0);
+  const par30Total = par30Rows.reduce((s,r) => s + parseFloat(r.overdue_principal||0) + parseFloat(r.overdue_interest||0) + parseFloat(r.accrued_penalties||0), 0);
   set('kpiPAR30',      fmtK(par30Total) + ' ETB');
   set('kpiPAR30Count', par30Rows.length + ' accounts');
 
@@ -175,7 +160,6 @@ function renderGrid(data) {
     `;
   }).join('');
 
-  // Attach row click listeners
   tbody.querySelectorAll('tr[data-id]').forEach(tr => {
     tr.addEventListener('click', () => openDetailPanel(parseInt(tr.dataset.id)));
   });
@@ -223,26 +207,19 @@ async function saveDetailPanel() {
     );
     toast(`Record ${_editingId} updated.`, 'success');
     closeDetailPanel();
-    await loadDelinquencyRecords();   // refresh grid
+    await loadDelinquencyRecords();
   } catch (e) {
     toast('Save error: ' + e.message, 'error');
   }
 }
 
 /* ── Event wiring ────────────────────────────────────────── */
-// Filter inputs — live filter
 document.getElementById('searchAppId')?.addEventListener('input',  applyFiltersAndRender);
 document.getElementById('filterPAR')?.addEventListener('change',   applyFiltersAndRender);
 document.getElementById('filterCollStatus')?.addEventListener('change', applyFiltersAndRender);
-
-// Refresh
 document.getElementById('btnRefresh')?.addEventListener('click', loadDelinquencyRecords);
-
-// Print
 document.getElementById('btnPrint')?.addEventListener('click', () => window.print());
 document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
-
-// Detail panel buttons
 document.getElementById('btnCloseDetail')?.addEventListener('click',  closeDetailPanel);
 document.getElementById('btnCancelDetail')?.addEventListener('click', closeDetailPanel);
 document.getElementById('btnSaveDetail')?.addEventListener('click',   saveDetailPanel);
