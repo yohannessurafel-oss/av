@@ -1,30 +1,17 @@
 /* ═══════════════════════════════════════════════════════════
-   Africa Village Microfinance — 08 Teller Cash Vault Control
-   teller-cash-vault-control.js  v3.0
-   
-   Tables used (actual schema):
-     tellertillregistry   — till master record
-       PK: till_id
-       cols: branch_id, cashier_name, till_status (default 'CLOSED')
+   Africa Village Microfinance — 09 Settlement / Early Payoff
+   settlement-early-payoff.js  v1.0
 
-     teller_transactions  — individual transaction rows
-       PK: transaction_id (auto)
-       cols: till_id (FK), branch_id (FK), transaction_type CHECK
-             (OPEN|CLOSE|RECEIPT|PAYMENT|TRANSFER|ADJUSTMENT),
-             transaction_date, transaction_time, reference_no,
-             denom_1000…denom_cents, total_amount, running_balance,
-             narration, created_by
+   Tables:
+     loanmasterrecords      — loan master record (read)
+     loan_ledger            — transaction history (read, write on settle)
+     amortization_schedules — installment schedule (read)
 
    Workflow:
-     1. Select Branch + enter Till ID → 🔍  loads till master
-        + recent transactions into the grid
-     2. Add → creates a new till in tellertillregistry
-     3. Edit → updates cashier_name on existing till
-     4. Save → persists till master (Add/Edit)
-     5. "Open Till" inline btn → posts OPEN transaction
-     6. "Close Till" inline btn → posts CLOSE transaction
-     7. "Post Transaction" inline btn → posts any other tx type
-        with full denomination breakdown → total auto-calculated
+     1. Enter Application ID → 🔍 loads loan, schedule, ledger, history
+     2. Pay-off Components tab shows computed settlement breakdown
+     3. Process Settlement posts a final payoff entry to loan_ledger
+        and sets loanmasterrecords.application_status = 'Settled'
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -70,16 +57,15 @@ function toast(msg, type = '', duration = 3500) {
   if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
     weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
   });
-  // Also set today as default transaction date
-  const txDateEl = document.getElementById('txDate');
-  if (txDateEl) txDateEl.value = new Date().toISOString().split('T')[0];
+  const sd = document.getElementById('payoffSettlementDate');
+  if (sd) sd.value = new Date().toISOString().split('T')[0];
 })();
 
 /* ── Branch Dropdown ───────────────────────────────────── */
 let _branchCache = [];
 
 async function loadBranches() {
-  const sel = document.getElementById('tellerBranchId');
+  const sel = document.getElementById('payoffBranchId');
   if (sel) { sel.innerHTML = '<option value="">Loading branches…</option>'; sel.disabled = true; }
   try {
     const rows = await sbFetch('branchregistry?select=branch_id,branch_name&order=branch_id');
@@ -99,368 +85,318 @@ async function loadBranches() {
   }
 }
 
-document.getElementById('tellerBranchId')?.addEventListener('change', function () {
-  const nameEl = document.getElementById('tellerBranchName');
+document.getElementById('payoffBranchId')?.addEventListener('change', function () {
+  const nameEl = document.getElementById('payoffBranchName');
   const chosen = _branchCache.find(b => b.branch_id === this.value);
   if (nameEl) nameEl.value = chosen ? (chosen.branch_name || '') : '';
 });
 
-/* ── Denomination Auto-Calc ─────────────────────────────── */
-const DENOM_IDS = [
-  { id: 'denom1000', value: 1000 },
-  { id: 'denom500',  value: 500  },
-  { id: 'denom200',  value: 200  },
-  { id: 'denom100',  value: 100  },
-  { id: 'denom50',   value: 50   },
-  { id: 'denom10',   value: 10   },
-  { id: 'denom5',    value: 5    },
-  { id: 'denom1',    value: 1    },
-  { id: 'denomCents',value: 0.01 },
-];
-
-function recalcTotal() {
-  const total = DENOM_IDS.reduce((sum, d) => {
-    const qty = parseInt(document.getElementById(d.id)?.value || 0) || 0;
-    return sum + (qty * d.value);
-  }, 0);
-  const el = document.getElementById('txTotalAmount');
-  if (el) el.value = total.toFixed(2);
-}
-
-DENOM_IDS.forEach(d => {
-  document.getElementById(d.id)?.addEventListener('input', recalcTotal);
+/* ── Tab Switching ──────────────────────────────────────── */
+document.querySelectorAll('.sub-tab').forEach(tab => {
+  tab.addEventListener('click', function () {
+    document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.sub-tab-view').forEach(v => v.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById('subview-' + this.dataset.target)?.classList.add('active');
+  });
 });
 
-function getDenomPayload() {
-  return {
-    denom_1000: parseInt(document.getElementById('denom1000')?.value || 0) || 0,
-    denom_500:  parseInt(document.getElementById('denom500')?.value  || 0) || 0,
-    denom_200:  parseInt(document.getElementById('denom200')?.value  || 0) || 0,
-    denom_100:  parseInt(document.getElementById('denom100')?.value  || 0) || 0,
-    denom_50:   parseInt(document.getElementById('denom50')?.value   || 0) || 0,
-    denom_10:   parseInt(document.getElementById('denom10')?.value   || 0) || 0,
-    denom_5:    parseInt(document.getElementById('denom5')?.value    || 0) || 0,
-    denom_1:    parseInt(document.getElementById('denom1')?.value    || 0) || 0,
-    denom_cents:parseInt(document.getElementById('denomCents')?.value|| 0) || 0,
-  };
-}
+/* ── Format helpers ──────────────────────────────────────── */
+const fmt = n => parseFloat(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-function clearDenomFields() {
-  DENOM_IDS.forEach(d => { const el = document.getElementById(d.id); if (el) el.value = 0; });
-  const t = document.getElementById('txTotalAmount'); if (t) t.value = '';
-}
+/* ── State ──────────────────────────────────────────────── */
+let _loadedAppId = null;
+let _loanRecord  = null;
+let _scheduleRows = [];
+let _ledgerRows   = [];
 
-/* ── Track loaded till ──────────────────────────────────── */
-let _loadedTillId  = null;
-let _runningBalance = 0;
-
-/* ── Load Till + Transactions ───────────────────────────── */
-async function loadTill() {
-  const tillId   = document.getElementById('tellerTillId')?.value?.trim();
-  const branchId = document.getElementById('tellerBranchId')?.value?.trim();
-  if (!tillId)   { toast('Enter a Till ID to search.', 'warning'); return; }
-  if (!branchId) { toast('Select a Branch first.', 'warning'); return; }
+/* ── Load Loan + Schedule + Ledger ───────────────────────── */
+async function loadPayoffRecord() {
+  const appId = document.getElementById('payoffAccNoTarget')?.value?.trim();
+  if (!appId) { toast('Enter an Application ID to search.', 'warning'); return; }
 
   const sb = document.getElementById('statusBar');
-  if (sb) sb.textContent = `Loading till ${tillId}…`;
+  if (sb) sb.textContent = `Loading ${appId}…`;
 
   try {
-    // 1. Load till master
-    const tillRows = await sbFetch(
-      `tellertillregistry?till_id=eq.${encodeURIComponent(tillId)}&branch_id=eq.${encodeURIComponent(branchId)}&select=*&limit=1`
+    const loanRows = await sbFetch(
+      `loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}&select=*&limit=1`
     );
-
-    if (!tillRows || tillRows.length === 0) {
-      toast(`Till ${tillId} not found for this branch.`, 'warning');
+    if (!loanRows || !loanRows[0]) {
+      toast('Application ID not found.', 'warning');
       if (sb) sb.textContent = 'Status: Not found';
       return;
     }
+    _loanRecord = loanRows[0];
+    _loadedAppId = _loanRecord.application_id;
 
-    const till = tillRows[0];
-    _loadedTillId = till.till_id;
+    // Populate header fields
+    const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+    v('payoffClientId',   _loanRecord.client_id);
+    v('payoffLoanSeries', _loanRecord.loan_series_no);
+    v('payoffLoanAmount', fmt(_loanRecord.applied_amount));
+    v('payoffProductId',  _loanRecord.product_id);
+    v('payoffCurrencyId', _loanRecord.currency_id || 'ETB');
+    v('payoffCreatedOn',  _loanRecord.created_on ? new Date(_loanRecord.created_on).toLocaleString('en-ET') : '');
+    v('payoffPreclosureStatus', _loanRecord.application_status === 'Settled' ? 'Already Settled' : 'Eligible');
 
-    document.getElementById('tellerCashierName').value = till.cashier_name || '';
-    document.getElementById('tellerTillStatus').value  = till.till_status  || 'CLOSED';
-    document.getElementById('tellerTillDescription').value = till.till_id;
-
-    // 2. Load recent transactions (last 50)
-    const txRows = await sbFetch(
-      `teller_transactions?till_id=eq.${encodeURIComponent(tillId)}&branch_id=eq.${encodeURIComponent(branchId)}&select=*&order=transaction_id.desc&limit=50`
-    );
-
-    renderTransactions(Array.isArray(txRows) ? txRows : []);
-
-    // Running balance = latest row's running_balance
-    if (txRows && txRows.length > 0) {
-      _runningBalance = parseFloat(txRows[0].running_balance || 0);
-    } else {
-      _runningBalance = 0;
+    const brSel = document.getElementById('payoffBranchId');
+    if (brSel && _loanRecord.branch_id) {
+      brSel.value = _loanRecord.branch_id;
+      brSel.dispatchEvent(new Event('change'));
     }
 
-    toast(`Till ${tillId} loaded. Balance: ETB ${_runningBalance.toFixed(2)}`);
-    if (sb) sb.textContent = `Till ${tillId} | Status: ${till.till_status} | Balance: ETB ${_runningBalance.toFixed(2)}`;
+    // Load amortization schedule
+    _scheduleRows = await sbFetch(
+      `amortization_schedules?application_id=eq.${encodeURIComponent(appId)}&select=*&order=installment_no.asc`
+    ) || [];
+    renderSchedule(_scheduleRows);
 
-    // Enable Edit since we loaded a record
-    const btnEdit = document.getElementById('btnGlobalEdit');
-    if (btnEdit) btnEdit.disabled = false;
+    // Load loan ledger (statement)
+    _ledgerRows = await sbFetch(
+      `loan_ledger?application_id=eq.${encodeURIComponent(appId)}&select=*&order=id.asc`
+    ) || [];
+    renderStatement(_ledgerRows);
+    renderHistory(_loanRecord);
 
-    setMode('view');
+    // Compute pay-off components
+    computePayoff();
+
+    toast(`Loaded: ${_loadedAppId}`);
+    if (sb) sb.textContent = `Application ${_loadedAppId} | Status: ${_loanRecord.application_status}`;
   } catch (e) {
-    toast('Load error: ' + e.message, 'error');
-    if (sb) sb.textContent = 'Load failed.';
+    toast('Lookup error: ' + e.message, 'error');
+    if (sb) sb.textContent = 'Lookup failed.';
   }
 }
 
-/* ── Render Transactions Grid ───────────────────────────── */
-function renderTransactions(rows) {
-  const tbody = document.getElementById('transactionsTbody');
+/* ── Render: Amortization Schedule ──────────────────────── */
+function renderSchedule(rows) {
+  const tbody = document.querySelector('#installmentScheduleTable tbody');
   if (!tbody) return;
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center gray-text italic">No transactions for this till.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center gray-text italic">No schedule found for this loan.</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(r => `
     <tr>
-      <td>${r.transaction_id}</td>
-      <td><span style="font-weight:600;">${r.transaction_type}</span></td>
-      <td>${r.transaction_date || ''}</td>
-      <td>${r.reference_no || ''}</td>
-      <td>${r.narration || ''}</td>
-      <td class="text-right">${parseFloat(r.total_amount || 0).toFixed(2)}</td>
-      <td class="text-right"><strong>${parseFloat(r.running_balance || 0).toFixed(2)}</strong></td>
+      <td>${r.installment_no}</td>
+      <td>${r.due_date}</td>
+      <td class="text-right">${fmt(r.principal_due)}</td>
+      <td class="text-right">${fmt(r.interest_due)}</td>
+      <td class="text-right">${fmt(r.principal_paid)}</td>
+      <td class="text-right">${fmt(r.interest_paid)}</td>
+      <td><span class="status-badge">${r.status}</span></td>
     </tr>
   `).join('');
 }
 
-/* ── Post a Transaction ─────────────────────────────────── */
-async function postTransaction(forcedType) {
-  if (!_loadedTillId) { toast('Load a till first.', 'warning'); return; }
+/* ── Render: Loan Statement (ledger) ────────────────────── */
+function renderStatement(rows) {
+  const tbody = document.querySelector('#loanStatementTable tbody');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center gray-text italic">No statement data available.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.post_date}</td>
+      <td>${r.value_date}</td>
+      <td>${r.description}</td>
+      <td><small class="gray-text">${r.ref_batch}</small></td>
+      <td class="text-right">${fmt(r.principal)}</td>
+      <td class="text-right">${fmt(r.interest)}</td>
+      <td class="text-right">${fmt(r.charges_penalties)}</td>
+      <td class="text-right">${fmt(r.total_paid)}</td>
+      <td class="text-right" style="font-weight:700;">${fmt(r.running_balance)}</td>
+    </tr>
+  `).join('');
+}
 
-  const txType = forcedType || document.getElementById('txType')?.value;
-  if (!txType) { toast('Select a Transaction Type.', 'warning'); return; }
+/* ── Render: Loan History ───────────────────────────────── */
+function renderHistory(loan) {
+  const tbody = document.querySelector('#loanHistoryTable tbody');
+  if (!tbody) return;
+  tbody.innerHTML = `
+    <tr>
+      <td class="text-right">${fmt(loan.interest_rate)}%</td>
+      <td>${loan.loan_series_no || '—'}</td>
+      <td>${loan.file_number || '—'}</td>
+      <td>${loan.application_id}</td>
+      <td class="text-right">${fmt(loan.sanction_amount)}</td>
+      <td class="text-right">${fmt(loan.approved_amount)}</td>
+      <td>${loan.disbursement_date || '—'}</td>
+      <td>${loan.term_months || '—'} mo</td>
+      <td><span class="status-badge">${loan.application_status}</span></td>
+    </tr>
+  `;
+}
 
-  const branchId = document.getElementById('tellerBranchId')?.value?.trim();
-  const total    = parseFloat(document.getElementById('txTotalAmount')?.value || 0);
-  const txDate   = document.getElementById('txDate')?.value || new Date().toISOString().split('T')[0];
+/* ── Compute Pay-off Components ─────────────────────────── */
+function computePayoff() {
+  if (!_loanRecord) return;
 
-  // Running balance: RECEIPT/OPEN/ADJUSTMENT add; PAYMENT/CLOSE/TRANSFER subtract
-  const isCredit = ['OPEN','RECEIPT','ADJUSTMENT'].includes(txType);
-  const newBalance = _runningBalance + (isCredit ? total : -total);
+  // Outstanding balance from latest ledger entry, fallback to applied amount
+  let outstandingBalance = _loanRecord.applied_amount || 0;
+  if (_ledgerRows.length) {
+    outstandingBalance = parseFloat(_ledgerRows[_ledgerRows.length - 1].running_balance || 0);
+  }
 
-  const payload = {
-    till_id:          _loadedTillId,
-    branch_id:        branchId || null,
-    transaction_type: txType,
-    transaction_date: txDate,
-    transaction_time: new Date().toISOString(),
-    reference_no:     document.getElementById('txRefNo')?.value?.trim()     || null,
-    narration:        document.getElementById('txNarration')?.value?.trim()  || null,
-    created_by:       document.getElementById('txCreatedBy')?.value?.trim()  || null,
-    total_amount:     total,
-    running_balance:  newBalance,
-    ...getDenomPayload()
-  };
+  // Sum unpaid principal/interest from schedule
+  let unpaidPrincipal = 0, unpaidInterest = 0;
+  _scheduleRows.forEach(r => {
+    if (r.status !== 'PAID') {
+      unpaidPrincipal += (parseFloat(r.principal_due||0) - parseFloat(r.principal_paid||0));
+      unpaidInterest  += (parseFloat(r.interest_due||0)  - parseFloat(r.interest_paid||0));
+    }
+  });
+  if (unpaidPrincipal < 0) unpaidPrincipal = 0;
+  if (unpaidInterest  < 0) unpaidInterest  = 0;
+
+  // If no schedule, fall back to outstanding balance as principal-only
+  if (!_scheduleRows.length) {
+    unpaidPrincipal = outstandingBalance;
+    unpaidInterest  = 0;
+  }
+
+  // Early settlement penalty: flat 2% of outstanding principal (configurable policy)
+  const penaltyRate = 0.02;
+  const penalty = unpaidPrincipal * penaltyRate;
+
+  const waiver = parseFloat(document.getElementById('payoffWaiver')?.value || 0) || 0;
+  const netSettlement = unpaidPrincipal + unpaidInterest + penalty - waiver;
+
+  // Render components grid
+  const tbody = document.querySelector('#dynamicPayoffGrid tbody');
+  if (tbody) {
+    tbody.innerHTML = `
+      <tr><td>Outstanding Principal</td><td class="text-right">${fmt(unpaidPrincipal)}</td></tr>
+      <tr><td>Accrued / Unpaid Interest</td><td class="text-right">${fmt(unpaidInterest)}</td></tr>
+      <tr><td>Early Settlement Penalty (2%)</td><td class="text-right">${fmt(penalty)}</td></tr>
+      <tr><td>Less: Approved Waiver</td><td class="text-right">−${fmt(waiver)}</td></tr>
+      <tr style="border-top:2px solid var(--accent,#0d3460);">
+        <td style="font-weight:700;">Net Settlement Amount</td>
+        <td class="text-right" style="font-weight:700;">${fmt(netSettlement)}</td>
+      </tr>
+    `;
+  }
+
+  document.getElementById('payoffLoanBalance').value = fmt(outstandingBalance);
+  document.getElementById('payoffNetAmount').value    = fmt(netSettlement);
+
+  return { unpaidPrincipal, unpaidInterest, penalty, waiver, netSettlement, outstandingBalance };
+}
+
+document.getElementById('payoffWaiver')?.addEventListener('input', computePayoff);
+
+/* ── Process Settlement ─────────────────────────────────── */
+async function processSettlement() {
+  if (!_loadedAppId || !_loanRecord) { toast('Load a loan record first.', 'warning'); return; }
+  if (_loanRecord.application_status === 'Settled') { toast('This loan is already settled.', 'warning'); return; }
+
+  const components = computePayoff();
+  const settlementDate = document.getElementById('payoffSettlementDate')?.value;
+  const settledBy       = document.getElementById('payoffSettledBy')?.value?.trim();
+  const paymentMode      = document.getElementById('payoffPaymentMode')?.value;
+
+  if (!settlementDate) { toast('Enter a Settlement Date.', 'warning'); return; }
+  if (!settledBy)       { toast('Enter Settled By (officer ID).', 'warning'); return; }
+
+  if (!confirm(`Confirm full settlement of ${_loadedAppId} for ETB ${fmt(components.netSettlement)}?`)) return;
 
   const sb = document.getElementById('statusBar');
-  if (sb) sb.textContent = `Posting ${txType}…`;
+  if (sb) sb.textContent = 'Processing settlement…';
 
   try {
-    await sbFetch('teller_transactions', {
+    // 1. Post final payoff entry to loan_ledger
+    await sbFetch('loan_ledger', {
       method: 'POST',
       prefer: 'return=minimal',
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        application_id: _loadedAppId,
+        client_id:      _loanRecord.client_id,
+        post_date:      settlementDate,
+        value_date:     settlementDate,
+        description:    `Full settlement / early payoff via ${paymentMode}`,
+        ref_batch:      `SETTLE-${_loadedAppId}-${Date.now()}`,
+        principal:      components.unpaidPrincipal,
+        interest:       components.unpaidInterest,
+        charges_penalties: components.penalty - components.waiver,
+        total_paid:     components.netSettlement,
+        running_balance: 0,
+        borrower_name:  _loanRecord.client_name || null,
+      })
     });
 
-    // If OPEN or CLOSE — also update till status in master
-    if (txType === 'OPEN' || txType === 'CLOSE') {
-      const newStatus = txType === 'OPEN' ? 'OPEN' : 'CLOSED';
-      await sbFetch(`tellertillregistry?till_id=eq.${encodeURIComponent(_loadedTillId)}`, {
-        method: 'PATCH',
-        prefer: 'return=minimal',
-        body: JSON.stringify({ till_status: newStatus })
-      });
-      document.getElementById('tellerTillStatus').value = newStatus;
-    }
-
-    _runningBalance = newBalance;
-    toast(`${txType} posted. New balance: ETB ${newBalance.toFixed(2)}`, 'success');
-    if (sb) sb.textContent = `Till ${_loadedTillId} | Balance: ETB ${newBalance.toFixed(2)}`;
-
-    // Clear transaction entry fields
-    clearDenomFields();
-    ['txRefNo','txNarration','txCreatedBy'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.value = '';
+    // 2. Update loanmasterrecords status
+    await sbFetch(`loanmasterrecords?application_id=eq.${encodeURIComponent(_loadedAppId)}`, {
+      method: 'PATCH',
+      prefer: 'return=minimal',
+      body: JSON.stringify({
+        application_status: 'Settled',
+        modified_by: settledBy,
+        modified_on: new Date().toISOString(),
+      })
     });
-    const txTypeEl = document.getElementById('txType');
-    if (txTypeEl) txTypeEl.value = '';
 
-    // Refresh the grid
-    await loadTill();
+    toast(`✔ Loan ${_loadedAppId} settled. Net amount: ETB ${fmt(components.netSettlement)}`, 'success');
+    if (sb) sb.textContent = `Settled — ${_loadedAppId}`;
+
+    // Refresh view
+    await loadPayoffRecord();
   } catch (e) {
-    toast('Post error: ' + e.message, 'error');
-    if (sb) sb.textContent = 'Post failed — see toast.';
+    toast('Settlement error: ' + e.message, 'error');
+    if (sb) sb.textContent = 'Settlement failed — see toast.';
   }
 }
 
-/* ── Save Till Master (Add / Edit) ──────────────────────── */
-async function saveTill() {
-  const tillId   = document.getElementById('tellerTillId')?.value?.trim();
-  const branchId = document.getElementById('tellerBranchId')?.value?.trim();
-  if (!tillId)   { toast('Till ID is required.', 'warning'); return; }
-  if (!branchId) { toast('Branch is required.', 'warning'); return; }
-
-  const payload = {
-    till_id:      tillId,
-    branch_id:    branchId,
-    cashier_name: document.getElementById('tellerCashierName')?.value?.trim() || null,
-    till_status:  currentMode === 'add' ? 'CLOSED' : undefined,
-  };
-  if (payload.till_status === undefined) delete payload.till_status;
-
-  const sb = document.getElementById('statusBar');
-  if (sb) sb.textContent = 'Saving till…';
-
-  try {
-    if (currentMode === 'add') {
-      await sbFetch('tellertillregistry', {
-        method: 'POST',
-        prefer: 'return=minimal',
-        body: JSON.stringify(payload)
-      });
-      toast(`Till ${tillId} created.`, 'success');
-      _loadedTillId = tillId;
-    } else {
-      const { till_id, ...updateFields } = payload;
-      await sbFetch(`tellertillregistry?till_id=eq.${encodeURIComponent(tillId)}`, {
-        method: 'PATCH',
-        prefer: 'return=minimal',
-        body: JSON.stringify(updateFields)
-      });
-      toast(`Till ${tillId} updated.`, 'success');
-    }
-    setMode('view');
-    await loadTill();
-  } catch (e) {
-    toast('Save error: ' + e.message, 'error');
-    if (sb) sb.textContent = 'Save failed.';
-  }
-}
-
-/* ── Mode Control ──────────────────────────────────────── */
-let currentMode = 'view';
-
+/* ── Mode Control (view-only module, minimal mode logic) ──── */
 function setMode(mode) {
-  currentMode = mode;
-  const isEdit = mode === 'edit' || mode === 'add';
-  const view = document.querySelector('.module-view.active');
-
-  if (view) {
-    view.querySelectorAll('input, select, textarea').forEach(el => {
-      if (el.dataset.alwaysEnabled !== undefined) { el.disabled = false; return; }
-      if (el.hasAttribute('readonly'))            { el.disabled = false; return; }
-      el.disabled = !isEdit;
-    });
-  }
-
-  // These are always enabled regardless of mode
-  ['tellerTillId','txType','txDate','txRefNo','txNarration','txCreatedBy',
-   ...DENOM_IDS.map(d => d.id)].forEach(id => {
-    const el = document.getElementById(id); if (el) el.disabled = false;
-  });
-
-  const btnSave   = document.getElementById('btnGlobalSave');
-  const btnCancel = document.getElementById('btnGlobalCancel');
-  const btnAdd    = document.getElementById('btnGlobalAdd');
-  const btnEdit   = document.getElementById('btnGlobalEdit');
-  const btnClose  = document.getElementById('btnGlobalClose');
-  const btnDelete = document.getElementById('btnGlobalDelete');
-
-  if (btnSave)   btnSave.disabled   = !isEdit;
-  if (btnCancel) btnCancel.disabled = !isEdit;
-  if (btnAdd)    btnAdd.disabled    = isEdit;
-  if (btnEdit)   btnEdit.disabled   = isEdit || !_loadedTillId;
-  if (btnDelete) btnDelete.disabled = true;
-  if (btnClose)  btnClose.disabled  = isEdit;
-
   const sb = document.getElementById('statusBar');
-  if (sb && mode !== 'view') {
-    sb.textContent = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)} — Ready`;
-  }
+  if (sb && mode) sb.textContent = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)} — Ready`;
 }
 
 /* ── Toolbar ─────────────────────────────────────────────── */
-document.getElementById('btnGlobalView')?.addEventListener('click', loadTill);
-document.getElementById('btnSearchTill')?.addEventListener('click', loadTill);
+document.getElementById('btnGlobalView')?.addEventListener('click', loadPayoffRecord);
+document.getElementById('btnSearchPayoff')?.addEventListener('click', loadPayoffRecord);
+document.getElementById('btnProcessSettlement')?.addEventListener('click', processSettlement);
 
 document.getElementById('btnGlobalAdd')?.addEventListener('click', () => {
-  _loadedTillId = null;
-  _runningBalance = 0;
-  ['tellerTillId','tellerCashierName','tellerTillStatus','tellerTillDescription'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  document.getElementById('transactionsTbody').innerHTML =
-    '<tr><td colspan="7" class="text-center gray-text italic">New till — save to create.</td></tr>';
-  setMode('add');
-  toast('Add mode — enter Till ID, select branch, set cashier then Save.');
+  toast('This module reads existing loans only. Create new loans in Module 01.', 'warning');
 });
-
 document.getElementById('btnGlobalEdit')?.addEventListener('click', () => {
-  if (!_loadedTillId) { toast('Load a till first.', 'warning'); return; }
-  setMode('edit');
-  toast('Edit mode — update cashier name then Save.');
+  if (!_loadedAppId) { toast('Load a record first.', 'warning'); return; }
+  toast('Adjust Penalty Waiver and Settlement Date, then click Process Settlement.', '');
 });
-
-document.getElementById('btnGlobalSave')?.addEventListener('click', saveTill);
-
+document.getElementById('btnGlobalSave')?.addEventListener('click', processSettlement);
 document.getElementById('btnGlobalCancel')?.addEventListener('click', () => {
-  if (_loadedTillId) loadTill();
-  else setMode('view');
+  if (_loadedAppId) loadPayoffRecord();
   toast('Changes discarded.');
 });
-
 document.getElementById('btnGlobalClose')?.addEventListener('click', () => {
-  _loadedTillId = null;
-  _runningBalance = 0;
-  document.querySelectorAll('#view-module-08 input:not([data-always-enabled]), #view-module-08 select, #view-module-08 textarea')
-    .forEach(el => { el.value = ''; });
-  document.getElementById('transactionsTbody').innerHTML =
-    '<tr><td colspan="7" class="text-center gray-text italic">Load a till to view transactions.</td></tr>';
-  setMode('view');
-  toast('Till closed.');
+  _loadedAppId = null; _loanRecord = null; _scheduleRows = []; _ledgerRows = [];
+  document.querySelectorAll('#view-module-09 input:not([data-always-enabled])').forEach(el => el.value = '');
+  document.querySelector('#dynamicPayoffGrid tbody').innerHTML =
+    '<tr><td colspan="2" class="text-center gray-text italic">Enter an Application ID to calculate pay-off components.</td></tr>';
+  document.querySelector('#installmentScheduleTable tbody').innerHTML =
+    '<tr><td colspan="7" class="text-center gray-text italic">Load a loan record to view schedule.</td></tr>';
+  document.querySelector('#loanStatementTable tbody').innerHTML =
+    '<tr><td colspan="9" class="text-center gray-text italic">No statement data available.</td></tr>';
+  document.querySelector('#loanHistoryTable tbody').innerHTML =
+    '<tr><td colspan="9" class="text-center gray-text italic">No history records.</td></tr>';
+  toast('Record closed.');
 });
-
-document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
-
 document.getElementById('btnGlobalDelete')?.addEventListener('click', () => {
-  toast('Tills cannot be deleted — use Close.', 'warning');
+  toast('Settlement records cannot be deleted.', 'warning');
 });
-
-/* ── Inline Action Buttons ────────────────────────────────── */
-document.getElementById('btnOpenTill')?.addEventListener('click', () => {
-  if (!_loadedTillId) { toast('Load a till first.', 'warning'); return; }
-  const status = document.getElementById('tellerTillStatus')?.value;
-  if (status === 'OPEN') { toast('Till is already open.', 'warning'); return; }
-  document.getElementById('txType').value = 'OPEN';
-  recalcTotal();
-  postTransaction('OPEN');
-});
-
-document.getElementById('btnCloseTill')?.addEventListener('click', () => {
-  if (!_loadedTillId) { toast('Load a till first.', 'warning'); return; }
-  const status = document.getElementById('tellerTillStatus')?.value;
-  if (status === 'CLOSED') { toast('Till is already closed.', 'warning'); return; }
-  document.getElementById('txType').value = 'CLOSE';
-  recalcTotal();
-  postTransaction('CLOSE');
-});
-
-document.getElementById('btnPostTx')?.addEventListener('click', () => {
-  postTransaction();
+document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
+document.getElementById('btnDenomination')?.addEventListener('click', () => {
+  toast('Use Module 08 — Teller Cash Vault Control to record cash denomination for this settlement.', '');
 });
 
 /* ── Init ───────────────────────────────────────────────── */
 async function init() {
-  setMode('view');
   await loadBranches();
 }
 init();
