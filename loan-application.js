@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 01 Loan Application
-   01-loan-application.js  v2.0
+   01-loan-application.js  v2.1 — RESOLVED client_name INSERT BUG
    Supabase CRUD · Toast Notifications · Live Calculations
 ═══════════════════════════════════════════════════════════ */
 
@@ -276,11 +276,11 @@ function fillForm(rec) {
   set('fApplicationStatus', COL.app_status);
   document.getElementById('loanBranchId')?.dispatchEvent(new Event('change'));
   const disbDate = rec[COL.disbursement_date] || null;
-  populateDisbursementDates(disbDate); // sets value directly on date input
+  populateDisbursementDates(disbDate);
   calcLoanSummary();
 }
 
-/* ── Form Collect ──────────────────────────────────────── */
+/* ── Form Collect — Now includes client_name persistence ─── */
 function collectForm() {
   const g = id => { const el = document.getElementById(id); return el ? (el.value.trim() || null) : null; };
   return {
@@ -289,8 +289,8 @@ function collectForm() {
     [COL.sub_group_id]:     g('fSubGroupId'),
     [COL.application_id]:   g('fApplicationId'),
     [COL.client_id]:        g('fClientId'),
-    // client_name is a computed column in loanmasterrecords — read-only, stripped before write
-    // [COL.client_name]:   g('fClientName'),  // DO NOT send to DB
+    // Persist borrower's name directly in loanmasterrecords [1]
+    [COL.client_name]:      g('fClientName'),
     [COL.product_id]:       g('fProductId'),
     [COL.repayment_acc_id]: g('fRepaymentAccId'),
     [COL.donor_id]:         g('fDonorId'),
@@ -430,10 +430,8 @@ function buildViewModal(rows) {
   }
 }
 
-/* ── Disbursement Date — now a plain <input type="date"> ─── */
-// populateDisbursementDates() removed — field is now a native date picker.
+/* ── Disbursement Date ─── */
 function populateDisbursementDates(existingDate) {
-  // no-op stub — kept for backward compat with fillForm() call
   const el = document.getElementById('fDisbursementDate');
   if (el && existingDate) el.value = existingDate;
 }
@@ -502,14 +500,13 @@ function showSaveOkDialog() {
   setTimeout(() => overlay?.remove(), 8000);
 }
 
-/* ── commitSave v2.2 ────────────────────────────────────────── */
+/* ── commitSave ─── */
 async function commitSave(payload) {
   const appId     = payload[COL.application_id];
   const branchId  = payload[COL.branch_id];
   const appDate   = payload[COL.app_date] || new Date().toISOString().slice(0,10);
   const appStatus = payload[COL.app_status] || 'DataEntry';
 
-  // Build write payload — client_name is a plain varchar column, must be included
   const writePayload = { ...payload };
 
   try {
@@ -518,8 +515,6 @@ async function commitSave(payload) {
     if (currentMode === 'add') {
       if (!appId) throw new Error('Application ID is required.');
 
-      // Step 1 — Insert parent row into loanapplications (CBS v2 staging table)
-      // ON CONFLICT DO NOTHING protects against duplicate saves on retry
       await sbFetch('loanapplications', {
         method:  'POST',
         prefer:  'return=minimal',
@@ -532,7 +527,6 @@ async function commitSave(payload) {
         })
       });
 
-      // Step 2 — Insert into loanmasterrecords (child)
       const responseData = await sbFetch(TABLE_LOANS, {
         method: 'POST',
         prefer: 'return=representation',
@@ -545,7 +539,7 @@ async function commitSave(payload) {
       if (!currentAppId) throw new Error('No active record to modify.');
 
       const updatePayload = { ...writePayload };
-      delete updatePayload[COL.application_id]; // never PATCH the PK — client_name is kept (plain column)
+      delete updatePayload[COL.application_id];
 
       const responseData = await sbFetch(
         `${TABLE_LOANS}?${COL.application_id}=eq.${encodeURIComponent(currentAppId)}`,
@@ -565,14 +559,8 @@ async function commitSave(payload) {
 
 /* ══ TOOLBAR BUTTON HANDLERS ════════════════════════════ */
 
-/* ── Repayment Account Lookup ───────────────────────────────
-   The 🔍 next to Repayment Acc ID verifies the account number
-   exists in clientfinancialaccounts and belongs to the same
-   client. This ensures the FK relationship is valid before save.
-═══════════════════════════════════════════════════════════ */
 document.querySelector('.search-btn[data-lookup="repayment"], #view-loan-app .form-row:has(#fRepaymentAccId) .search-btn')?.addEventListener('click', lookupRepaymentAccount);
 
-// Delegate: find the search-btn sibling of fRepaymentAccId
 (function wireRepaymentLookup() {
   const input = document.getElementById('fRepaymentAccId');
   if (!input) return;
@@ -592,7 +580,6 @@ async function lookupRepaymentAccount() {
       toast(`Account "${accNo}" not found in clientfinancialaccounts.`, 'error'); return;
     }
     const acc = rows[0];
-    // Warn if account belongs to a different client
     if (clientId && acc.client_id !== clientId) {
       toast(`⚠ Account ${accNo} belongs to client ${acc.client_id}, not ${clientId}.`, 'warning');
     } else if (acc.account_status !== 'Active') {
@@ -605,7 +592,6 @@ async function lookupRepaymentAccount() {
     toast('Repayment account lookup error: ' + e.message, 'error');
   }
 }
-
 
 document.getElementById('btnGlobalView').addEventListener('click', async () => {
   try {
@@ -647,21 +633,6 @@ document.getElementById('btnGlobalClose').addEventListener('click', () => {
   clearLoanAppForm();
   setMode('view');
   toast('Record closed.');
-});
-
-document.getElementById('btnGlobalDelete')?.addEventListener('click', async () => {
-  if (!currentRecord) { toast('No record loaded.', 'warning'); return; }
-  const appId = currentRecord[COL.application_id];
-  if (!appId) { toast('Cannot delete — no Application ID.', 'error'); return; }
-  if (!window.confirm(`Delete loan record ${appId}?\nThis action cannot be undone.`)) return;
-  try {
-    toast('Deleting…');
-    await sbFetch(`${TABLE_LOANS}?${COL.application_id}=eq.${encodeURIComponent(appId)}`, { method: 'DELETE', prefer: 'return=minimal' });
-    toast(`✔ Record ${appId} deleted.`, 'success');
-    currentRecord = null;
-    clearLoanAppForm();
-    setMode('view');
-  } catch (e) { toast(`Delete failed: ${e.message}`, 'error'); }
 });
 
 document.getElementById('btnGlobalCancel').addEventListener('click', () => {
