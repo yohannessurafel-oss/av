@@ -34,12 +34,15 @@ async function sbFetch(path, opts = {}) {
     }
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+    const errText = await res.text().catch(() => '');
+    let msg = 'HTTP ' + res.status;
+    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
+    throw new Error(msg);
   }
-  const text = await res.text();
-  if (!text || !text.trim()) return null;
-  try { return JSON.parse(text); } catch { return null; }
+  if (res.status === 204) return null;
+  const body = await res.text();
+  if (!body || !body.trim()) return null;
+  try { return JSON.parse(body); } catch { return null; }
 }
 
 /* ── Toast ─────────────────────────────────────────────── */
