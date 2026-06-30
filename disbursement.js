@@ -1,9 +1,9 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 10 Loan Disbursement
-   disbursement.js  v3.0
+   disbursement.js  v3.1 — RESOLVED AMORTIZATION & LEDGER UPDATES
    Tables written:
      → loan_disbursement  (one row per disbursement event)
-     → loan_ledger        (disbursement row + one row per instalment)
+     → loan_ledger        (disbursement row only)
    Tables read:
      → loanmasterrecords              (application lookup)
      → lendingproductparametermatrix  (product_name_title)
@@ -71,18 +71,16 @@ function showToast(msg, variant = 'info') {
   _toastTimer = setTimeout(() => { _toastEl.className = 'toast'; }, 4000);
 }
 
-/* ── Form enable/disable ─────────────────────────────────── */
-/* ── Updated Form enable/disable ─────────────────────────── */
-/* ── Updated Form Control State Handler ──────────────────── */
+/* ── Form Control State Handler ──────────────────── */
 function setFormControlsState(enabled) {
   document.querySelectorAll('.tab-panel input, .tab-panel select')
     .forEach(el => { 
-      // CRITICAL: Protect customer name from layout disabling state locks
       if (el.id !== 'fCustomerName') {
         el.disabled = !enabled; 
       }
     });
 }
+
 /* ── Clear form ──────────────────────────────────────────── */
 function clearFormLayout() {
   document.querySelectorAll('.tab-panel input, .tab-panel select').forEach(el => {
@@ -92,13 +90,12 @@ function clearFormLayout() {
     `<tr><td colspan="7" class="placeholder-text">Enter transaction parameters and click Save to generate amortization schedule.</td></tr>`;
 }
 
-/* ── Updated Mode Control ────────────────────────────────── */
+/* ── Mode Control ────────────────────────────────── */
 function setMode(newMode) {
   mode = newMode;
   const isEditing = newMode === 'add' || newMode === 'edit';
   setFormControlsState(isEditing);
 
-  /* Account ID field stays editable in view mode (for new lookups) */
   document.getElementById('fAccountId').disabled = false;
 
   document.getElementById('btnAdd').disabled    = isEditing;
@@ -113,31 +110,34 @@ function setMode(newMode) {
 
 /* ══════════════════════════════════════════════════════════
    AMORTIZATION ENGINE
-   Returns an array of instalment objects (used both for the
-   on-screen table and for writing to loan_ledger).
+   Standardized to Equated Monthly Installment (reducing balance / annuity)
+   to ensure mathematical consistency with loan-application.js
 ══════════════════════════════════════════════════════════ */
 function buildAmortizationSchedule(principal, annualRate, tenor, startDate) {
   const rows = [];
-  let balance           = parseFloat(principal);
-  const months          = parseInt(tenor);
-  const monthlyRate     = (parseFloat(annualRate) / 100) / 12;
-  const flatPrincipal   = balance / months;
-  let date              = startDate ? new Date(startDate) : new Date();
+  const P = parseFloat(principal);
+  const n = parseInt(tenor);
+  const r = (parseFloat(annualRate) / 100) / 12;
+  let balance = P;
+  let date = startDate ? new Date(startDate) : new Date();
 
-  for (let i = 1; i <= months; i++) {
-    const interest     = balance * monthlyRate;
-    const totalDue     = flatPrincipal + interest;
-    const openBalance  = balance;
-    balance           -= flatPrincipal;
+  // Monthly annuity installment formula (EMI)
+  const emi = r === 0 ? P / n : P * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+
+  for (let i = 1; i <= n; i++) {
+    const interest = balance * r;
+    const principalPaid = emi - interest;
+    const openBalance = balance;
+    balance -= principalPaid;
     date.setMonth(date.getMonth() + 1);
 
     rows.push({
       instalment_no:   i,
       payment_date:    date.toISOString().split('T')[0],
       opening_balance: openBalance,
-      principal_paid:  flatPrincipal,
+      principal_paid:  principalPaid,
       interest:        interest,
-      total_due:       totalDue,
+      total_due:       emi,
       closing_balance: Math.abs(balance) < 0.01 ? 0 : balance
     });
   }
@@ -159,11 +159,6 @@ function renderScheduleGrid(rows) {
     </tr>`).join('');
 }
 
-/* ══════════════════════════════════════════════════════════
-   STEP 1 + 2 — VIEW: lookup application from loanmasterrecords
-   Also resolves product_name from lendingproductparametermatrix
-   so loan_ledger.product_name is never the hardcoded default.
-══════════════════════════════════════════════════════════ */
 /* ── STEP 1 + 2 — VIEW: Lookup Application ───────────────── */
 document.getElementById('btnView').addEventListener('click', async () => {
   const appId = document.getElementById('fAccountId').value.trim();
@@ -172,7 +167,6 @@ document.getElementById('btnView').addEventListener('click', async () => {
   try {
     showToast('Loading application record…', 'info');
 
-    /* Primary lookup matching public.loanmasterrecords database layout */
     const rows = await sbFetch(
       `loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}&limit=1`
     );
@@ -181,7 +175,6 @@ document.getElementById('btnView').addEventListener('click', async () => {
     }
     currentRecord = rows[0];
 
-    /* Resolve product name from parameter matrix */
     _productName = '';
     if (currentRecord.product_id) {
       try {
@@ -189,12 +182,9 @@ document.getElementById('btnView').addEventListener('click', async () => {
           `lendingproductparametermatrix?product_code_id=eq.${encodeURIComponent(currentRecord.product_id)}&select=product_name_title&limit=1`
         );
         if (prod && prod[0]) _productName = prod[0].product_name_title || '';
-      } catch (_) { /* non-fatal fallback */ }
+      } catch (_) {}
     }
 
-    /* Resolve customer name: use loanmasterrecords.client_name first,
-       then fall back to ClientMasterRecords lookup for older records where
-       client_name was not saved (the "generated column" bug). */
     let resolvedName = currentRecord.client_name || '';
     if (!resolvedName && currentRecord.client_id) {
       try {
@@ -202,15 +192,13 @@ document.getElementById('btnView').addEventListener('click', async () => {
           `ClientMasterRecords?client_id=eq.${encodeURIComponent(currentRecord.client_id)}&select=client_name&limit=1`
         );
         if (cRows && cRows[0]) resolvedName = cRows[0].client_name || '';
-      } catch (_) { /* non-fatal */ }
+      } catch (_) {}
     }
 
-    /* Cache resolved name on the record so Add/Edit buttons can re-use it */
     currentRecord._resolvedName = resolvedName;
 
-    /* Populate Form Fields */
-    document.getElementById('fCustomerName').value    = resolvedName;
-    document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
+    document.getElementById('fCustomerName').value     = resolvedName;
+    document.getElementById('fAmountDisbursed').value  = currentRecord.approved_amount || currentRecord.applied_amount || '';
     document.getElementById('fDisbursementDate').value = currentRecord.disbursement_date || new Date().toISOString().split('T')[0];
     document.getElementById('fPaymentMode').value      = currentRecord.mode_of_disbursement || '';
     document.getElementById('fAccountType').value      = currentRecord.account_class || '';
@@ -220,7 +208,6 @@ document.getElementById('btnView').addEventListener('click', async () => {
     document.getElementById('fInterestRate').value     = currentRecord.interest_rate || '12.00';
     document.getElementById('fTenorMonths').value      = currentRecord.term_months   || '12';
 
-    /* Preview amortization */
     const schedule = buildAmortizationSchedule(
       currentRecord.approved_amount || currentRecord.applied_amount,
       currentRecord.interest_rate || 12,
@@ -230,35 +217,32 @@ document.getElementById('btnView').addEventListener('click', async () => {
     renderScheduleGrid(schedule);
 
     setMode('view');
-    showToast(`✔ Loaded: ${appId} — ${currentRecord.client_name || ''}`, 'success');
+    showToast(`✔ Loaded: ${appId} — ${resolvedName}`, 'success');
   } catch (err) {
     showToast(`Lookup failed: ${err.message}`, 'error');
   }
 });
 
 /* ── ADD button ──────────────────────────────────────────── */
-/* ── Updated ADD button: Explicit Value Re-injection ────── */
 document.getElementById('btnAdd').addEventListener('click', () => {
   if (!currentRecord) {
     return showToast('Enter an Application ID and click 🔍 View before adding.', 'error');
   }
   setMode('add');
   
-  // Force data re-population — use stored name or fall back to in-memory resolved name
   document.getElementById('fCustomerName').value    = currentRecord.client_name || currentRecord._resolvedName || '';
   document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
   
   showToast('Fields unlocked. Confirm details then click Save.');
 });
 
-/* ── Updated EDIT button: Explicit Value Re-injection ───── */
+/* ── EDIT button ─────────────────────────────────────────── */
 document.getElementById('btnEdit').addEventListener('click', () => {
   if (!currentRecord) {
     return showToast('Load a record first via View (🔍).', 'error');
   }
   setMode('edit');
   
-  // Maintain persistence across fields
   document.getElementById('fCustomerName').value = currentRecord.client_name || currentRecord._resolvedName || '';
   if (!document.getElementById('fAmountDisbursed').value) {
     document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
@@ -267,10 +251,7 @@ document.getElementById('btnEdit').addEventListener('click', () => {
   showToast('Edit mode — adjust details then Save.');
 });
 
-
-/* ══════════════════════════════════════════════════════════
-   SAVE — validate → show confirmation modal
-══════════════════════════════════════════════════════════ */
+/* ── SAVE validation ─────────────────────────────────────── */
 document.getElementById('btnSave').addEventListener('click', () => {
   const accId     = document.getElementById('fAccountId').value.trim();
   const modeDis   = document.getElementById('fPaymentMode').value;
@@ -285,13 +266,11 @@ document.getElementById('btnSave').addEventListener('click', () => {
   if (!contra)    return showToast('Validation: Contra Account ID is required.', 'error');
   if (!cName || !principal) return showToast('Validation: Customer name and principal amount are required.', 'error');
 
-  /* Populate confirmation modal */
   document.getElementById('mdAccountId').textContent      = accId;
   document.getElementById('mdPaymentMode').textContent    = modeDis;
   document.getElementById('mdAccountType').textContent    = accType;
   document.getElementById('mdContraAccountId').textContent = contra;
 
-  /* Refresh schedule preview with current form values */
   const schedule = buildAmortizationSchedule(
     principal,
     document.getElementById('fInterestRate').value,
@@ -303,25 +282,20 @@ document.getElementById('btnSave').addEventListener('click', () => {
   document.getElementById('disbursementModal').classList.add('active');
 });
 
-/* ── Modal abort ─────────────────────────────────────────── */
 document.getElementById('btnConfirmCancel').addEventListener('click', () => {
   document.getElementById('disbursementModal').classList.remove('active');
   showToast('Disbursement posting aborted.', 'info');
 });
 
 /* ══════════════════════════════════════════════════════════
-   CONFIRM COMMIT — the single write sequence
-   Order:
-     1. POST  → loan_disbursement  (one row, exact column match)
-     2. POST  → loan_ledger        (disbursement row, balance = principal)
-     3. POST  → loan_ledger ×N     (one row per instalment)
-     4. PATCH → loanmasterrecords  (application_status → 'Disbursed',
-                                    first_disbursement_date if blank)
+   CONFIRM COMMIT
+   Updates to standard practices:
+     - Only logs actual opening transaction (Disbursement) in ledger [1].
+     - Generates repayment plan solely in amortization_schedules (keeps ledger clean) [1].
 ══════════════════════════════════════════════════════════ */
 document.getElementById('btnConfirmCommit').addEventListener('click', async () => {
   document.getElementById('disbursementModal').classList.remove('active');
 
-  /* ── Read current form values ─────────────────────────── */
   const appId         = document.getElementById('fAccountId').value.trim();
   const customerName  = document.getElementById('fCustomerName').value.trim()
                      || currentRecord?._resolvedName
@@ -334,20 +308,15 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
   const bankName      = document.getElementById('fBankName').value || null;
   const interestRate  = parseFloat(document.getElementById('fInterestRate').value);
   const tenorMonths   = parseInt(document.getElementById('fTenorMonths').value);
-  /* account_number comes from the loan's repayment account — never the hardcoded default */
   const accountNumber = document.getElementById('fContraAccountId').value.trim() || currentRecord?.main_repayment_account_id || null;
   const today         = new Date().toISOString().split('T')[0];
 
-  /* ref_batch: DISB-{appId}-{YYYYMMDD} */
   const refBatch = `DISB-${appId}-${today.replace(/-/g, '')}`;
 
   try {
     showToast('Posting disbursement records…', 'info');
 
-    /* ── STEP 1: loan_disbursement ───────────────────────
-       Exact columns only — no account_type, no contra_account_id
-       (those columns do not exist in the table).
-    ─────────────────────────────────────────────────────── */
+    // ── STEP 1: Insert into loan_disbursement
     const disbPayload = {
       application_id:    appId,
       customer_name:     customerName,
@@ -367,11 +336,7 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
       body:   JSON.stringify(disbPayload)
     });
 
-    /* ── STEP 2: loan_ledger — disbursement opening row ──
-       Description: "Disbursement"
-       principal = full disbursed amount (debit on loan account)
-       running_balance = full outstanding (positive = amount owed)
-    ─────────────────────────────────────────────────────── */
+    // ── STEP 2: Write opening transaction to loan_ledger (Running Balance = Principal owed)
     const ledgerDisbRow = {
       application_id:  appId,
       client_id:       currentRecord?.client_id  || null,
@@ -397,43 +362,10 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
       body:   JSON.stringify(ledgerDisbRow)
     });
 
-    /* ── STEP 3: loan_ledger — one row per instalment ────
-       Each scheduled instalment is posted with a future value_date.
-       running_balance decreases by principal_paid each row.
-       ref_batch: INST-{appId}-{YYYYMMDD}-{N}
-    ─────────────────────────────────────────────────────── */
+    // ── STEP 3: Write plan installments purely into amortization_schedules (keeps ledger correct) [1]
     const schedule = buildAmortizationSchedule(principal, interestRate, tenorMonths, disbDate);
 
-    /* Batch all instalment rows — sequential awaits keep order correct */
     for (const row of schedule) {
-      const instBatch = `INST-${appId}-${today.replace(/-/g, '')}-${String(row.instalment_no).padStart(3, '0')}`;
-
-      // Write to loan_ledger (running balance ledger)
-      const ledgerInstRow = {
-        application_id:  appId,
-        client_id:       currentRecord?.client_id  || null,
-        account_number:  accountNumber,
-        product_name:    _productName              || null,
-        post_date:       row.payment_date,
-        value_date:      row.payment_date,
-        description:     `Instalment ${row.instalment_no}/${tenorMonths}`,
-        ref_batch:       instBatch,
-        principal:       parseFloat(row.principal_paid.toFixed(2)),
-        interest:        parseFloat(row.interest.toFixed(2)),
-        charges_penalties: 0,
-        accrued_interest_receivable: parseFloat(row.interest.toFixed(2)),
-        total_paid:      0,
-        accrued_unpaid_interest: 0,
-        running_balance: parseFloat(row.closing_balance.toFixed(2)),
-        borrower_name:   customerName
-      };
-      await sbFetch('loan_ledger', {
-        method: 'POST',
-        prefer: 'return=minimal',
-        body:   JSON.stringify(ledgerInstRow)
-      });
-
-      // Also write to amortization_schedules (repayment plan tracking table)
       await sbFetch('amortization_schedules', {
         method: 'POST',
         prefer: 'return=minimal',
@@ -448,12 +380,11 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
       });
     }
 
-    /* ── STEP 4: update loanmasterrecords status → Disbursed ─ */
+    // ── STEP 4: Update status on loanmasterrecords
     const masterPatch = {
       application_status: 'Disbursed',
       modified_on:        new Date().toISOString()
     };
-    /* Only set first_disbursement_date if it wasn't already set */
     if (!currentRecord?.first_disbursement_date) {
       masterPatch.first_disbursement_date = disbDate;
     }
@@ -464,11 +395,10 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
       body:   JSON.stringify(masterPatch)
     });
 
-    /* ── All done ─────────────────────────────────────── */
     currentRecord = { ...currentRecord, application_status: 'Disbursed' };
     setMode('view');
     showToast(
-      `✔ Disbursement posted. loan_disbursement + ${1 + tenorMonths} ledger rows written.`,
+      `✔ Disbursement posted successfully. Loan Ledger initialized with principal.`,
       'success'
     );
 
