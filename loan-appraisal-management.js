@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 03 Loan Appraisal Management
-   loan-appraisal-management.js  v3.0
+   loan-appraisal-management.js  v3.1 — RESOLVED DSR FORMULA & PARSING
    
    Design: This module READS an existing loanmasterrecords row
    (created in Module 01) and UPDATEs only the appraisal fields:
@@ -18,7 +18,7 @@
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-/* ── HTTP Helper ────────────────────────────────────────── */
+/* ── HTTP Helper — Hardened raw text parsing ────────────────── */
 async function sbFetch(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
@@ -31,8 +31,10 @@ async function sbFetch(path, opts = {}) {
     }
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+    const errText = await res.text().catch(() => '');
+    let msg = 'HTTP ' + res.status;
+    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
+    throw new Error(msg);
   }
   const text = await res.text();
   if (!text || !text.trim()) return null;
@@ -104,7 +106,6 @@ function setMode(mode) {
     el.disabled = !isEdit;
   });
 
-  // Application ID field: always enabled so user can type and search
   const appIdEl = document.getElementById('apprApplicationId');
   if (appIdEl) appIdEl.disabled = false;
 
@@ -119,17 +120,17 @@ function setMode(mode) {
   if (btnCancel) btnCancel.disabled = !isEdit;
   if (btnAdd)    btnAdd.disabled    = isEdit;
   if (btnEdit)   btnEdit.disabled   = isEdit || !_loadedAppId;
-  if (btnDelete) btnDelete.disabled = true;   // appraisal never hard-deletes
+  if (btnDelete) btnDelete.disabled = true;
   if (btnClose)  btnClose.disabled  = isEdit;
 
   const sb = document.getElementById('statusBar');
   if (sb) sb.textContent = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)} — Ready`;
 }
 
-/* ── Track the currently loaded record ─────────────────── */
+/* ── Track currently loaded record ─────────────────────── */
 let _loadedAppId = null;
 
-/* ── Load record into form (read-only display) ─────────── */
+/* ── Load record into form ─────────────────────────── */
 function populateForm(rec) {
   const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
 
@@ -147,14 +148,12 @@ function populateForm(rec) {
   v('apprLoanPurpose',      rec.loan_purpose);
   v('apprCreditOfficer',    rec.credit_officer_id);
 
-  // Set branch dropdown + name
   const brSel = document.getElementById('apprBranchId');
   if (brSel) {
     brSel.value = rec.branch_id || '';
     brSel.dispatchEvent(new Event('change'));
   }
 
-  // Clear analysis fields (they are not stored)
   ['apprNetIncome','apprObligations','apprDisposable','apprDSR',
    'apprRiskRating','apprCreditScore','apprCollateralCoverage','apprLTV',
    'apprOutcome','apprConditions','apprRemarks'].forEach(id => {
@@ -169,15 +168,24 @@ function clearForm() {
   _loadedAppId = null;
 }
 
-/* ── DSR / Disposable auto-calc ─────────────────────────── */
+/* ── DSR / Disposable Auto-Calc — Aligned to annuity formula ── */
 function recalcDSR() {
   const income      = parseFloat(document.getElementById('apprNetIncome')?.value  || 0);
   const obligations = parseFloat(document.getElementById('apprObligations')?.value || 0);
   const loanAmt     = parseFloat(document.getElementById('apprRecommendedAmount')?.value ||
                                   document.getElementById('apprAppliedAmount')?.value || 0);
   const termMonths  = parseInt(document.getElementById('apprTermMonths')?.value || 12) || 12;
+  const rate        = parseFloat(document.getElementById('apprInterestRate')?.value || 12) || 12;
 
-  const installment   = loanAmt / termMonths;
+  const monthlyRate = (rate / 100) / 12;
+  let installment;
+  if (monthlyRate === 0) {
+    installment = loanAmt / termMonths;
+  } else {
+    installment = loanAmt * (monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
+                  (Math.pow(1 + monthlyRate, termMonths) - 1);
+  }
+
   const disposable    = income - obligations;
   const totalObligation = obligations + installment;
   const dsr           = income > 0 ? ((totalObligation / income) * 100).toFixed(2) : '';
@@ -219,14 +227,13 @@ async function viewRecord() {
   }
 }
 
-/* ── Save (PATCH only — appraisal fields) ───────────────── */
+/* ── Save (PATCH only) ─────────────────────────────────── */
 async function saveRecord() {
   if (!_loadedAppId) { toast('Load a record first, then Edit to make changes.', 'warning'); return; }
 
   const recAmt  = parseFloat(document.getElementById('apprRecommendedAmount')?.value || 0);
   const appAmt  = parseFloat(document.getElementById('apprApprovedAmount')?.value    || 0);
 
-  // Only update the columns that actually exist in loanmasterrecords
   const payload = {
     recommended_amount: recAmt   || null,
     approved_amount:    appAmt   || null,
@@ -253,8 +260,6 @@ async function saveRecord() {
 
 /* ── Toolbar ────────────────────────────────────────────── */
 document.getElementById('btnGlobalView')?.addEventListener('click', viewRecord);
-
-// Search icon on Application ID field
 document.getElementById('btnSearchAppId')?.addEventListener('click', viewRecord);
 
 document.getElementById('btnGlobalEdit')?.addEventListener('click', () => {
@@ -267,7 +272,6 @@ document.getElementById('btnGlobalSave')?.addEventListener('click', saveRecord);
 
 document.getElementById('btnGlobalCancel')?.addEventListener('click', () => {
   if (_loadedAppId) {
-    // Re-load the original from DB to discard UI changes
     viewRecord();
   } else {
     clearForm();
