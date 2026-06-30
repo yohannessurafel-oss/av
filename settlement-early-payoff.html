@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF — 09 Settlement / Early Payoff</title>
+<title>AVMF — 08 Teller Cash Vault Control</title>
 <link rel="stylesheet" href="style2.css"/>
 </head>
 <body>
@@ -22,12 +22,12 @@
       </svg>
       <div class="title-text-block">
         <span class="title-main">Africa Village Microfinance</span>
-        <span class="title-sub">09 — Settlement / Early Payoff</span>
+        <span class="title-sub">08 — Teller Cash Vault Control</span>
       </div>
     </div>
     <div class="title-meta">
       <span id="systemDate" class="title-date"></span>
-      <span class="title-user">👤 Loan Officer</span>
+      <span class="title-user">👤 Teller</span>
     </div>
     <div class="window-controls">
       <span title="Minimize">─</span>
@@ -38,16 +38,16 @@
 
   <div class="workspace">
 
-    <div class="sidebar">
+        <div class="sidebar">
       <div class="sidebar-header" style="cursor: pointer; background: var(--navy-900);" title="Return to Dashboard" onclick="window.location='indexll.html'">
         🏠 Main Dashboard
       </div>
       <ul class="nav-menu">
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🌐</span><a href="indexll.html" class="nav-label">All Modules</a></li>
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📋</span><a href="indexll.html" class="nav-label">Credit Operations</a></li>
-        <li class="active"><span class="nav-num" style="background:none;font-size:14px;padding:0;">💰</span><a href="indexll.html" class="nav-label">Financials & Ledger</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">💰</span><a href="indexll.html" class="nav-label">Financials & Ledger</a></li>
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🛡️</span><a href="indexll.html" class="nav-label">Risk & Collateral</a></li>
-        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🏧</span><a href="indexll.html" class="nav-label">Teller & Cash</a></li>
+        <li class="active"><span class="nav-num" style="background:none;font-size:14px;padding:0;">🏧</span><a href="indexll.html" class="nav-label">Teller & Cash</a></li>
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📊</span><a href="indexll.html" class="nav-label">Reports</a></li>
       </ul>
       <div class="sidebar-footer-brand">
@@ -59,116 +59,111 @@
     </div>
 
     <div class="main-content">
-      <div class="module-view active" id="view-module-09">
+      <div class="module-view active" id="view-module-08">
         <div class="context-badge-bar">
-          <span class="badge-icon">📑</span>
-          Account Pay-off Settlement — Historic Installment Inquiry Console
+          <span class="badge-icon">💰</span>
+          Teller Maintenance — Cash Balance Sheets &amp; Till Ledger Control
         </div>
 
         <form class="module-form" autocomplete="off">
+
+          <!-- ── Till Identity ─────────────────────────────── -->
           <div class="grid-two-column">
             <div class="sub-column">
               <div class="form-row">
                 <label>Branch ID</label>
-                <select id="payoffBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select>
-                <input type="text" id="payoffBranchName" class="width-remaining" placeholder="Branch name" readonly/>
+                <select id="tellerBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select>
+                <input type="text" id="tellerBranchName" class="width-remaining" placeholder="Branch name" readonly/>
               </div>
               <div class="form-row">
-                <label>Client ID</label>
-                <input type="text" id="payoffClientId" class="width-full" readonly placeholder="Auto-filled"/>
-              </div>
-              <div class="form-row">
-                <label>Application ID</label>
-                <div class="input-group width-full">
-                  <input type="text" id="payoffAccNoTarget" placeholder="Enter Application ID then 🔍"/>
-                  <span class="search-btn" id="btnSearchPayoff">🔍</span>
+                <label>Till ID</label>
+                <div class="input-group width-small">
+                  <input type="text" id="tellerTillId" placeholder="e.g. T001"/>
+                  <span class="search-btn" id="btnSearchTill">🔍</span>
                 </div>
+                <input type="text" id="tellerTillDescription" class="width-remaining" placeholder="Description" readonly/>
               </div>
             </div>
             <div class="sub-column">
-              <div class="form-row"><label class="shifted-label">Loan Series</label><input type="text" id="payoffLoanSeries" class="width-full" readonly/></div>
-            </div>
-          </div>
-
-          <div class="tab-interface-strip margin-top-sm">
-            <div class="sub-tab active" data-target="payoff-components">Pay-off Components</div>
-            <div class="sub-tab" data-target="installment-schedule">Installment Schedule</div>
-            <div class="sub-tab" data-target="loan-statement">Loan Statement</div>
-            <div class="sub-tab" data-target="loan-history">Loan History</div>
-          </div>
-
-          <div class="tab-container-body">
-            <div class="sub-tab-view active" id="subview-payoff-components">
-              <div class="grid-container" style="height:140px;">
-                <table class="ledger-grid" id="dynamicPayoffGrid">
-                  <thead><tr><th>Component Description</th><th class="text-right">Amount Due (ETB)</th></tr></thead>
-                  <tbody><tr><td colspan="2" class="text-center gray-text italic">Enter an Application ID to calculate pay-off components.</td></tr></tbody>
-                </table>
+              <div class="form-row">
+                <label class="shifted-label">Cashier Name</label>
+                <input type="text" id="tellerCashierName" class="width-full"/>
               </div>
-            </div>
-
-            <div class="sub-tab-view" id="subview-installment-schedule">
-              <div class="grid-container" style="height:200px;">
-                <table class="ledger-grid" id="installmentScheduleTable">
-                  <thead><tr><th>#</th><th>Due Date</th><th class="text-right">Principal Due (ETB)</th><th class="text-right">Interest Due (ETB)</th><th class="text-right">Principal Paid</th><th class="text-right">Interest Paid</th><th>Status</th></tr></thead>
-                  <tbody><tr><td colspan="7" class="text-center gray-text italic">Load a loan record to view schedule.</td></tr></tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="sub-tab-view" id="subview-loan-statement">
-              <div class="grid-container" style="height:200px;">
-                <table class="ledger-grid" id="loanStatementTable">
-                  <thead><tr><th>Post Date</th><th>Value Date</th><th>Particulars</th><th>Ref Batch</th><th class="text-right">Principal</th><th class="text-right">Interest</th><th class="text-right">Charges</th><th class="text-right">Total Paid</th><th class="text-right">Running Balance</th></tr></thead>
-                  <tbody><tr><td colspan="9" class="text-center gray-text italic">No statement data available.</td></tr></tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="sub-tab-view" id="subview-loan-history">
-              <div class="grid-container" style="height:140px;">
-                <table class="ledger-grid" id="loanHistoryTable">
-                  <thead><tr><th>Interest Rate</th><th>Loan Series</th><th>File No.</th><th>Application ID</th><th class="text-right">Sanctioned Amt (ETB)</th><th class="text-right">Approved Amt (ETB)</th><th>Disbursement Date</th><th>Term</th><th>Status</th></tr></thead>
-                  <tbody><tr><td colspan="9" class="text-center gray-text italic">No history records.</td></tr></tbody>
-                </table>
+              <div class="form-row">
+                <label class="shifted-label">Till Status</label>
+                <input type="text" id="tellerTillStatus" class="width-full" readonly placeholder="CLOSED"/>
               </div>
             </div>
           </div>
 
-          <div class="card-header-banner margin-top-sm">Analytical Ledger Vectors</div>
+          <!-- ── Cash Balance Grid ─────────────────────────── -->
+          <div class="card-header-banner margin-top-sm">Cash Balance Monitoring Grid</div>
+          <div class="grid-container" style="min-height:80px;">
+            <table class="ledger-grid">
+              <thead>
+                <tr>
+                  <th>Tx ID</th>
+                  <th>Type</th>
+                  <th>Date</th>
+                  <th>Reference</th>
+                  <th>Narration</th>
+                  <th class="text-right">Amount (ETB)</th>
+                  <th class="text-right">Running Balance</th>
+                </tr>
+              </thead>
+              <tbody id="transactionsTbody">
+                <tr><td colspan="7" class="text-center gray-text italic">Load a till to view transactions.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ── New Transaction Entry ─────────────────────── -->
+          <div class="card-header-banner margin-top-sm">New Transaction Entry</div>
           <div class="grid-two-column">
             <div class="sub-column">
-              <div class="form-row"><label>Loan Amount (ETB)</label><input type="text" id="payoffLoanAmount" class="width-full" readonly/></div>
-              <div class="form-row"><label>Net Settlement Amount (ETB)</label><input type="text" id="payoffNetAmount" class="width-full" readonly style="font-weight:700;"/></div>
-              <div class="form-row"><label>Created By</label><input type="text" id="payoffCreatedBy" class="width-full"/></div>
-              <div class="form-row"><label>Created On</label><input type="text" id="payoffCreatedOn" class="width-full" readonly/></div>
-            </div>
-            <div class="sub-column">
-              <div class="form-row"><label class="shifted-label">Outstanding Balance (ETB)</label><input type="text" id="payoffLoanBalance" class="width-full" readonly/></div>
-              <div class="form-row"><label class="shifted-label">Product ID</label><input type="text" id="payoffProductId" class="width-full" readonly/></div>
-              <div class="form-row"><label class="shifted-label">Settlement Date</label><input type="date" id="payoffSettlementDate" class="width-full"/></div>
-              <div class="form-row"><label class="shifted-label">Payment Mode</label>
-                <select id="payoffPaymentMode" class="width-full">
-                  <option value="Cash">Cash</option>
-                  <option value="Transfer">Transfer</option>
-                  <option value="Cheque">Cheque</option>
+              <div class="form-row">
+                <label>Transaction Type</label>
+                <select id="txType" class="width-full">
+                  <option value="">-- Select --</option>
+                  <option value="OPEN">OPEN</option>
+                  <option value="CLOSE">CLOSE</option>
+                  <option value="RECEIPT">RECEIPT</option>
+                  <option value="PAYMENT">PAYMENT</option>
+                  <option value="TRANSFER">TRANSFER</option>
+                  <option value="ADJUSTMENT">ADJUSTMENT</option>
                 </select>
               </div>
+              <div class="form-row"><label>Transaction Date</label><input type="date" id="txDate" class="width-full"/></div>
+              <div class="form-row"><label>Reference No.</label><input type="text" id="txRefNo" class="width-full"/></div>
+              <div class="form-row"><label>Narration</label><textarea id="txNarration" class="width-full" rows="2"></textarea></div>
+              <div class="form-row"><label>Created By</label><input type="text" id="txCreatedBy" class="width-full"/></div>
             </div>
             <div class="sub-column">
-              <div class="form-row"><label class="shifted-label">Preclosure Status</label><input type="text" id="payoffPreclosureStatus" class="width-full" readonly/></div>
-              <div class="form-row"><label class="shifted-label">Currency ID</label><input type="text" id="payoffCurrencyId" class="width-full" value="ETB" readonly/></div>
-              <div class="form-row"><label class="shifted-label">Penalty Waiver (ETB)</label><input type="number" id="payoffWaiver" class="width-full text-right" min="0" step="0.01" value="0"/></div>
-              <div class="form-row"><label class="shifted-label">Settled By</label><input type="text" id="payoffSettledBy" class="width-full"/></div>
+              <div class="card-header-banner" style="font-size:11px;">Denomination Breakdown (ETB)</div>
+              <div class="form-row"><label class="shifted-label">× 1,000</label><input type="number" id="denom1000" class="text-right width-full" value="0" min="0"/></div>
+              <div class="form-row"><label class="shifted-label">× 500</label><input type="number" id="denom500"  class="text-right width-full" value="0" min="0"/></div>
+              <div class="form-row"><label class="shifted-label">× 200</label><input type="number" id="denom200"  class="text-right width-full" value="0" min="0"/></div>
+              <div class="form-row"><label class="shifted-label">× 100</label><input type="number" id="denom100"  class="text-right width-full" value="0" min="0"/></div>
+              <div class="form-row"><label class="shifted-label">× 50</label><input type="number" id="denom50"   class="text-right width-full" value="0" min="0"/></div>
+              <div class="form-row"><label class="shifted-label">× 10</label><input type="number" id="denom10"   class="text-right width-full" value="0" min="0"/></div>
+              <div class="form-row"><label class="shifted-label">× 5</label><input type="number" id="denom5"    class="text-right width-full" value="0" min="0"/></div>
+              <div class="form-row"><label class="shifted-label">× 1</label><input type="number" id="denom1"    class="text-right width-full" value="0" min="0"/></div>
+              <div class="form-row"><label class="shifted-label">Cents</label><input type="number" id="denomCents" class="text-right width-full" value="0" min="0"/></div>
+              <div class="form-row" style="border-top:1px solid var(--border);padding-top:4px;margin-top:4px;">
+                <label class="shifted-label"><strong>Total Amount</strong></label>
+                <input type="number" id="txTotalAmount" class="text-right width-full" readonly style="font-weight:bold;"/>
+              </div>
             </div>
           </div>
+
         </form>
 
         <div class="action-row-container">
-          <button type="button" class="action-btn-inline" id="btnDenomination">Denomination</button>
-          <button type="button" class="action-btn-inline" id="btnProcessSettlement" style="margin-left:8px;">💰 Process Settlement</button>
+          <button type="button" class="action-btn-inline" id="btnOpenTill">Open Till</button>
+          <button type="button" class="action-btn-inline" id="btnCloseTill" style="margin-left:8px;">Close Till</button>
+          <button type="button" class="action-btn-inline" id="btnPostTx"   style="margin-left:8px;">Post Transaction</button>
         </div>
-        <div class="sub-footer-token" id="statusBar">Status: Ready — Enter Application ID and click 🔍</div>
+        <div class="sub-footer-token" id="statusBar">Status: Ready — Select Branch, enter Till ID then click 🔍</div>
       </div>
     </div>
 
@@ -189,6 +184,6 @@
 </div>
 
 <div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
-<script src="settlement-early-payoff.js"></script>
+<script src="teller-cash-vault-control.js"></script>
 </body>
 </html>
