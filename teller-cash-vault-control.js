@@ -1,18 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 08 Teller Cash Vault Control
-   teller-cash-vault-control.js  v2.2
-   Tables: tellertillregistry (till metadata — branch_id, till_id,
-                                cashier_name, till_status)
-           teller_transactions (cash journal — denominations,
-                                 transaction_type, running_balance)
-   Fixes:
-     - Replaced fragile querySelectorAll('.sub-column')[N] selectors
-       with proper id= lookups (HTML structure had changed)
-     - Correct two-table architecture: till registry + tx journal
-     - Denomination breakdown auto-sums into Total Amount
-     - Open Till / Close Till / Post Transaction all wired
-     - Running balance computed from till's transaction history
-     - sbFetch hardened (text() before json() on error)
+   teller-cash-vault-control.js  v2.3 — TERMINOLOGY CORRECTED
+   Tables: tellertillregistry, teller_transactions
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -205,7 +194,6 @@ async function openTill() {
   if (!branchId || !tillId) { toast('Select Branch and enter Till ID.', 'warning'); return; }
 
   try {
-    // Upsert till registry row
     await sbFetch(TABLE_TILL, {
       method: 'POST',
       prefer: 'resolution=merge-duplicates,return=minimal',
@@ -215,7 +203,6 @@ async function openTill() {
       })
     });
 
-    // Post OPEN transaction with opening denomination count
     const total = computeDenominationTotal();
     await postTransactionRow(tillId, branchId, 'OPEN', total, 'Till opened for business');
 
@@ -250,7 +237,7 @@ async function closeTill() {
   }
 }
 
-/* ── Post Transaction (generic — RECEIPT/PAYMENT/TRANSFER/ADJUSTMENT) ─── */
+/* ── Post Transaction (RECEIPT/PAYMENT/TRANSFER/ADJUSTMENT) ─── */
 async function postTransaction() {
   const tillId   = _currentTillId || getField('tellerTillId');
   const branchId = getField('tellerBranchId');
@@ -273,11 +260,13 @@ async function postTransaction() {
   }
 }
 
-/* ── Shared insert helper — computes running balance & posts row ──────── */
+/* ── Shared insert helper — Corrected Debit/Credit logic for Cash Asset ─── */
 async function postTransactionRow(tillId, branchId, txType, amount, narration) {
-  // Debit types reduce balance, credit types increase it
-  const isDebit = txType === 'PAYMENT' || txType === 'TRANSFER' || txType === 'CLOSE';
-  const delta   = isDebit ? -Math.abs(amount) : Math.abs(amount);
+  // Correct Asset Accounting:
+  // Payments, Transfers and Closings represent cash exiting the till (CREDITS, reducing balance).
+  // Receipts and Openings represent cash entering the till (DEBITS, increasing balance).
+  const isCredit = txType === 'PAYMENT' || txType === 'TRANSFER' || txType === 'CLOSE';
+  const delta    = isCredit ? -Math.abs(amount) : Math.abs(amount);
   const newBalance = _lastRunningBalance + delta;
 
   const refNo = getField('txRefNo') || `TX-${Date.now().toString(36).toUpperCase()}`;
@@ -296,11 +285,6 @@ async function postTransactionRow(tillId, branchId, txType, amount, narration) {
     created_by: createdBy,
   };
 
-  DENOMS.forEach(d => {
-    payload[d.id.replace('denom', 'denom_').replace('Cents','_cents')] =
-      parseInt(document.getElementById(d.id)?.value) || 0;
-  });
-  // Fix camelCase→snake_case mapping precisely
   payload.denom_1000 = parseInt(document.getElementById('denom1000')?.value) || 0;
   payload.denom_500  = parseInt(document.getElementById('denom500')?.value)  || 0;
   payload.denom_200  = parseInt(document.getElementById('denom200')?.value)  || 0;
