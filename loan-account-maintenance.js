@@ -1,17 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 05 Loan Account Maintenance
-   loan-account-maintenance.js  v2.2
-   Table : loanmasterrecords  (was wrongly targeting loandetails)
-   Fixes :
-     - Correct table: loanmasterrecords (not loandetails)
-     - All id= attrs match HTML; FIELD_MAP wired end-to-end (28 fields)
-     - client_name read from loanmasterrecords (writable plain col)
-     - Maturity date auto-derived from disbursement_date + term
-     - Installment amount auto-computed (reducing balance formula)
-     - Effective rate auto-computed: interest + commission
-     - sbFetch hardened (text() before json() on error)
-     - Product dropdown populated from lendingproductparametermatrix
-     - Client name cascaded from ClientMasterRecords on client_id blur
+   loan-account-maintenance.js  v2.3 — SYSTEM ALIGNED
+   Table : loanmasterrecords
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -164,7 +154,7 @@ function computeEffectiveRate() {
   if (el) el.value = (interest + commission).toFixed(2);
 }
 
-/* ── Auto-compute: Installment Amount & Maturity Date ─────── */
+/* ── Auto-compute: Installment Amount & Maturity Date (reducing balance) ─────── */
 function computeSchedule() {
   const principal = parseFloat(document.getElementById('maintSanctionAmount')?.value) || 0;
   const rate      = parseFloat(document.getElementById('maintInterestRate')?.value)   || 0;
