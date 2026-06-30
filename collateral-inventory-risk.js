@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 06 Collateral Inventory Risk
-   collateral-inventory-risk.js  v2.1
+   collateral-inventory-risk.js  v2.2 — RESOLVED NETWORK PARSING
    Table: collateralinventory
 ═══════════════════════════════════════════════════════════ */
 
@@ -9,7 +9,7 @@
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-/* ── HTTP Helper ────────────────────────────────────────── */
+/* ── HTTP Helper — Hardened raw text parsing ────────────────── */
 async function sbFetch(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
@@ -22,8 +22,10 @@ async function sbFetch(path, opts = {}) {
     }
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+    const errText = await res.text().catch(() => '');
+    let msg = 'HTTP ' + res.status;
+    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
+    throw new Error(msg);
   }
   const text = await res.text();
   if (!text || !text.trim()) return null;
@@ -49,38 +51,38 @@ function toast(msg, type = '', duration = 3200) {
   });
 })();
 
-/* ── Field Map: HTML id → DB column ─────────────────────
-   Matches collateralinventory schema exactly.            */
+/* ── Field Map ── */
 const FIELD_MAP = {
   collateralBranchId:             'branch_id',
   collateralId:                   'collateral_id',
   collateralDescription:          'description',
   collateralType:                 'collateral_type',
-  collateralOwnerId:              'owner_id',
-  collateralLodgedDate:           'lodged_date',
-  collateralInsured:              'is_insured',          // checkbox
-  collateralNatureOfCharge:       'nature_of_charge',
-  collateralRemarks:              'remarks',
+  ownerId:                        'owner_id',
+  lodgedDate:                     'lodged_date',
+  isInsured:                      'is_insured',
+  natureOfCharge:                 'nature_of_charge',
+  remarks:                        'remarks',
   collateralValue:                'collateral_value',
   usedCollateralValue:            'used_collateral_value',
-  collateralWithdrawnDate:        'withdrawn_date',
-  collateralWithdrawnReason:      'withdrawn_reason',
-  collateralCreatedBy:            'created_by',
-  collateralCreatedOn:            'created_on',
-  collateralApportionedRatio:     'apportioned_ratio',
-  collateralApportionedValue:     'apportioned_value',
-  collateralMargin:               'margin_percentage',
-  collateralApportionedCollValue: 'apportioned_collateral_value',
-  collateralLoanCollValue:        'loan_collateral_value',
-  collateralAssignedDate:         'assigned_date',
-  collateralExchangeRate:         'exchange_rate',
-  collateralCurrencyId:           'currency_id',
-  collateralValueType:            'value_type',
-  collateralStatus:               'status',
-  collateralModifiedBy:           'modified_by',
-  collateralModifiedOn:           'modified_on',
-  collateralSupervisedBy:         'supervised_by',
-  collateralSupervisedOn:         'supervised_on',
+  netCollateralValue:             'net_collateral_value',
+  loanCollateralValue:            'loan_collateral_value',
+  apportionedRatio:               'apportioned_ratio',
+  apportionedValue:               'apportioned_value',
+  apportionedCollateralValue:     'apportioned_collateral_value',
+  marginPercentage:               'margin_percentage',
+  exchangeRate:                   'exchange_rate',
+  currencyId:                     'currency_id',
+  valueType:                      'value_type',
+  assignedDate:                   'assigned_date',
+  withdrawnDate:                  'withdrawn_date',
+  withdrawnReason:                'withdrawn_reason',
+  status:                         'status',
+  createdBy:                      'created_by',
+  createdOn:                      'created_on',
+  modifiedBy:                     'modified_by',
+  modifiedOn:                     'modified_on',
+  supervisedBy:                   'supervised_by',
+  supervisedOn:                   'supervised_on',
 };
 
 /* ── Helpers ────────────────────────────────────────────── */
@@ -184,7 +186,6 @@ async function saveRecord() {
       });
       toast(`Collateral ${rec.collateral_id} created.`, 'success');
     } else {
-      // UPDATE
       rec.modified_on = new Date().toISOString();
       const { collateral_id, ...updateFields } = rec;
       await sbFetch(`collateralinventory?collateral_id=eq.${encodeURIComponent(collateral_id)}`, {
@@ -230,9 +231,7 @@ function setMode(mode) {
   const view = document.querySelector('.module-view.active');
   if (view) {
     view.querySelectorAll('input, select, textarea').forEach(el => {
-      // always-enabled fields (branch dropdown)
       if (el.dataset.alwaysEnabled !== undefined) { el.disabled = false; return; }
-      // readonly fields stay readable but never editable via mode
       if (el.hasAttribute('readonly')) { el.disabled = false; return; }
       el.disabled = !isEdit;
     });
@@ -294,11 +293,7 @@ document.getElementById('btnGlobalDelete')?.addEventListener('click', async () =
   }
 });
 document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
-
-// Search icon on Collateral ID field triggers view
 document.getElementById('btnSearchCollateral')?.addEventListener('click', viewRecord);
-
-// Withdraw button
 document.getElementById('btnWithdraw')?.addEventListener('click', withdrawCollateral);
 
 /* ── Init ──────────────────────────────────────────────── */
