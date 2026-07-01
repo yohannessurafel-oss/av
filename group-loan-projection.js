@@ -449,6 +449,7 @@ async function saveBatch() {
 
   if (!branchId)  { toast('Branch is required.', 'warning'); document.getElementById('groupBranchId')?.focus(); return; }
   if (!productId) { toast('Product is required.', 'warning'); document.getElementById('groupProductId')?.focus(); return; }
+  if (!repaymentAccId) { toast('Repayment Acc ID is required.', 'warning'); document.getElementById('groupRepaymentAccId')?.focus(); return; }
 
   const sb = document.getElementById('statusBar');
   if (sb) sb.textContent = 'Saving batch…';
@@ -488,7 +489,7 @@ async function saveBatch() {
           client_id:                 row.client_id,
           client_name:               row.client_name,
           product_id:                productId,
-          main_repayment_account_id: repaymentAccId || 'DEFAULT',
+          main_repayment_account_id: repaymentAccId,
           fund_id:                   fundId    || null,
           loan_purpose:              loanPurpose || null,
           line_of_business:          lineOfBiz  || null,
