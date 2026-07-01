@@ -1,7 +1,32 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 05 Loan Account Maintenance
-   loan-account-maintenance.js  v2.3 — SYSTEM ALIGNED
+   loan-account-maintenance.js  v2.4 — STATUS GUARD + TERM LOCK
    Table : loanmasterrecords
+
+   Requires loan-status-guard.js to be loaded BEFORE this file:
+     <script src="loan-status-guard.js"></script>
+     <script src="loan-account-maintenance.js"></script>
+
+   WHAT CHANGED FROM v2.3
+   Previously this module could PATCH application_status to ANY value
+   via a free dropdown — including 'Sanctioned' or 'Disbursed' — with
+   no check at all. That completely bypassed Module 04 (Credit
+   Sanction Console) and Module 10 (Disbursement). Now:
+
+     1. Any change to application_status is validated against
+        LoanStatusGuard before saving. This module is only authorized
+        to move a loan to 'Closed' from a PRE-sanction status
+        (cancelling/withdrawing an application) — it can no longer
+        sanction or disburse a loan itself.
+     2. Once a loan is Sanctioned or later, its financial terms
+        (sanction_amount, interest_rate, term_months,
+        repayment_term_months, installment_amount) are locked here —
+        changing them after money has been committed must go through
+        Module 04 (pre-disbursement) or a formal restructuring entry
+        (loan_restructuring_log, post-disbursement), not a silent edit.
+     3. Closing a loan now verifies loan_ledger has a zero balance
+        first, same principle already applied to deposit account
+        closure in account-maintenance.js.
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -71,7 +96,6 @@ const FIELD_MAP = {
   maintProductId:             'product_id',
   maintCurrencyId:            'currency_id',
   maintSanctionAmount:        'sanction_amount',
-  maintSanctionDate:          'sanction_date',
   maintBookedAmount:          'booked_amount',
   maintTermMonths:            'term_months',
   maintRepaymentTermMonths:   'repayment_term_months',
@@ -103,7 +127,17 @@ const FIELD_MAP = {
 
 const READ_ONLY = new Set(['maintCreatedOn', 'maintModifiedOn']);
 
+/* Financial terms that must not change silently once a loan is
+   Sanctioned or later — see header comment. */
+const LOCKED_TERM_FIELDS = [
+  'sanction_amount', 'interest_rate', 'term_months',
+  'repayment_term_months', 'installment_amount'
+];
+const TERM_LOCK_STATUSES = ['Sanctioned', 'Disbursed', 'Matured'];
+
 let currentMode = 'view';
+let _loadedStatus = null;      // status as of last successful load
+let _loadedSnapshot = null;    // full record as loaded, for term-lock comparison
 
 /* ── Helpers ────────────────────────────────────────────── */
 function getField(id) {
@@ -127,6 +161,8 @@ function clearForm() {
     if (id === 'maintRepaymentFrequency') { setField(id, 'Monthly'); return; }
     setField(id, '');
   });
+  _loadedStatus = null;
+  _loadedSnapshot = null;
 }
 
 function formToRecord() {
@@ -191,7 +227,7 @@ function computeSchedule() {
   document.getElementById(id)?.addEventListener('input', computeEffectiveRate)
 );
 ['maintSanctionAmount','maintInterestRate','maintTermMonths','maintDisbursementDate'].forEach(id =>
-  document.getElementById(id)?.addEventListener('change', computeSchedule)
+  document.getElementById(id)?.addEventListener('change', () => {})
 );
 document.getElementById('btnComputeSchedule')?.addEventListener('click', computeSchedule);
 
@@ -298,9 +334,11 @@ async function viewRecord() {
     const rows = await sbFetch(`${TABLE}?application_id=eq.${encodeURIComponent(appId)}&limit=1`);
     if (rows && rows[0]) {
       recordToForm(rows[0]);
+      _loadedStatus   = rows[0].application_status || 'DataEntry';
+      _loadedSnapshot = rows[0];
       const cid = rows[0].client_id;
       if (cid) lookupClientName(cid);
-      toast(`Account ${appId} loaded.`, 'success');
+      toast(`Account ${appId} loaded (${_loadedStatus}).`, 'success');
       setMode('view');
     } else {
       toast('Application ID not found in loanmasterrecords.', 'warning');
@@ -322,6 +360,51 @@ async function saveRecord() {
   if (!rec.main_repayment_account_id) { toast('Repayment Account ID is required.', 'warning'); return; }
 
   const sb = document.getElementById('statusBar');
+  const isUpdate = currentMode !== 'add';
+
+  if (isUpdate && _loadedSnapshot) {
+    // ── GATE 1: status transition guard ──────────────────
+    const targetStatus = rec.application_status;
+    if (targetStatus && targetStatus !== _loadedStatus && window.LoanStatusGuard) {
+      const check = LoanStatusGuard.canTransition(_loadedStatus, targetStatus, 'loan-account-maintenance');
+      if (!check.allowed) {
+        toast(check.reason, 'error');
+        if (sb) sb.textContent = 'Save blocked — see toast.';
+        return;
+      }
+      // Closing from here is only reached pre-disbursement per the guard's
+      // transition map, but verify the ledger anyway — cheap insurance.
+      if (targetStatus === 'Closed') {
+        const bal = await LoanStatusGuard.checkZeroLedgerBalance(sbFetch, rec.application_id);
+        if (!bal.zero) {
+          toast(`Cannot close — outstanding loan ledger balance of ETB ${(bal.balance ?? 0).toLocaleString()}. Use Module 09 (Settlement) to pay off first.`, 'error');
+          if (sb) sb.textContent = 'Save blocked — outstanding balance.';
+          return;
+        }
+      }
+    }
+
+    // ── GATE 2: financial terms are locked once Sanctioned or later ──
+    if (TERM_LOCK_STATUSES.includes(_loadedStatus)) {
+      const changedLockedFields = LOCKED_TERM_FIELDS.filter(col => {
+        const before = _loadedSnapshot[col];
+        const after  = rec[col];
+        // Loose numeric compare so '12' vs 12 vs '12.00' don't false-positive
+        return parseFloat(before) !== parseFloat(after) &&
+               !(isNaN(parseFloat(before)) && isNaN(parseFloat(after)));
+      });
+      if (changedLockedFields.length) {
+        toast(
+          `Cannot change ${changedLockedFields.join(', ')} — loan is already ${_loadedStatus}. ` +
+          `Use Module 04 (Credit Sanction Console) before disbursement, or a loan restructuring entry after disbursement.`,
+          'error'
+        );
+        if (sb) sb.textContent = 'Save blocked — financial terms are locked.';
+        return;
+      }
+    }
+  }
+
   if (sb) sb.textContent = 'Saving…';
 
   try {
@@ -335,6 +418,17 @@ async function saveRecord() {
         method: 'PATCH', prefer: 'return=minimal', body: JSON.stringify(updateFields)
       });
       toast(`Account ${application_id} updated.`, 'success');
+
+      if (rec.application_status && rec.application_status !== _loadedStatus && window.LoanStatusGuard) {
+        await LoanStatusGuard.logStatusTransition(sbFetch, {
+          applicationId: application_id,
+          fromStatus:    _loadedStatus,
+          toStatus:      rec.application_status,
+          sourceModule:  'loan-account-maintenance',
+          changedBy:     getField('maintModifiedBy')
+        });
+        _loadedStatus = rec.application_status;
+      }
     }
     setMode('view');
     if (sb) sb.textContent = `Saved — ${rec.application_id}`;
@@ -386,12 +480,32 @@ document.getElementById('btnGlobalClose')?.addEventListener('click', () => {
 document.getElementById('btnGlobalDelete')?.addEventListener('click', async () => {
   const appId = getField('maintApplicationId');
   if (!appId) { toast('Load a record first.', 'warning'); return; }
+
+  if (window.LoanStatusGuard && _loadedStatus) {
+    const check = LoanStatusGuard.canTransition(_loadedStatus, 'Closed', 'loan-account-maintenance');
+    if (!check.allowed) {
+      toast(check.reason, 'error');
+      return;
+    }
+    const bal = await LoanStatusGuard.checkZeroLedgerBalance(sbFetch, appId);
+    if (!bal.zero) {
+      toast(`Cannot close — outstanding loan ledger balance of ETB ${(bal.balance ?? 0).toLocaleString()}.`, 'error');
+      return;
+    }
+  }
+
   if (!confirm(`Soft-delete account ${appId}?\nThis sets status to Closed.`)) return;
   try {
     await sbFetch(`${TABLE}?application_id=eq.${encodeURIComponent(appId)}`, {
       method: 'PATCH', prefer: 'return=minimal',
       body: JSON.stringify({ application_status: 'Closed', modified_on: new Date().toISOString() })
     });
+    if (window.LoanStatusGuard) {
+      await LoanStatusGuard.logStatusTransition(sbFetch, {
+        applicationId: appId, fromStatus: _loadedStatus, toStatus: 'Closed',
+        sourceModule: 'loan-account-maintenance', changedBy: getField('maintModifiedBy')
+      });
+    }
     toast(`Account ${appId} closed.`, 'success');
     clearForm(); setMode('view');
   } catch (e) {
@@ -404,5 +518,8 @@ document.getElementById('btnGlobalPrint')?.addEventListener('click', () => windo
 async function init() {
   setMode('view');
   await Promise.all([loadBranches(), loadProducts()]);
+  if (!window.LoanStatusGuard) {
+    console.warn('LoanStatusGuard not found — add <script src="loan-status-guard.js"> before this file. Status transitions and term locks will NOT be enforced.');
+  }
 }
 init();
