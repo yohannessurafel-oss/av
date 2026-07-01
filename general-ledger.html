@@ -3,105 +3,15 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF — 12 General Ledger</title>
+<title>AVMF — 10 Loan Disbursement</title>
 <link rel="stylesheet" href="style2.css"/>
-<style>
-  /* ── GL-specific layout ─────────────────────────────── */
-  .gl-filter-bar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: var(--bg-alt, #f4f6f9);
-    border: 1px solid var(--border, #d0d4da);
-    border-radius: 4px;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
-  }
-  .gl-filter-bar label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--label, #555);
-    white-space: nowrap;
-  }
-  .gl-filter-bar input,
-  .gl-filter-bar select {
-    font-size: 12px;
-    padding: 3px 7px;
-    border: 1px solid var(--border, #c8cdd5);
-    border-radius: 3px;
-    height: 26px;
-  }
-  .gl-filter-bar input[type="text"] { width: 140px; }
-  .gl-filter-bar input[type="date"] { width: 130px; }
-  .gl-filter-bar select             { width: 140px; }
-
-  .gl-tab-bar {
-    display: flex;
-    gap: 0;
-    border-bottom: 2px solid var(--accent, #0d3460);
-    margin-bottom: 10px;
-  }
-  .gl-tab {
-    padding: 6px 18px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    border: 1px solid transparent;
-    border-bottom: none;
-    border-radius: 4px 4px 0 0;
-    background: var(--bg-alt, #eef1f6);
-    color: var(--label, #555);
-    user-select: none;
-  }
-  .gl-tab.active {
-    background: var(--accent, #0d3460);
-    color: #fff;
-    border-color: var(--accent, #0d3460);
-  }
-  .gl-panel { display: none; }
-  .gl-panel.active { display: block; }
-
-  .table-scroll { max-height: 420px; overflow-y: auto; }
-  .ledger-grid th, .ledger-grid td { font-size: 11.5px; }
-  code { font-size: 11px; background: #eef1f6; padding: 1px 4px; border-radius: 2px; }
-
-  .badge-type {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 1px 6px;
-    border-radius: 10px;
-    background: #e8eef8;
-    color: #1b5199;
-  }
-  .badge-type.ASSET    { background:#e8f5e9; color:#2e7d32; }
-  .badge-type.LIABILITY{ background:#fff3e0; color:#e65100; }
-  .badge-type.EQUITY   { background:#f3e5f5; color:#6a1b9a; }
-  .badge-type.INCOME   { background:#e3f2fd; color:#0277bd; }
-  .badge-type.EXPENSE  { background:#fce4ec; color:#ad1457; }
-
-  .color-dr { color: #1565c0; font-weight: 600; }
-  .color-cr { color: #b71c1c; font-weight: 600; }
-  .summary-tiles {
-    display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;
-  }
-  .summary-tile {
-    flex: 1; min-width: 140px;
-    background: var(--bg-alt, #f4f6f9);
-    border: 1px solid var(--border, #d0d4da);
-    border-radius: 4px;
-    padding: 8px 12px;
-    text-align: center;
-  }
-  .summary-tile .tile-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: .5px; }
-  .summary-tile .tile-value { font-size: 16px; font-weight: 700; color: var(--accent, #0d3460); font-family: monospace; }
-</style>
 </head>
 <body>
+  
 
 <div class="window-container">
 
+  <!-- ══ Title Bar ══════════════════════════════════════ -->
   <div class="title-bar">
     <div class="title-branding-block">
       <svg class="header-logo-svg" viewBox="0 0 100 100">
@@ -114,12 +24,12 @@
       </svg>
       <div class="title-text-block">
         <span class="title-main">Africa Village Microfinance</span>
-        <span class="title-sub">12 — General Ledger &amp; Loan Ledger Engine</span>
+        <span class="title-sub">10 — Loan Disbursement &amp; Amortization Ledger</span>
       </div>
     </div>
     <div class="title-meta">
       <span id="systemDate" class="title-date"></span>
-      <span class="title-user">👤 Accountant</span>
+      <span class="title-user">👤 Loan Officer</span>
     </div>
     <div class="window-controls">
       <span title="Minimize">─</span>
@@ -128,6 +38,7 @@
     </div>
   </div>
 
+  <!-- ══ Workspace ══════════════════════════════════════ -->
   <div class="workspace">
 
     <!-- ── Left Navigation Sidebar (Category View) ──────── -->
@@ -137,8 +48,8 @@
       </div>
       <ul class="nav-menu">
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🌐</span><a href="indexll.html" class="nav-label">All Modules</a></li>
-        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📋</span><a href="indexll.html" class="nav-label">Credit Operations</a></li>
-        <li class="active"><span class="nav-num" style="background:none;font-size:14px;padding:0;">💰</span><a href="indexll.html" class="nav-label">Financials & Ledger</a></li>
+        <li class="active"><span class="nav-num" style="background:none;font-size:14px;padding:0;">📋</span><a href="indexll.html" class="nav-label">Credit Operations</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">💰</span><a href="indexll.html" class="nav-label">Financials & Ledger</a></li>
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🛡️</span><a href="indexll.html" class="nav-label">Risk & Collateral</a></li>
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🏧</span><a href="indexll.html" class="nav-label">Teller & Cash</a></li>
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📊</span><a href="indexll.html" class="nav-label">Reports</a></li>
@@ -151,148 +62,185 @@
       </div>
     </div>
 
+    <!-- ── Main Content Canvas ─────────────────────────── -->
     <div class="main-content">
-      <div class="module-view active" id="view-module-12">
+      <div class="module-view active" id="view-disbursement">
+
         <div class="context-badge-bar">
-          <span class="badge-icon">📒</span>
-          Financial Sub-Ledger — Chart of Accounts, GL Journal &amp; Loan Ledger
+          <span class="badge-icon">💵</span>
+          Transaction Posting — Loan Disbursement &amp; Amortization Schedule
         </div>
 
-        <!-- ── Summary Tiles ───────────────────────────── -->
-        <div class="summary-tiles">
-          <div class="summary-tile">
-            <div class="tile-label">Total Assets</div>
-            <div class="tile-value" id="tileAssets">—</div>
-          </div>
-          <div class="summary-tile">
-            <div class="tile-label">Total Liabilities</div>
-            <div class="tile-value" id="tileLiabilities">—</div>
-          </div>
-          <div class="summary-tile">
-            <div class="tile-label">Total Equity</div>
-            <div class="tile-value" id="tileEquity">—</div>
-          </div>
-          <div class="summary-tile">
-            <div class="tile-label">Total Income</div>
-            <div class="tile-value" id="tileIncome">—</div>
-          </div>
-          <div class="summary-tile">
-            <div class="tile-label">Total Expense</div>
-            <div class="tile-value" id="tileExpense">—</div>
-          </div>
-          <div class="summary-tile">
-            <div class="tile-label">Journal Entries</div>
-            <div class="tile-value" id="tileJournalCount">—</div>
+        <!-- Identity / Search Bar -->
+        <div class="identity-bar">
+          <div class="id-row">
+            <div class="id-field">
+              <label>Account ID</label>
+              <div class="id-input-wrap">
+                <input type="text" id="fAccountId" class="id-input" placeholder="e.g. ACC-20260015"/>
+                <button class="lookup-btn" id="btnView" title="Fetch Record">🔍</button>
+              </div>
+            </div>
+            <div class="id-field">
+              <label>Customer Name</label>
+              <input type="text" id="fCustomerName" class="id-input wide" readonly placeholder="Auto-populated from application"/>
+            </div>
           </div>
         </div>
 
-        <!-- ── Filter Bar ──────────────────────────────── -->
-        <div class="gl-filter-bar">
-          <label>Application ID</label>
-          <input type="text" id="filterAppId" placeholder="e.g. APP-001"/>
-          <label>From</label>
-          <input type="date" id="filterDateFrom"/>
-          <label>To</label>
-          <input type="date" id="filterDateTo"/>
-          <label>Account Type</label>
-          <select id="filterAccountType">
-            <option value="">All Types</option>
-            <option value="ASSET">ASSET</option>
-            <option value="LIABILITY">LIABILITY</option>
-            <option value="EQUITY">EQUITY</option>
-            <option value="INCOME">INCOME</option>
-            <option value="EXPENSE">EXPENSE</option>
-          </select>
-          <button id="btnSyncLedger" class="action-btn" style="width:auto;padding:0 14px;height:26px;font-size:12px;">⚙ Refresh</button>
-          <button id="btnPrintGL" class="action-btn" style="width:auto;padding:0 14px;height:26px;font-size:12px;">🖨 Print</button>
+        <!-- Tabs -->
+        <div class="tab-bar">
+          <button class="tab active" data-tab="details">Disbursement Information</button>
+          <button class="tab" data-tab="schedule">Amortization Schedule</button>
         </div>
 
-        <!-- ── Tabs ────────────────────────────────────── -->
-        <div class="gl-tab-bar">
-          <div class="gl-tab active" data-tab="coa">📊 Chart of Accounts</div>
-          <div class="gl-tab" data-tab="journal">📜 GL Journal</div>
-          <div class="gl-tab" data-tab="loanledger">📋 Loan Ledger</div>
-        </div>
+        <!-- Tab Panels -->
+        <div class="tab-panels">
 
-        <!-- Panel: Chart of Accounts -->
-        <div class="gl-panel active" id="panel-coa">
-          <div class="table-scroll">
-            <table class="ledger-grid" id="coaTable">
-              <thead>
-                <tr>
-                  <th>GL Code</th>
-                  <th>Account Title</th>
-                  <th>Type</th>
-                  <th class="text-right">Balance (ETB)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr><td colspan="4" class="text-center gray-text italic">Loading…</td></tr>
-              </tbody>
-            </table>
+          <!-- DISBURSEMENT DETAILS TAB -->
+          <div id="tab-details" class="tab-panel active">
+            <div class="card-header-banner">Transaction Variables</div>
+            <div class="form-grid">
+
+              <div class="field-pair-row">
+                <div class="form-field">
+                  <label>Principal Amount (ETB) <span class="req">*</span></label>
+                  <input type="number" id="fAmountDisbursed" step="0.01" placeholder="0.00"/>
+                </div>
+                <div class="form-field">
+                  <label>Disbursement Value Date</label>
+                  <input type="date" id="fDisbursementDate"/>
+                </div>
+              </div>
+
+              <div class="field-pair-row">
+                <div class="form-field">
+                  <label>Mode of Disbursement <span class="req">*</span></label>
+                  <select id="fPaymentMode">
+                    <option value="">– Select Mode –</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Cheque Processing">Cheque Processing</option>
+                    <option value="Cash Vault Handout">Cash Vault Handout</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label>Account Type <span class="req">*</span></label>
+                  <select id="fAccountType">
+                    <option value="">– Select Type –</option>
+                    <option value="Individual Loan">Individual Loan Account</option>
+                    <option value="Group Loan">Group Loan Account</option>
+                    <option value="Commercial Credit">Commercial Credit Line</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field-pair-row">
+                <div class="form-field">
+                  <label>Contra Account ID <span class="req">*</span></label>
+                  <input type="text" id="fContraAccountId" placeholder="Auto-filled from repayment account"/>
+                </div>
+                <div class="form-field">
+                  <label>Cheque / Reference No</label>
+                  <input type="text" id="fChequeNo" placeholder="Optional"/>
+                </div>
+              </div>
+
+              <div class="field-pair-row">
+                <div class="form-field">
+                  <label>Settlement Bank Name</label>
+                  <input type="text" id="fBankName" placeholder="Optional"/>
+                </div>
+                <div class="form-field">
+                  <label>Annual Interest Rate (%)</label>
+                  <input type="number" id="fInterestRate" step="0.01" value="12.00"/>
+                </div>
+              </div>
+
+              <div class="field-pair-row">
+                <div class="form-field">
+                  <label>Loan Tenor (Months)</label>
+                  <input type="number" id="fTenorMonths" value="12"/>
+                </div>
+                <div class="form-field"><!-- spacer --></div>
+              </div>
+
+            </div>
           </div>
-        </div>
 
-        <!-- Panel: GL Journal -->
-        <div class="gl-panel" id="panel-journal">
-          <div class="table-scroll">
-            <table class="ledger-grid" id="journalTable">
-              <thead>
-                <tr>
-                  <th>Entry ID</th>
-                  <th>Reference</th>
-                  <th>GL Account</th>
-                  <th class="text-right">Debit (ETB)</th>
-                  <th class="text-right">Credit (ETB)</th>
-                  <th>Value Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr><td colspan="6" class="text-center gray-text italic">Loading…</td></tr>
-              </tbody>
-            </table>
+          <!-- AMORTIZATION SCHEDULE TAB -->
+          <div id="tab-schedule" class="tab-panel">
+            <div class="card-header-banner">Generated Repayment Plan Matrix</div>
+            <div class="grid-container margin-top-sm" style="margin:8px 6px;">
+              <table class="ledger-grid" id="repaymentGrid">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Payment Date</th>
+                    <th>Opening Balance</th>
+                    <th>Principal Paid</th>
+                    <th>Interest</th>
+                    <th>Total Due</th>
+                    <th>Closing Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td colspan="7" class="placeholder-text">Save disbursement details to generate amortization schedule.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
 
-        <!-- Panel: Loan Ledger -->
-        <div class="gl-panel" id="panel-loanledger">
-          <div class="table-scroll">
-            <table class="ledger-grid" id="loanLedgerTable">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Application ID</th>
-                  <th>Borrower</th>
-                  <th>Post Date</th>
-                  <th>Description</th>
-                  <th>Ref Batch</th>
-                  <th class="text-right">Principal</th>
-                  <th class="text-right">Interest</th>
-                  <th class="text-right">Charges</th>
-                  <th class="text-right">Total Paid</th>
-                  <th class="text-right">Running Balance</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr><td colspan="11" class="text-center gray-text italic">Loading…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        </div><!-- /tab-panels -->
 
-        <div class="sub-footer-token" id="accountingStatusBar">Status: Ready</div>
+        <div class="sub-footer-token" id="statusBar">Status: Ready</div>
+
       </div>
-    </div>
+    </div><!-- /main-content -->
 
+    <!-- ── Right Action Sidebar ─────────────────────────── -->
     <div class="action-sidebar">
-      <button id="btnGlobalPrint" class="action-btn">🖨 Print</button>
+      <button id="btnAdd"    class="action-btn">➕ Add</button>
+      <button id="btnEdit"   class="action-btn">✏️ Edit</button>
+      <button id="btnClose"  class="action-btn">✕ Close</button>
+      <div class="sidebar-spacer"></div>
+      <button id="btnSave"   class="action-btn" disabled>💾 Save</button>
+      <button id="btnCancel" class="action-btn" disabled>🚫 Cancel</button>
       <div class="sidebar-footer">AVMF CBS v2.0</div>
     </div>
 
+  </div><!-- /workspace -->
+</div><!-- /window-container -->
+
+<!-- ══ Confirmation Modal ══════════════════════════════ -->
+<div id="disbursementModal" class="disb-modal-overlay">
+  <div class="disb-modal-window">
+    <div class="modal-header" style="border-radius:0;">
+      <span class="modal-title">Confirm Loan Disbursement</span>
+    </div>
+    <div class="disb-modal-body">
+      <p class="disb-warning">⚠️ Verify all variables before posting to the general ledger:</p>
+      <table class="disb-confirm-table">
+        <tr><td><strong>Account ID:</strong></td>           <td><span id="mdAccountId">—</span></td></tr>
+        <tr><td><strong>Mode of Disbursement:</strong></td> <td><span id="mdPaymentMode">—</span></td></tr>
+        <tr><td><strong>Account Type:</strong></td>         <td><span id="mdAccountType">—</span></td></tr>
+        <tr><td><strong>Contra Account ID:</strong></td>    <td><span id="mdContraAccountId">—</span></td></tr>
+      </table>
+    </div>
+    <div class="disb-modal-footer">
+      <button class="action-btn" id="btnConfirmCancel"
+              style="width:auto;padding:0 16px;">Abort</button>
+      <button class="action-btn" id="btnConfirmCommit"
+              style="width:auto;padding:0 16px;background:linear-gradient(to bottom,var(--amber-light),var(--amber));border-color:var(--amber-600);color:var(--navy-900);">Post Disbursement</button>
+    </div>
   </div>
 </div>
 
+<!-- Toast -->
 <div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
-<script src="general-ledger.js"></script>
+
+<script src="loan-status-guard.js"></script>
+<script src="disbursement.js"></script>
 </body>
 </html>
