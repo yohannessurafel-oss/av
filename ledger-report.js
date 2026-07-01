@@ -12,10 +12,7 @@
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-/* ── Supabase SDK client (for loan_ledger reads) ──────── */
-const _db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-/* ── Raw REST fetch (for loanmasterrecords / amortization) */
+/* ── Raw REST fetch (used for all Supabase reads on this page) */
 async function sbFetch(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
@@ -123,21 +120,24 @@ async function loadFromDB() {
   const acctNumber = lmrRecord?.account_number  || searchVal;
 
   // Step 2: fetch loan_ledger by application_id (CBS pipeline rows)
-  let { data, error } = await _db
-    .from('loan_ledger')
-    .select('*')
-    .eq('application_id', appId)
-    .order('id', { ascending: true });
+  let data, error = null;
+  try {
+    data = await sbFetch(
+      `loan_ledger?application_id=eq.${encodeURIComponent(appId)}&order=id.asc`
+    ) || [];
+  } catch (e) {
+    error = e;
+  }
 
   // Step 3: fall back to account_number (legacy standalone tool rows)
-  if ((!data || data.length === 0) && acctNumber !== appId) {
-    const res2 = await _db
-      .from('loan_ledger')
-      .select('*')
-      .eq('account_number', acctNumber)
-      .order('id', { ascending: true });
-    data  = res2.data;
-    error = res2.error;
+  if (!error && (!data || data.length === 0) && acctNumber !== appId) {
+    try {
+      data = await sbFetch(
+        `loan_ledger?account_number=eq.${encodeURIComponent(acctNumber)}&order=id.asc`
+      ) || [];
+    } catch (e) {
+      error = e;
+    }
   }
 
   // Step 4: fall back to amortization_schedules if still empty
@@ -282,13 +282,15 @@ function buildLedgerRows(p) {
     total_paid: 0, accrued_unpaid_interest: null, running_balance: amount
   });
 
+  const PROCESSING_FEE_AMOUNT = 1000;
+
   if (includeProcessingFee) {
     rows.push({
       row_type: 'fee',
       account_number: accountNumber, borrower_name: borrowerName,
       post_date: isoDisburse, value_date: isoDisburse,
       description: 'Admin / Processing Fee', ref_batch: 'SYS-FEE01',
-      principal: 0, interest: 0, charges_penalties: 1000,
+      principal: 0, interest: 0, charges_penalties: PROCESSING_FEE_AMOUNT,
       accrued_interest_receivable: 0, total_paid: 0,
       accrued_unpaid_interest: null, running_balance: amount
     });
@@ -310,7 +312,7 @@ function buildLedgerRows(p) {
 
   let currentBalance = amount;
   let calcDate       = new Date(startDate);
-  const firstUnpaid  = initialAccruedInterest - 1000;
+  const firstUnpaid  = initialAccruedInterest - (includeProcessingFee ? PROCESSING_FEE_AMOUNT : 0);
 
   for (let i = 1; i <= intervals; i++) {
     calcDate.setMonth(calcDate.getMonth() + monthStep);
@@ -351,7 +353,7 @@ function buildLedgerRows(p) {
       post_date: isoValueDate, value_date: isoValueDate,
       description: descLabel, ref_batch: refLabel,
       principal: parseFloat((-principal).toFixed(2)),
-      interest: i === 1 ? -1000 : parseFloat((-interest).toFixed(2)),
+      interest: parseFloat((-interest).toFixed(2)),
       charges_penalties: 0, accrued_interest_receivable: 0,
       total_paid: parseFloat(emi.toFixed(2)),
       accrued_unpaid_interest: i === 1 ? parseFloat(firstUnpaid.toFixed(2)) : null,
