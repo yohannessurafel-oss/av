@@ -523,7 +523,14 @@ async function commitSave(payload) {
           application_id:     appId,
           branch_id:          branchId || null,
           application_date:   appDate,
-          application_status: appStatus,
+          // loanapplications is the intake staging table — its
+          // application_status CHECK constraint only allows 'Draft'/
+          // 'Submitted', NOT the full lifecycle list used by
+          // loanmasterrecords. Always send 'Draft' here regardless of
+          // what's showing in the form, same pattern as module 02
+          // (group-loan-projection.js). The real status (appStatus,
+          // e.g. 'DataEntry') is written to loanmasterrecords below.
+          application_status: 'Draft',
         })
       });
 
