@@ -118,6 +118,7 @@ function computeSanctionSchedule() {
 
 /* ── Track loaded record ───────────────────────────────── */
 let _loadedAppId = null;
+let _loadedPrevStatus = null;
 
 /* ── Application Lookup ─────────────────────────────────── */
 async function lookupApplication() {
@@ -140,6 +141,7 @@ async function lookupApplication() {
 
     const lmr = lmrRows[0];
     _loadedAppId = lmr.application_id;
+    _loadedPrevStatus = lmr.application_status || null;
 
     const set = (id, val) => {
       const el = document.getElementById(id);
@@ -189,6 +191,8 @@ async function lookupApplication() {
     set('sanctionInstallmentStartDate', lmr.installment_start_date);
     set('sanctionInterestRateType',  lmr.interest_rate_type);
     set('sanctionMarkingRate2',      lmr.marking_rate);
+    set('sanctionApprovedBy',        lmr.approved_by);
+    set('sanctionApprovedDate',      lmr.approved_date);
 
     toast(`Application ${_loadedAppId} loaded.`);
     if (sb) sb.textContent = `Application ${_loadedAppId} — click Edit to sanction`;
@@ -229,6 +233,8 @@ async function saveSanction() {
     interest_rate_type:      getVal('sanctionInterestRateType'),
     marking_rate:            getNum('sanctionMarkingRate2'),
     installment_amount:      getNum('sanctionInstallmentAmt'), // Save expected installment [1]
+    approved_by:             getVal('sanctionApprovedBy'),
+    approved_date:           getVal('sanctionApprovedDate') || new Date().toISOString().slice(0,10),
     application_status:      'Sanctioned',
     modified_on:             new Date().toISOString(),
   };
@@ -256,6 +262,21 @@ async function saveSanction() {
 
     const statusEl = document.getElementById('sanctionAppStatus');
     if (statusEl) statusEl.value = 'Sanctioned';
+
+    // Record the transition in the audit log, same pattern as disbursement.js.
+    // No-ops safely (with a console warning) if loan-status-guard.js isn't
+    // loaded on this page yet.
+    if (window.LoanStatusGuard) {
+      await LoanStatusGuard.logStatusTransition(sbFetch, {
+        applicationId: _loadedAppId,
+        fromStatus:    _loadedPrevStatus || 'DataEntry',
+        toStatus:      'Sanctioned',
+        sourceModule:  'credit-sanction-console',
+        changedBy:     payload.approved_by || null
+      });
+    } else {
+      console.warn('LoanStatusGuard not found — sanction transition not logged to audit trail.');
+    }
 
     toast(`Application ${_loadedAppId} sanctioned successfully.`, 'success');
     if (sb) sb.textContent = `Sanctioned — ${_loadedAppId}`;
