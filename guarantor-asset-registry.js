@@ -95,6 +95,7 @@ const DISPLAY_ONLY = new Set([
 ]);
 
 let _currentAssignmentId = null;
+let currentMode = 'view';
 
 /* ── Helpers ────────────────────────────────────────────── */
 function getField(id) {
