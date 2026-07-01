@@ -71,6 +71,7 @@ const FIELD_MAP = {
   maintProductId:             'product_id',
   maintCurrencyId:            'currency_id',
   maintSanctionAmount:        'sanction_amount',
+  maintSanctionDate:          'sanction_date',
   maintBookedAmount:          'booked_amount',
   maintTermMonths:            'term_months',
   maintRepaymentTermMonths:   'repayment_term_months',
