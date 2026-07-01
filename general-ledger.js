@@ -130,6 +130,7 @@ function updateSummaryTiles(accounts) {
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = fmt(val); };
   set('tileAssets',      sum('ASSET'));
   set('tileLiabilities', sum('LIABILITY'));
+  set('tileEquity',      sum('EQUITY'));
   set('tileIncome',      sum('INCOME'));
   set('tileExpense',     sum('EXPENSE'));
 }
@@ -190,8 +191,8 @@ function renderLoanLedger(rows) {
       <td><code>${r.application_id || '—'}</code></td>
       <td>${r.borrower_name || '—'}</td>
       <td><small>${r.post_date || ''}</small></td>
-      <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.description}</td>
-      <td><small class="gray-text">${r.ref_batch}</small></td>
+      <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.description || ''}</td>
+      <td><small class="gray-text">${r.ref_batch || ''}</small></td>
       <td class="text-right">${dash(r.principal)}</td>
       <td class="text-right">${dash(r.interest)}</td>
       <td class="text-right">${dash(r.charges_penalties)}</td>
