@@ -145,6 +145,7 @@ async function searchTill() {
     } else {
       toast(`Till "${tillId}" not found for this branch.`, 'warning');
       _currentTillId = null;
+      _lastRunningBalance = 0;
     }
   } catch (e) {
     toast('Till lookup error: ' + e.message, 'error');
@@ -343,6 +344,7 @@ document.getElementById('btnGlobalAdd')?.addEventListener('click', () => {
   document.getElementById('transactionsTbody').innerHTML =
     '<tr><td colspan="7" class="text-center gray-text italic">Load a till to view transactions.</td></tr>';
   _currentTillId = null;
+  _lastRunningBalance = 0; // reset — otherwise a new till's opening balance is calculated against whatever till was last viewed
   setMode('add');
   toast('Add mode — enter new Till ID, then Open Till.');
 });
