@@ -1,12 +1,24 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 10 Loan Disbursement
-   disbursement.js  v3.1 — RESOLVED AMORTIZATION & LEDGER UPDATES
+   disbursement.js  v3.2 — STATUS GUARD WIRED IN
    Tables written:
      → loan_disbursement  (one row per disbursement event)
      → loan_ledger        (disbursement row only)
    Tables read:
      → loanmasterrecords              (application lookup)
      → lendingproductparametermatrix  (product_name_title)
+
+   Requires loan-status-guard.js to be loaded BEFORE this file:
+     <script src="loan-status-guard.js"></script>
+     <script src="disbursement.js"></script>
+
+   WHAT CHANGED FROM v3.1
+   Previously this module would post a disbursement and set
+   application_status = 'Disbursed' regardless of the loan's current
+   status — a Draft or DataEntry application could be disbursed
+   without ever being sanctioned. Now the confirm-commit step checks
+   LoanStatusGuard.canTransition() first and refuses to post if the
+   loan isn't currently 'Sanctioned'.
 ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -296,7 +308,20 @@ document.getElementById('btnConfirmCancel').addEventListener('click', () => {
 document.getElementById('btnConfirmCommit').addEventListener('click', async () => {
   document.getElementById('disbursementModal').classList.remove('active');
 
-  const appId         = document.getElementById('fAccountId').value.trim();
+  const appId = document.getElementById('fAccountId').value.trim();
+
+  // ── GATE: only a Sanctioned loan can be disbursed, and only from here ──
+  if (window.LoanStatusGuard) {
+    const currentStatus = currentRecord?.application_status || 'DataEntry';
+    const check = LoanStatusGuard.canTransition(currentStatus, 'Disbursed', 'disbursement');
+    if (!check.allowed) {
+      showToast(check.reason, 'error');
+      return;
+    }
+  } else {
+    console.warn('LoanStatusGuard not found — disbursing WITHOUT a sanction-status check.');
+  }
+
   const customerName  = document.getElementById('fCustomerName').value.trim()
                      || currentRecord?._resolvedName
                      || currentRecord?.client_name
@@ -394,6 +419,16 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
       prefer: 'return=minimal',
       body:   JSON.stringify(masterPatch)
     });
+
+    if (window.LoanStatusGuard) {
+      await LoanStatusGuard.logStatusTransition(sbFetch, {
+        applicationId: appId,
+        fromStatus:    currentRecord?.application_status || 'Sanctioned',
+        toStatus:      'Disbursed',
+        sourceModule:  'disbursement',
+        changedBy:     null
+      });
+    }
 
     currentRecord = { ...currentRecord, application_status: 'Disbursed' };
     setMode('view');
