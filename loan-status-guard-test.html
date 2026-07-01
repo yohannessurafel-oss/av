@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AVMF — Loan Status Guard Test Harness</title>
+<style>
+  :root {
+    --navy-900: #0d3460;
+    --amber: #e69c24;
+    --border: #d0d4da;
+    --bg-alt: #f4f6f9;
+    --ok: #2e7d32;
+    --bad: #b71c1c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #eef1f6;
+    margin: 0;
+    padding: 20px;
+    color: #222;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 {
+    font-size: 18px;
+    color: var(--navy-900);
+    margin: 0 0 4px;
+  }
+  .subtitle { font-size: 12px; color: #667; margin-bottom: 20px; }
+  .panel {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    box-shadow: 1px 2px 4px rgba(0,0,0,0.05);
+  }
+  .panel h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: var(--navy-900);
+    margin: 0 0 12px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+  }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 160px; }
+  .field label { font-size: 11px; font-weight: 600; color: #556; }
+  .field select, .field input {
+    font-size: 13px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  button {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: 1px solid var(--navy-900);
+    background: var(--navy-900);
+    color: #fff;
+    cursor: pointer;
+    height: 34px;
+  }
+  button:hover { background: #0a2748; }
+  button.secondary {
+    background: #fff;
+    color: var(--navy-900);
+  }
+  .result {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    display: none;
+  }
+  .result.show { display: block; }
+  .result.allowed { background: #e8f5e9; border: 1px solid var(--ok); color: #1b5e20; }
+  .result.blocked { background: #ffebee; border: 1px solid var(--bad); color: var(--bad); }
+  .result .badge {
+    display: inline-block;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-bottom: 6px;
+  }
+  .result.allowed .badge { background: var(--ok); color: #fff; }
+  .result.blocked .badge { background: var(--bad); color: #fff; }
+  .matrix {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+  }
+  .matrix th, .matrix td {
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    text-align: left;
+  }
+  .matrix th { background: var(--bg-alt); font-weight: 700; color: var(--navy-900); }
+  .matrix td.mods { color: #445; }
+  .matrix tr:nth-child(even) { background: #fafbfc; }
+  .guard-status {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .guard-status.loaded { background: #e8f5e9; color: var(--ok); }
+  .guard-status.missing { background: #ffebee; color: var(--bad); }
+  .hint { font-size: 11px; color: #889; margin-top: 4px; }
+  code { background: #eef1f6; padding: 1px 5px; border-radius: 3px; font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Loan Status Guard — Test Harness <span id="guardStatus" class="guard-status">checking…</span></h1>
+  <div class="subtitle">Standalone diagnostic page for <code>loan-status-guard.js</code>. Not part of the module navigation — use it to verify transition rules and run live checks against Supabase before wiring changes into a real module.</div>
+
+  <!-- ── 1. Transition Tester ─────────────────────────────── -->
+  <div class="panel">
+    <h2>1 · Transition Tester</h2>
+    <div class="row">
+      <div class="field">
+        <label>From Status</label>
+        <select id="fromStatus"></select>
+      </div>
+      <div class="field">
+        <label>To Status</label>
+        <select id="toStatus"></select>
+      </div>
+      <div class="field">
+        <label>Source Module</label>
+        <select id="sourceModule">
+          <option value="loan-application">loan-application (01)</option>
+          <option value="loan-appraisal-management">loan-appraisal-management (03)</option>
+          <option value="credit-sanction-console">credit-sanction-console (04)</option>
+          <option value="loan-account-maintenance">loan-account-maintenance (05)</option>
+          <option value="disbursement">disbursement (10)</option>
+          <option value="settlement">settlement (09)</option>
+          <option value="__other__">other / not yet wired</option>
+        </select>
+      </div>
+      <button id="btnTest">Test Transition</button>
+    </div>
+    <div id="testResult" class="result"></div>
+  </div>
+
+  <!-- ── 2. Live Sanction Ceiling Check ──────────────────── -->
+  <div class="panel">
+    <h2>2 · Sanction Ceiling Check <span class="hint">(queries lendingproductparametermatrix live)</span></h2>
+    <div class="row">
+      <div class="field">
+        <label>Product ID</label>
+        <input type="text" id="ceilProductId" placeholder="e.g. PRD-001"/>
+      </div>
+      <div class="field">
+        <label>Approved Amount (ETB)</label>
+        <input type="number" id="ceilAmount" placeholder="e.g. 50000"/>
+      </div>
+      <button id="btnCeiling">Check Ceiling</button>
+    </div>
+    <div id="ceilingResult" class="result"></div>
+  </div>
+
+  <!-- ── 3. Live Zero-Balance Check ──────────────────────── -->
+  <div class="panel">
+    <h2>3 · Zero Ledger Balance Check <span class="hint">(queries loan_ledger live — used before closing a loan)</span></h2>
+    <div class="row">
+      <div class="field">
+        <label>Application ID</label>
+        <input type="text" id="balAppId" placeholder="e.g. APP-00123"/>
+      </div>
+      <button id="btnBalance">Check Balance</button>
+    </div>
+    <div id="balanceResult" class="result"></div>
+  </div>
+
+  <!-- ── 4. Full Transition Matrix ────────────────────────── -->
+  <div class="panel">
+    <h2>4 · Full Transition Matrix (read from the guard itself — always current)</h2>
+    <table class="matrix" id="matrixTable">
+      <thead><tr><th>From</th><th>To</th><th>Authorized Module(s)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script src="loan-status-guard.js"></script>
+<script>
+'use strict';
+
+/* Same project used by the rest of AVMF CBS — read-only queries only. */
+const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
+
+async function sbFetch(path, opts = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type':  'application/json',
+      'Prefer':        opts.prefer || 'return=representation',
+      ...(opts.headers || {})
+    }
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    let msg = 'HTTP ' + res.status;
+    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
+    throw new Error(msg);
+  }
+  const text = await res.text();
+  if (!text || !text.trim()) return null;
+  try { return JSON.parse(text); } catch { return null; }
+}
+
+/* ── Guard presence banner ──────────────────────────────── */
+const guardBadge = document.getElementById('guardStatus');
+if (window.LoanStatusGuard) {
+  guardBadge.textContent = 'guard loaded';
+  guardBadge.className = 'guard-status loaded';
+} else {
+  guardBadge.textContent = 'guard NOT found';
+  guardBadge.className = 'guard-status missing';
+}
+
+/* ── 1. Populate status dropdowns from the guard's own list ─ */
+function populateStatusSelects() {
+  const statuses = window.LoanStatusGuard ? window.LoanStatusGuard.VALID_STATUSES : [
+    'Draft','Submitted','DataEntry','Appraisal','Sanctioned','Disbursed','Matured','Closed','WrittenOff'
+  ];
+  ['fromStatus', 'toStatus'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = statuses.map(s => `<option value="${s}">${s}</option>`).join('');
+  });
+  document.getElementById('toStatus').selectedIndex = 1;
+}
+populateStatusSelects();
+
+document.getElementById('btnTest').addEventListener('click', () => {
+  const from = document.getElementById('fromStatus').value;
+  const to   = document.getElementById('toStatus').value;
+  const mod  = document.getElementById('sourceModule').value;
+  const resultEl = document.getElementById('testResult');
+
+  if (!window.LoanStatusGuard) {
+    resultEl.className = 'result blocked show';
+    resultEl.innerHTML = `<span class="badge">Error</span><div>LoanStatusGuard is not loaded — check the &lt;script&gt; tag order.</div>`;
+    return;
+  }
+
+  const check = window.LoanStatusGuard.canTransition(from, to, mod);
+  resultEl.className = `result show ${check.allowed ? 'allowed' : 'blocked'}`;
+  resultEl.innerHTML = `
+    <span class="badge">${check.allowed ? 'Allowed' : 'Blocked'}</span>
+    <div><strong>${from}</strong> → <strong>${to}</strong> from <code>${mod}</code></div>
+    <div style="margin-top:6px;">${check.reason}</div>
+  `;
+});
+
+/* ── 2. Sanction ceiling check ───────────────────────────── */
+document.getElementById('btnCeiling').addEventListener('click', async () => {
+  const productId = document.getElementById('ceilProductId').value.trim();
+  const amount    = document.getElementById('ceilAmount').value;
+  const resultEl  = document.getElementById('ceilingResult');
+
+  if (!window.LoanStatusGuard) {
+    resultEl.className = 'result blocked show';
+    resultEl.innerHTML = `<span class="badge">Error</span><div>LoanStatusGuard is not loaded.</div>`;
+    return;
+  }
+  if (!productId || !amount) {
+    resultEl.className = 'result blocked show';
+    resultEl.innerHTML = `<span class="badge">Missing input</span><div>Enter both a Product ID and an amount.</div>`;
+    return;
+  }
+
+  resultEl.className = 'result show';
+  resultEl.innerHTML = 'Checking…';
+
+  try {
+    const check = await window.LoanStatusGuard.checkSanctionCeiling(sbFetch, productId, parseFloat(amount));
+    resultEl.className = `result show ${check.ok ? 'allowed' : 'blocked'}`;
+    resultEl.innerHTML = `
+      <span class="badge">${check.ok ? 'Within limit' : 'Exceeds limit'}</span>
+      <div>${check.reason || (check.limit != null ? `Product limit: ETB ${check.limit.toLocaleString()}` : '')}</div>
+    `;
+  } catch (e) {
+    resultEl.className = 'result blocked show';
+    resultEl.innerHTML = `<span class="badge">Error</span><div>${e.message}</div>`;
+  }
+});
+
+/* ── 3. Zero balance check ───────────────────────────────── */
+document.getElementById('btnBalance').addEventListener('click', async () => {
+  const appId    = document.getElementById('balAppId').value.trim();
+  const resultEl = document.getElementById('balanceResult');
+
+  if (!window.LoanStatusGuard) {
+    resultEl.className = 'result blocked show';
+    resultEl.innerHTML = `<span class="badge">Error</span><div>LoanStatusGuard is not loaded.</div>`;
+    return;
+  }
+  if (!appId) {
+    resultEl.className = 'result blocked show';
+    resultEl.innerHTML = `<span class="badge">Missing input</span><div>Enter an Application ID.</div>`;
+    return;
+  }
+
+  resultEl.className = 'result show';
+  resultEl.innerHTML = 'Checking…';
+
+  try {
+    const check = await window.LoanStatusGuard.checkZeroLedgerBalance(sbFetch, appId);
+    resultEl.className = `result show ${check.zero ? 'allowed' : 'blocked'}`;
+    resultEl.innerHTML = `
+      <span class="badge">${check.zero ? 'Zero balance — closeable' : 'Outstanding balance'}</span>
+      <div>Running balance: ETB ${(check.balance ?? 0).toLocaleString()}</div>
+      ${check.reason ? `<div style="margin-top:4px;">${check.reason}</div>` : ''}
+    `;
+  } catch (e) {
+    resultEl.className = 'result blocked show';
+    resultEl.innerHTML = `<span class="badge">Error</span><div>${e.message}</div>`;
+  }
+});
+
+/* ── 4. Render the full transition matrix straight from the guard ── */
+function renderMatrix() {
+  const tbody = document.querySelector('#matrixTable tbody');
+  if (!window.LoanStatusGuard) {
+    tbody.innerHTML = '<tr><td colspan="3">Guard not loaded.</td></tr>';
+    return;
+  }
+  const rows = [];
+  Object.entries(window.LoanStatusGuard.TRANSITIONS).forEach(([from, tos]) => {
+    const entries = Object.entries(tos);
+    if (entries.length === 0) {
+      rows.push(`<tr><td>${from}</td><td colspan="2" style="color:#889;">— terminal, no further transitions —</td></tr>`);
+    } else {
+      entries.forEach(([to, mods]) => {
+        rows.push(`<tr><td>${from}</td><td>${to}</td><td class="mods">${mods.join(', ')}</td></tr>`);
+      });
+    }
+  });
+  tbody.innerHTML = rows.join('');
+}
+renderMatrix();
+</script>
+</body>
+</html>
