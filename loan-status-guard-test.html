@@ -4,83 +4,47 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>AVMF — Loan Status Guard Test Harness</title>
+<link rel="stylesheet" href="style2.css"/>
 <style>
-  :root {
-    --navy-900: #0d3460;
-    --amber: #e69c24;
-    --border: #d0d4da;
-    --bg-alt: #f4f6f9;
-    --ok: #2e7d32;
-    --bad: #b71c1c;
-  }
-  * { box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #eef1f6;
-    margin: 0;
-    padding: 20px;
-    color: #222;
-  }
-  .wrap { max-width: 960px; margin: 0 auto; }
-  h1 {
-    font-size: 18px;
-    color: var(--navy-900);
-    margin: 0 0 4px;
-  }
-  .subtitle { font-size: 12px; color: #667; margin-bottom: 20px; }
-  .panel {
+  /* ── Diagnostic-panel-specific styles (not covered by style2.css) ── */
+  .diag-panel {
     background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 16px 18px;
-    margin-bottom: 16px;
-    box-shadow: 1px 2px 4px rgba(0,0,0,0.05);
+    border: 1px solid var(--border, #d0d4da);
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    box-shadow: 1px 2px 4px rgba(0,0,0,0.06);
   }
-  .panel h2 {
-    font-size: 13px;
+  .diag-panel h2 {
+    font-size: 12px;
     text-transform: uppercase;
     letter-spacing: .4px;
-    color: var(--navy-900);
+    color: var(--accent, #0d3460);
     margin: 0 0 12px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border, #d0d4da);
     padding-bottom: 8px;
   }
-  .row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; align-items: flex-end; }
-  .field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 160px; }
-  .field label { font-size: 11px; font-weight: 600; color: #556; }
-  .field select, .field input {
+  .diag-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; align-items: flex-end; }
+  .diag-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 160px; }
+  .diag-field label { font-size: 11px; font-weight: 600; color: #556; }
+  .diag-field select, .diag-field input {
     font-size: 13px;
-    padding: 6px 8px;
-    border: 1px solid var(--border);
+    padding: 5px 8px;
+    border: 1px solid var(--border, #c8cdd5);
     border-radius: 4px;
   }
-  button {
-    font-size: 12px;
-    font-weight: 600;
-    padding: 8px 16px;
-    border-radius: 4px;
-    border: 1px solid var(--navy-900);
-    background: var(--navy-900);
-    color: #fff;
-    cursor: pointer;
-    height: 34px;
-  }
-  button:hover { background: #0a2748; }
-  button.secondary {
-    background: #fff;
-    color: var(--navy-900);
-  }
-  .result {
-    margin-top: 12px;
-    padding: 12px 14px;
+  .diag-hint { font-size: 11px; color: #889; font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .diag-result {
+    margin-top: 10px;
+    padding: 10px 14px;
     border-radius: 4px;
     font-size: 13px;
     display: none;
   }
-  .result.show { display: block; }
-  .result.allowed { background: #e8f5e9; border: 1px solid var(--ok); color: #1b5e20; }
-  .result.blocked { background: #ffebee; border: 1px solid var(--bad); color: var(--bad); }
-  .result .badge {
+  .diag-result.show { display: block; }
+  .diag-result.allowed { background: #e8f5e9; border: 1px solid #2e7d32; color: #1b5e20; }
+  .diag-result.blocked { background: #ffebee; border: 1px solid #b71c1c; color: #b71c1c; }
+  .diag-result .badge {
     display: inline-block;
     font-weight: 700;
     font-size: 11px;
@@ -89,115 +53,188 @@
     border-radius: 10px;
     margin-bottom: 6px;
   }
-  .result.allowed .badge { background: var(--ok); color: #fff; }
-  .result.blocked .badge { background: var(--bad); color: #fff; }
-  .matrix {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 11.5px;
-  }
-  .matrix th, .matrix td {
-    border: 1px solid var(--border);
-    padding: 6px 8px;
-    text-align: left;
-  }
-  .matrix th { background: var(--bg-alt); font-weight: 700; color: var(--navy-900); }
-  .matrix td.mods { color: #445; }
-  .matrix tr:nth-child(even) { background: #fafbfc; }
+  .diag-result.allowed .badge { background: #2e7d32; color: #fff; }
+  .diag-result.blocked .badge { background: #b71c1c; color: #fff; }
+  .diag-matrix { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  .diag-matrix th, .diag-matrix td { border: 1px solid var(--border, #d0d4da); padding: 6px 8px; text-align: left; }
+  .diag-matrix th { background: var(--bg-alt, #f4f6f9); font-weight: 700; color: var(--accent, #0d3460); }
+  .diag-matrix td.mods { color: #445; }
+  .diag-matrix tr:nth-child(even) { background: #fafbfc; }
   .guard-status {
     display: inline-block;
     padding: 2px 10px;
     border-radius: 10px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
+    margin-left: 8px;
+    vertical-align: middle;
   }
-  .guard-status.loaded { background: #e8f5e9; color: var(--ok); }
-  .guard-status.missing { background: #ffebee; color: var(--bad); }
-  .hint { font-size: 11px; color: #889; margin-top: 4px; }
+  .guard-status.loaded  { background: #e8f5e9; color: #2e7d32; }
+  .guard-status.missing { background: #ffebee; color: #b71c1c; }
   code { background: #eef1f6; padding: 1px 5px; border-radius: 3px; font-size: 11.5px; }
+  .diag-btn {
+    font-size: 12px; font-weight: 600; padding: 0 16px; height: 30px;
+    border-radius: 4px; border: 1px solid var(--accent, #0d3460);
+    background: var(--accent, #0d3460); color: #fff; cursor: pointer;
+  }
+  .diag-btn:hover { background: #0a2748; }
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <h1>Loan Status Guard — Test Harness <span id="guardStatus" class="guard-status">checking…</span></h1>
-  <div class="subtitle">Standalone diagnostic page for <code>loan-status-guard.js</code>. Not part of the module navigation — use it to verify transition rules and run live checks against Supabase before wiring changes into a real module.</div>
+<div class="window-container">
 
-  <!-- ── 1. Transition Tester ─────────────────────────────── -->
-  <div class="panel">
-    <h2>1 · Transition Tester</h2>
-    <div class="row">
-      <div class="field">
-        <label>From Status</label>
-        <select id="fromStatus"></select>
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <svg class="header-logo-svg" viewBox="0 0 100 100">
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
+        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
+        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
+        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
+        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+      </svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance</span>
+        <span class="title-sub">Diagnostics — Loan Status Guard Test Harness</span>
       </div>
-      <div class="field">
-        <label>To Status</label>
-        <select id="toStatus"></select>
-      </div>
-      <div class="field">
-        <label>Source Module</label>
-        <select id="sourceModule">
-          <option value="loan-application">loan-application (01)</option>
-          <option value="loan-appraisal-management">loan-appraisal-management (03)</option>
-          <option value="credit-sanction-console">credit-sanction-console (04)</option>
-          <option value="loan-account-maintenance">loan-account-maintenance (05)</option>
-          <option value="disbursement">disbursement (10)</option>
-          <option value="settlement">settlement (09)</option>
-          <option value="__other__">other / not yet wired</option>
-        </select>
-      </div>
-      <button id="btnTest">Test Transition</button>
     </div>
-    <div id="testResult" class="result"></div>
-  </div>
-
-  <!-- ── 2. Live Sanction Ceiling Check ──────────────────── -->
-  <div class="panel">
-    <h2>2 · Sanction Ceiling Check <span class="hint">(queries lendingproductparametermatrix live)</span></h2>
-    <div class="row">
-      <div class="field">
-        <label>Product ID</label>
-        <input type="text" id="ceilProductId" placeholder="e.g. PRD-001"/>
-      </div>
-      <div class="field">
-        <label>Approved Amount (ETB)</label>
-        <input type="number" id="ceilAmount" placeholder="e.g. 50000"/>
-      </div>
-      <button id="btnCeiling">Check Ceiling</button>
+    <div class="title-meta">
+      <span id="systemDate" class="title-date"></span>
+      <span class="title-user">👤 Developer</span>
     </div>
-    <div id="ceilingResult" class="result"></div>
-  </div>
-
-  <!-- ── 3. Live Zero-Balance Check ──────────────────────── -->
-  <div class="panel">
-    <h2>3 · Zero Ledger Balance Check <span class="hint">(queries loan_ledger live — used before closing a loan)</span></h2>
-    <div class="row">
-      <div class="field">
-        <label>Application ID</label>
-        <input type="text" id="balAppId" placeholder="e.g. APP-00123"/>
-      </div>
-      <button id="btnBalance">Check Balance</button>
+    <div class="window-controls">
+      <span title="Minimize">─</span>
+      <span title="Maximize">▢</span>
+      <span title="Close" class="wc-close" onclick="window.location='indexll.html'">✕</span>
     </div>
-    <div id="balanceResult" class="result"></div>
   </div>
 
-  <!-- ── 4. Full Transition Matrix ────────────────────────── -->
-  <div class="panel">
-    <h2>4 · Full Transition Matrix (read from the guard itself — always current)</h2>
-    <table class="matrix" id="matrixTable">
-      <thead><tr><th>From</th><th>To</th><th>Authorized Module(s)</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
+  <div class="workspace">
 
+    <div class="sidebar">
+      <div class="sidebar-header" style="cursor: pointer; background: var(--navy-900);" title="Return to Dashboard" onclick="window.location='indexll.html'">
+        🏠 Main Dashboard
+      </div>
+      <ul class="nav-menu">
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🌐</span><a href="indexll.html" class="nav-label">All Modules</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📋</span><a href="indexll.html" class="nav-label">Credit Operations</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">💰</span><a href="indexll.html" class="nav-label">Financials & Ledger</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🛡️</span><a href="indexll.html" class="nav-label">Risk & Collateral</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🏧</span><a href="indexll.html" class="nav-label">Teller & Cash</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📊</span><a href="indexll.html" class="nav-label">Reports</a></li>
+        <li class="active"><span class="nav-num" style="background:none;font-size:14px;padding:0;">🧪</span><a href="indexll.html" class="nav-label">Diagnostics & Tools</a></li>
+      </ul>
+      <div class="sidebar-footer-brand">
+        <svg viewBox="0 0 100 100" width="28" height="28">
+          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
+        </svg>
+        <span>AVMF CBS v2.0</span>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="module-view active" id="view-guard-test">
+        <div class="context-badge-bar">
+          <span class="badge-icon">🧪</span>
+          Standalone Diagnostic — Loan Status Guard Rule Tester
+          <span id="guardStatus" class="guard-status">checking…</span>
+        </div>
+
+        <div class="diag-panel" style="margin-top:10px;">
+          <p style="font-size:11px;color:#667;margin:0;">
+            Diagnostic page for <code>loan-status-guard.js</code>. Use it to verify transition rules and run
+            live checks against Supabase before wiring changes into a real module. Doesn't write to
+            <code>loanmasterrecords</code> — only reads.
+          </p>
+        </div>
+
+        <!-- 1. Transition Tester -->
+        <div class="diag-panel">
+          <h2>1 &middot; Transition Tester</h2>
+          <div class="diag-row">
+            <div class="diag-field">
+              <label>From Status</label>
+              <select id="fromStatus"></select>
+            </div>
+            <div class="diag-field">
+              <label>To Status</label>
+              <select id="toStatus"></select>
+            </div>
+            <div class="diag-field">
+              <label>Source Module</label>
+              <select id="sourceModule">
+                <option value="loan-application">loan-application (01)</option>
+                <option value="loan-appraisal-management">loan-appraisal-management (03)</option>
+                <option value="credit-sanction-console">credit-sanction-console (04)</option>
+                <option value="loan-account-maintenance">loan-account-maintenance (05)</option>
+                <option value="disbursement">disbursement (10)</option>
+                <option value="settlement">settlement (09)</option>
+                <option value="__other__">other / not yet wired</option>
+              </select>
+            </div>
+            <button id="btnTest" class="diag-btn">Test Transition</button>
+          </div>
+          <div id="testResult" class="diag-result"></div>
+        </div>
+
+        <!-- 2. Live Sanction Ceiling Check -->
+        <div class="diag-panel">
+          <h2>2 &middot; Sanction Ceiling Check <span class="diag-hint">(queries lendingproductparametermatrix live)</span></h2>
+          <div class="diag-row">
+            <div class="diag-field">
+              <label>Product ID</label>
+              <input type="text" id="ceilProductId" placeholder="e.g. PRD-001"/>
+            </div>
+            <div class="diag-field">
+              <label>Approved Amount (ETB)</label>
+              <input type="number" id="ceilAmount" placeholder="e.g. 50000"/>
+            </div>
+            <button id="btnCeiling" class="diag-btn">Check Ceiling</button>
+          </div>
+          <div id="ceilingResult" class="diag-result"></div>
+        </div>
+
+        <!-- 3. Live Zero-Balance Check -->
+        <div class="diag-panel">
+          <h2>3 &middot; Zero Ledger Balance Check <span class="diag-hint">(queries loan_ledger live — used before closing a loan)</span></h2>
+          <div class="diag-row">
+            <div class="diag-field">
+              <label>Application ID</label>
+              <input type="text" id="balAppId" placeholder="e.g. APP-00123"/>
+            </div>
+            <button id="btnBalance" class="diag-btn">Check Balance</button>
+          </div>
+          <div id="balanceResult" class="diag-result"></div>
+        </div>
+
+        <!-- 4. Full Transition Matrix -->
+        <div class="diag-panel">
+          <h2>4 &middot; Full Transition Matrix <span class="diag-hint">(read from the guard itself — always current)</span></h2>
+          <table class="diag-matrix" id="matrixTable">
+            <thead><tr><th>From</th><th>To</th><th>Authorized Module(s)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="sub-footer-token" id="statusBar">Status: Diagnostic tool — read-only against loanmasterrecords</div>
+      </div>
+    </div>
+
+    <div class="action-sidebar">
+      <button id="btnGlobalPrint" class="action-btn">🖨 Print</button>
+      <div class="sidebar-footer">AVMF CBS v2.0</div>
+    </div>
+
+  </div>
 </div>
+
+<div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
 
 <script src="loan-status-guard.js"></script>
 <script>
 'use strict';
 
-/* Same project used by the rest of AVMF CBS — read-only queries only. */
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
@@ -223,7 +260,13 @@ async function sbFetch(path, opts = {}) {
   try { return JSON.parse(text); } catch { return null; }
 }
 
-/* ── Guard presence banner ──────────────────────────────── */
+(function initDate() {
+  const el = document.getElementById('systemDate');
+  if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+  });
+})();
+
 const guardBadge = document.getElementById('guardStatus');
 if (window.LoanStatusGuard) {
   guardBadge.textContent = 'guard loaded';
@@ -233,7 +276,6 @@ if (window.LoanStatusGuard) {
   guardBadge.className = 'guard-status missing';
 }
 
-/* ── 1. Populate status dropdowns from the guard's own list ─ */
 function populateStatusSelects() {
   const statuses = window.LoanStatusGuard ? window.LoanStatusGuard.VALID_STATUSES : [
     'Draft','Submitted','DataEntry','Appraisal','Sanctioned','Disbursed','Matured','Closed','WrittenOff'
@@ -253,13 +295,13 @@ document.getElementById('btnTest').addEventListener('click', () => {
   const resultEl = document.getElementById('testResult');
 
   if (!window.LoanStatusGuard) {
-    resultEl.className = 'result blocked show';
+    resultEl.className = 'diag-result blocked show';
     resultEl.innerHTML = `<span class="badge">Error</span><div>LoanStatusGuard is not loaded — check the &lt;script&gt; tag order.</div>`;
     return;
   }
 
   const check = window.LoanStatusGuard.canTransition(from, to, mod);
-  resultEl.className = `result show ${check.allowed ? 'allowed' : 'blocked'}`;
+  resultEl.className = `diag-result show ${check.allowed ? 'allowed' : 'blocked'}`;
   resultEl.innerHTML = `
     <span class="badge">${check.allowed ? 'Allowed' : 'Blocked'}</span>
     <div><strong>${from}</strong> → <strong>${to}</strong> from <code>${mod}</code></div>
@@ -267,73 +309,70 @@ document.getElementById('btnTest').addEventListener('click', () => {
   `;
 });
 
-/* ── 2. Sanction ceiling check ───────────────────────────── */
 document.getElementById('btnCeiling').addEventListener('click', async () => {
   const productId = document.getElementById('ceilProductId').value.trim();
   const amount    = document.getElementById('ceilAmount').value;
   const resultEl  = document.getElementById('ceilingResult');
 
   if (!window.LoanStatusGuard) {
-    resultEl.className = 'result blocked show';
+    resultEl.className = 'diag-result blocked show';
     resultEl.innerHTML = `<span class="badge">Error</span><div>LoanStatusGuard is not loaded.</div>`;
     return;
   }
   if (!productId || !amount) {
-    resultEl.className = 'result blocked show';
+    resultEl.className = 'diag-result blocked show';
     resultEl.innerHTML = `<span class="badge">Missing input</span><div>Enter both a Product ID and an amount.</div>`;
     return;
   }
 
-  resultEl.className = 'result show';
+  resultEl.className = 'diag-result show';
   resultEl.innerHTML = 'Checking…';
 
   try {
     const check = await window.LoanStatusGuard.checkSanctionCeiling(sbFetch, productId, parseFloat(amount));
-    resultEl.className = `result show ${check.ok ? 'allowed' : 'blocked'}`;
+    resultEl.className = `diag-result show ${check.ok ? 'allowed' : 'blocked'}`;
     resultEl.innerHTML = `
       <span class="badge">${check.ok ? 'Within limit' : 'Exceeds limit'}</span>
       <div>${check.reason || (check.limit != null ? `Product limit: ETB ${check.limit.toLocaleString()}` : '')}</div>
     `;
   } catch (e) {
-    resultEl.className = 'result blocked show';
+    resultEl.className = 'diag-result blocked show';
     resultEl.innerHTML = `<span class="badge">Error</span><div>${e.message}</div>`;
   }
 });
 
-/* ── 3. Zero balance check ───────────────────────────────── */
 document.getElementById('btnBalance').addEventListener('click', async () => {
   const appId    = document.getElementById('balAppId').value.trim();
   const resultEl = document.getElementById('balanceResult');
 
   if (!window.LoanStatusGuard) {
-    resultEl.className = 'result blocked show';
+    resultEl.className = 'diag-result blocked show';
     resultEl.innerHTML = `<span class="badge">Error</span><div>LoanStatusGuard is not loaded.</div>`;
     return;
   }
   if (!appId) {
-    resultEl.className = 'result blocked show';
+    resultEl.className = 'diag-result blocked show';
     resultEl.innerHTML = `<span class="badge">Missing input</span><div>Enter an Application ID.</div>`;
     return;
   }
 
-  resultEl.className = 'result show';
+  resultEl.className = 'diag-result show';
   resultEl.innerHTML = 'Checking…';
 
   try {
     const check = await window.LoanStatusGuard.checkZeroLedgerBalance(sbFetch, appId);
-    resultEl.className = `result show ${check.zero ? 'allowed' : 'blocked'}`;
+    resultEl.className = `diag-result show ${check.zero ? 'allowed' : 'blocked'}`;
     resultEl.innerHTML = `
       <span class="badge">${check.zero ? 'Zero balance — closeable' : 'Outstanding balance'}</span>
       <div>Running balance: ETB ${(check.balance ?? 0).toLocaleString()}</div>
       ${check.reason ? `<div style="margin-top:4px;">${check.reason}</div>` : ''}
     `;
   } catch (e) {
-    resultEl.className = 'result blocked show';
+    resultEl.className = 'diag-result blocked show';
     resultEl.innerHTML = `<span class="badge">Error</span><div>${e.message}</div>`;
   }
 });
 
-/* ── 4. Render the full transition matrix straight from the guard ── */
 function renderMatrix() {
   const tbody = document.querySelector('#matrixTable tbody');
   if (!window.LoanStatusGuard) {
@@ -354,6 +393,8 @@ function renderMatrix() {
   tbody.innerHTML = rows.join('');
 }
 renderMatrix();
+
+document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
 </script>
 </body>
 </html>
