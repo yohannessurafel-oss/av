@@ -231,6 +231,45 @@ async function viewRecord() {
 async function saveRecord() {
   if (!_loadedAppId) { toast('Load a record first, then Edit to make changes.', 'warning'); return; }
 
+  const sb = document.getElementById('statusBar');
+
+  // Fetch the record's CURRENT status fresh from the DB — don't trust
+  // whatever the UI last showed, since another module could have moved
+  // this loan forward (or backward) since it was loaded on this page.
+  let currentStatus;
+  try {
+    const fresh = await sbFetch(
+      `loanmasterrecords?application_id=eq.${encodeURIComponent(_loadedAppId)}&select=application_status&limit=1`
+    );
+    if (!fresh || !fresh[0]) {
+      toast('Could not re-verify this record — it may have been deleted. Reload and try again.', 'error');
+      return;
+    }
+    currentStatus = fresh[0].application_status;
+  } catch (e) {
+    toast('Could not verify current status before saving: ' + e.message, 'error');
+    return;
+  }
+
+  // Ask the shared guard whether THIS module is allowed to move this loan
+  // into 'Appraisal' from whatever status it's actually in right now.
+  // Same-status saves (already 'Appraisal') are always allowed — that's
+  // this module's normal, everyday use. Anything else (Sanctioned,
+  // Disbursed, etc.) means this loan has already moved past appraisal,
+  // and this module has no authority to pull it back — so the guard
+  // blocks it, preventing an accidental regression of an already-sanctioned
+  // or disbursed loan.
+  if (!window.LoanStatusGuard) {
+    toast('Loan Status Guard is not loaded — cannot safely save. Add loan-status-guard.js to this page.', 'error');
+    return;
+  }
+  const check = window.LoanStatusGuard.canTransition(currentStatus, 'Appraisal', 'loan-appraisal-management');
+  if (!check.allowed) {
+    toast(`Cannot save: ${check.reason}`, 'error');
+    if (sb) sb.textContent = `Blocked — record is currently "${currentStatus}", not editable here.`;
+    return;
+  }
+
   const recAmt  = parseFloat(document.getElementById('apprRecommendedAmount')?.value || 0);
   const appAmt  = parseFloat(document.getElementById('apprApprovedAmount')?.value    || 0);
 
@@ -241,7 +280,6 @@ async function saveRecord() {
     modified_on:        new Date().toISOString()
   };
 
-  const sb = document.getElementById('statusBar');
   if (sb) sb.textContent = 'Saving…';
 
   try {
@@ -249,6 +287,15 @@ async function saveRecord() {
       `loanmasterrecords?application_id=eq.${encodeURIComponent(_loadedAppId)}`,
       { method: 'PATCH', prefer: 'return=minimal', body: JSON.stringify(payload) }
     );
+
+    // Best-effort audit trail — never blocks the save if it fails.
+    window.LoanStatusGuard?.logStatusTransition(sbFetch, {
+      applicationId: _loadedAppId,
+      fromStatus:    currentStatus,
+      toStatus:      'Appraisal',
+      sourceModule:  'loan-appraisal-management'
+    });
+
     toast(`Appraisal saved — status set to Appraisal for ${_loadedAppId}`, 'success');
     document.getElementById('apprStatus').value = 'Appraisal';
     setMode('view');
