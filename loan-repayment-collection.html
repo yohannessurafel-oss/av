@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AVMF — 15 Loan Repayment / Collection</title>
+<link rel="stylesheet" href="style2.css"/>
+<style>
+.rpc-wrap { display: flex; flex-direction: column; gap: 10px; height: 100%; overflow: hidden; }
+
+/* Search bar */
+.rpc-search-bar {
+  display: flex; align-items: flex-end; gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-panel, #e8f0f8);
+  border: 0.5px solid var(--border-light, #c5daf0);
+  border-radius: var(--radius, 4px);
+  flex-shrink: 0;
+}
+.rpc-field { display: flex; flex-direction: column; gap: 4px; }
+.rpc-field label { font-size: 11px; font-weight: 500; color: var(--text-mid, #334455); text-transform: uppercase; letter-spacing: .04em; }
+.rpc-field input, .rpc-field select {
+  height: 30px; padding: 0 8px;
+  border: 0.5px solid var(--border, #8ab0d0);
+  border-radius: var(--radius, 4px);
+  font-size: 13px; background: var(--input-bg, #fff); color: var(--text-dark, #0d2a4a);
+}
+.rpc-field.wide input { min-width: 200px; }
+.btn-load-loan {
+  height: 30px; padding: 0 14px;
+  background: linear-gradient(to bottom, var(--navy-600, #2560a0), var(--navy-800, #0d3460));
+  color: #fff; border: none; border-radius: var(--radius, 4px);
+  font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap;
+}
+.btn-load-loan:hover { opacity: .9; }
+
+/* Loan summary card */
+.rpc-summary-card {
+  display: flex; align-items: stretch; gap: 20px;
+  background: linear-gradient(135deg, var(--navy-900,#061d3a) 0%, var(--navy-700,#1a4d80) 60%, #1e4d8c 100%);
+  border-radius: 8px; padding: 12px 16px; flex-shrink: 0;
+}
+.rpc-summary-left { display: flex; flex-direction: column; gap: 3px; min-width: 180px; }
+.rpc-badge { font-size: 9px; font-weight: 700; color: #e69c24; letter-spacing: .12em; text-transform: uppercase; }
+.rpc-acct-no { font-size: 18px; font-weight: 700; color: #fff; font-family: var(--font-mono, monospace); letter-spacing: .05em; }
+.rpc-borrower { font-size: 12px; color: rgba(255,255,255,.7); margin-top: 2px; }
+.rpc-summary-right { flex: 1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; align-items: center; }
+.rpc-meta-label { font-size: 9px; color: rgba(255,255,255,.5); text-transform: uppercase; letter-spacing: .06em; }
+.rpc-meta-value { font-size: 12px; color: #fff; font-weight: 500; margin-top: 2px; }
+.rpc-meta-value.warn { color: #fcd34d; }
+.rpc-meta-value.danger { color: #fca5a5; }
+
+/* Two-column layout: payment entry (left) + hierarchy breakdown (right) */
+.rpc-body { flex: 1; overflow: auto; display: flex; gap: 12px; }
+.rpc-panel {
+  background: var(--bg-form, #f4f8fc);
+  border: 0.5px solid var(--border-light, #c5daf0);
+  border-radius: var(--radius, 4px);
+  padding: 12px 14px;
+}
+.rpc-panel h3 {
+  margin: 0 0 10px; font-size: 12px; font-weight: 700; color: var(--text-dark, #0d2a4a);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.rpc-panel-entry { flex: 0 0 320px; }
+.rpc-panel-breakdown { flex: 1; }
+
+.grid-two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.lpf { display: flex; flex-direction: column; gap: 3px; }
+.lpf.full { grid-column: 1 / -1; }
+.lpf label { font-size: 10px; font-weight: 500; color: var(--text-mid, #334455); text-transform: uppercase; letter-spacing: .04em; }
+.lpf input, .lpf select {
+  height: 30px; padding: 0 8px;
+  border: 0.5px solid var(--border, #8ab0d0);
+  border-radius: var(--radius, 4px);
+  font-size: 13px; background: var(--input-bg, #fff); color: var(--text-dark, #0d2a4a);
+}
+.lpf.checkbox { flex-direction: row; align-items: center; gap: 6px; }
+.lpf.checkbox label { text-transform: none; font-size: 11px; letter-spacing: 0; cursor: pointer; }
+
+/* Hierarchy breakdown table */
+.hier-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 4px; }
+.hier-table td, .hier-table th { padding: 7px 8px; border-bottom: 0.5px solid var(--border-light, #c5daf0); }
+.hier-table th { text-align: left; font-size: 10px; text-transform: uppercase; color: var(--text-muted, #667788); letter-spacing: .04em; }
+.hier-table td.r, .hier-table th.r { text-align: right; font-family: var(--font-mono, monospace); }
+.hier-step-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--navy-100, #ddeaf7); color: var(--navy-800, #0d3460);
+  font-size: 10px; font-weight: 700; margin-right: 6px;
+}
+.hier-table tr.hier-total td { font-weight: 700; border-top: 1px solid var(--border, #8ab0d0); border-bottom: none; }
+.hier-table tr.hier-excess td { color: #b45309; font-style: italic; }
+.hier-table tr.hier-zero td { color: var(--text-muted, #667788); }
+
+.audit-note {
+  font-size: 11px; color: #92400e; background: #fffbeb; border: 0.5px solid #fde68a;
+  border-radius: 4px; padding: 6px 10px; margin: 10px 0 0;
+}
+.penalty-note {
+  font-size: 11px; color: var(--navy-800,#0d3460); background: var(--navy-50,#eef4fb);
+  border: 0.5px solid var(--border,#8ab0d0); border-radius: 4px; padding: 6px 10px; margin-top: 8px;
+}
+
+.rpc-empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; color: var(--text-muted, #667788);
+}
+.rpc-empty .empty-icon { font-size: 32px; opacity: .4; }
+.rpc-empty .empty-title { font-size: 14px; font-weight: 500; }
+.rpc-empty .empty-sub { font-size: 12px; text-align: center; max-width: 340px; }
+
+@media print {
+  .sidebar, .action-sidebar, .title-bar, .rpc-search-bar { display: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="window-container">
+
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <svg class="header-logo-svg" viewBox="0 0 100 100">
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
+        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
+        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
+        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
+        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+      </svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance</span>
+        <span class="title-sub">15 — Loan Repayment / Collection</span>
+      </div>
+    </div>
+    <div class="title-meta">
+      <span id="systemDate" class="title-date"></span>
+      <span class="title-user">👤 Teller / Loan Officer</span>
+    </div>
+    <div class="window-controls">
+      <span title="Minimize">─</span>
+      <span title="Maximize">▢</span>
+      <span title="Close" class="wc-close" onclick="window.location='indexll.html'">✕</span>
+    </div>
+  </div>
+
+  <div class="workspace">
+
+    <div class="sidebar">
+      <div class="sidebar-header" style="cursor: pointer; background: var(--navy-900);" title="Return to Dashboard" onclick="window.location='indexll.html'">
+        🏠 Main Dashboard
+      </div>
+      <ul class="nav-menu">
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🌐</span><a href="indexll.html" class="nav-label">All Modules</a></li>
+        <li class="active"><span class="nav-num" style="background:none;font-size:14px;padding:0;">💰</span><a href="indexll.html" class="nav-label">Financials &amp; Ledger</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📊</span><a href="ledger-report.html" class="nav-label">Loan Ledger Report</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">💸</span><a href="settlement-early-payoff.html" class="nav-label">Settlement / Early Payoff</a></li>
+      </ul>
+      <div class="sidebar-footer-brand">
+        <svg viewBox="0 0 100 100" width="28" height="28">
+          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
+        </svg>
+        <span>AVMF CBS v2.0</span>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="module-view active">
+        <div class="context-badge-bar">
+          <span class="badge-icon">💵</span>
+          Post a Loan Repayment — Applies to Interest, Penalties &amp; Principal via the Repayment Hierarchy
+        </div>
+
+        <div class="rpc-wrap">
+
+          <!-- Search -->
+          <div class="rpc-search-bar">
+            <div class="rpc-field">
+              <label>Application ID</label>
+              <input type="text" id="rpcAppId" placeholder="e.g. APP-00123" style="width:190px;"/>
+            </div>
+            <button class="btn-load-loan" id="btnLoadLoan">🔍 Load Loan</button>
+          </div>
+
+          <!-- Summary card -->
+          <div class="rpc-summary-card" id="rpcSummaryCard" style="display:none;">
+            <div class="rpc-summary-left">
+              <div class="rpc-badge">AVMF LOAN ACCOUNT</div>
+              <div class="rpc-acct-no" id="sAppId">—</div>
+              <div class="rpc-borrower" id="sBorrower">—</div>
+            </div>
+            <div class="rpc-summary-right">
+              <div><div class="rpc-meta-label">Outstanding Balance</div><div class="rpc-meta-value" id="sBalance">—</div></div>
+              <div><div class="rpc-meta-label">Next Due Date</div><div class="rpc-meta-value" id="sDueDate">—</div></div>
+              <div><div class="rpc-meta-label">Interest Due</div><div class="rpc-meta-value" id="sInterestDue">—</div></div>
+              <div><div class="rpc-meta-label">Principal Due</div><div class="rpc-meta-value" id="sPrincipalDue">—</div></div>
+              <div><div class="rpc-meta-label">Days Overdue</div><div class="rpc-meta-value" id="sDaysOverdue">—</div></div>
+            </div>
+          </div>
+
+          <div class="rpc-body" id="rpcBody">
+            <div class="rpc-empty" id="rpcEmpty">
+              <div class="empty-icon">💵</div>
+              <div class="empty-title">No Loan Loaded</div>
+              <div class="empty-sub">Enter an Application ID and click <strong>Load Loan</strong> to bring up the outstanding balance, next installment, and any overdue penalty.</div>
+            </div>
+
+            <div class="rpc-panel rpc-panel-entry" id="rpcEntryPanel" style="display:none;">
+              <h3>Payment Entry</h3>
+              <div class="grid-two-column">
+                <div class="lpf">
+                  <label>Amount Received (ETB)</label>
+                  <input type="number" id="fAmount" min="0.01" step="0.01" placeholder="0.00"/>
+                </div>
+                <div class="lpf">
+                  <label>Payment Date</label>
+                  <input type="date" id="fPayDate"/>
+                </div>
+                <div class="lpf">
+                  <label>Payment Mode</label>
+                  <select id="fPayMode">
+                    <option>Cash</option>
+                    <option>Bank Transfer</option>
+                    <option>Mobile Money</option>
+                    <option>Cheque</option>
+                  </select>
+                </div>
+                <div class="lpf">
+                  <label>Reference / Batch</label>
+                  <input type="text" id="fRefBatch" placeholder="auto-generated"/>
+                </div>
+                <div class="lpf full checkbox">
+                  <input type="checkbox" id="fWaivePenalty"/>
+                  <label for="fWaivePenalty">Waive penalty for this payment</label>
+                </div>
+              </div>
+              <div class="penalty-note" id="penaltyNote" style="display:none;"></div>
+            </div>
+
+            <div class="rpc-panel rpc-panel-breakdown" id="rpcBreakdownPanel" style="display:none;">
+              <h3>Repayment Hierarchy — Allocation Preview</h3>
+              <table class="hier-table">
+                <thead><tr><th>Step</th><th class="r">Amount Applied</th></tr></thead>
+                <tbody id="tbodyHierarchy"></tbody>
+                <tfoot>
+                  <tr class="hier-total"><td>Total Applied</td><td class="r" id="hierTotalApplied">—</td></tr>
+                </tfoot>
+              </table>
+              <div class="audit-note">
+                <strong>⚑ Repayment Hierarchy:</strong> Taxes/Insurance → Penalties/Late Fees → Accrued Interest → Principal Balance.
+                Any amount left over after the outstanding balance is fully cleared is flagged as an unapplied credit.
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="sub-footer-token" id="statusBar">Status: Ready</div>
+      </div>
+    </div>
+
+    <div class="action-sidebar">
+      <button id="btnLoad2" class="action-btn" title="Load loan by Application ID">🔍 Load</button>
+      <button id="btnPost" class="action-btn" disabled>💾 Post Payment</button>
+      <button id="btnClear" class="action-btn">✕ Clear</button>
+      <div class="sidebar-spacer"></div>
+      <button id="btnPrintReceipt" class="action-btn">🖨 Receipt</button>
+      <div class="sidebar-footer">AVMF CBS v2.0</div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
+
+<script src="loan-status-guard.js"></script>
+<script src="loan-repayment-collection.js"></script>
+</body>
+</html>
