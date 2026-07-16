@@ -8,484 +8,458 @@
 <style>
 /* ── Dashboard-specific styles ──────────────────────────── */
 .dash-wrap {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
+display: flex;
+flex-direction: column;
+height: 100%;
+overflow: hidden;
 }
-
 /* Search bar */
 .dash-search-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px 8px;
-  border-bottom: 1px solid var(--border-light, #c5daf0);
-  flex-shrink: 0;
+display: flex;
+align-items: center;
+gap: 10px;
+padding: 10px 16px 8px;
+border-bottom: 1px solid var(--border-light, #c5daf0);
+flex-shrink: 0;
 }
 .dash-search-bar input {
-  flex: 1;
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--border, #8ab0d0);
-  border-radius: 4px;
-  font-size: 12px;
-  background: var(--input-bg, #fff);
-  color: var(--text-dark, #0d2a4a);
+flex: 1;
+height: 30px;
+padding: 0 10px;
+border: 1px solid var(--border, #8ab0d0);
+border-radius: 4px;
+font-size: 12px;
+background: var(--input-bg, #fff);
+color: var(--text-dark, #0d2a4a);
 }
 .dash-search-bar input:focus {
-  outline: none;
-  border-color: var(--navy-600, #2560a0);
-  box-shadow: 0 0 0 2px rgba(37,96,160,.15);
+outline: none;
+border-color: var(--navy-600, #2560a0);
+box-shadow: 0 0 0 2px rgba(37,96,160,.15);
 }
 .dash-count {
-  font-size: 11px;
-  color: var(--text-muted, #667788);
-  white-space: nowrap;
+font-size: 11px;
+color: var(--text-muted, #667788);
+white-space: nowrap;
 }
-
 /* Category filter pills */
 .dash-filters {
-  display: flex;
-  gap: 6px;
-  padding: 8px 16px;
-  flex-wrap: wrap;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--border-light, #c5daf0);
+display: flex;
+gap: 6px;
+padding: 8px 16px;
+flex-wrap: wrap;
+flex-shrink: 0;
+border-bottom: 1px solid var(--border-light, #c5daf0);
 }
 .dash-pill {
-  padding: 4px 12px;
-  border-radius: 99px;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid var(--border, #8ab0d0);
-  background: var(--white, #fff);
-  color: var(--text-mid, #334455);
-  transition: all .13s;
-  user-select: none;
+padding: 4px 12px;
+border-radius: 99px;
+font-size: 11px;
+font-weight: 500;
+cursor: pointer;
+border: 1px solid var(--border, #8ab0d0);
+background: var(--white, #fff);
+color: var(--text-mid, #334455);
+transition: all .13s;
+user-select: none;
 }
-.dash-pill:hover  { background: var(--navy-50, #eef4fb); }
+.dash-pill:hover { background: var(--navy-50, #eef4fb); }
 .dash-pill.active {
-  background: var(--navy-800, #0d3460);
-  color: #fff;
-  border-color: var(--navy-800, #0d3460);
+background: var(--navy-800, #0d3460);
+color: #fff;
+border-color: var(--navy-800, #0d3460);
 }
-
 /* Module grid */
 .module-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 12px;
-  padding: 14px 16px;
-  overflow-y: auto;
-  flex: 1;
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+gap: 12px;
+padding: 14px 16px;
+overflow-y: auto;
+flex: 1;
 }
 .module-card {
-  background: var(--white, #fff);
-  border: 1.5px solid var(--border-light, #c5daf0);
-  border-radius: 6px;
-  padding: 16px 14px 14px;
-  cursor: pointer;
-  transition: all .15s;
-  box-shadow: 0 1px 3px rgba(0,0,0,.1);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  position: relative;
+background: var(--white, #fff);
+border: 1.5px solid var(--border-light, #c5daf0);
+border-radius: 6px;
+padding: 16px 14px 14px;
+cursor: pointer;
+transition: all .15s;
+box-shadow: 0 1px 3px rgba(0,0,0,.1);
+display: flex;
+flex-direction: column;
+gap: 6px;
+position: relative;
 }
 .module-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 14px rgba(0,0,0,.18);
-  border-color: var(--navy-600, #2560a0);
+transform: translateY(-3px);
+box-shadow: 0 4px 14px rgba(0,0,0,.18);
+border-color: var(--navy-600, #2560a0);
 }
 .module-card.disabled {
-  opacity: .5;
-  cursor: not-allowed;
-  pointer-events: none;
+opacity: .5;
+cursor: not-allowed;
+pointer-events: none;
 }
 .module-card .card-icon { font-size: 28px; line-height: 1; }
-.module-card .card-num  { font-size: 9px; font-weight: 700; color: var(--text-muted, #667788); letter-spacing: .08em; text-transform: uppercase; }
+.module-card .card-num { font-size: 9px; font-weight: 700; color: var(--text-muted, #667788); letter-spacing: .08em; text-transform: uppercase; }
 .module-card .card-name { font-size: 12px; font-weight: 600; color: var(--text-dark, #0d2a4a); line-height: 1.3; }
 .module-card .card-desc { font-size: 10px; color: var(--text-muted, #667788); line-height: 1.4; }
-.module-card .card-cat  {
-  position: absolute; top: 10px; right: 10px;
-  font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 99px;
-  background: var(--navy-50, #eef4fb); color: var(--navy-600, #2560a0);
-  text-transform: uppercase; letter-spacing: .05em;
+.module-card .card-cat {
+position: absolute; top: 10px; right: 10px;
+font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 99px;
+background: var(--navy-50, #eef4fb); color: var(--navy-600, #2560a0);
+text-transform: uppercase; letter-spacing: .05em;
 }
 .module-card .card-status {
-  font-size: 9px; font-weight: 700;
-  padding: 2px 6px; border-radius: 3px; display: inline-block; margin-top: 2px;
+font-size: 9px; font-weight: 700;
+padding: 2px 6px; border-radius: 3px; display: inline-block; margin-top: 2px;
 }
-.module-card .card-status.live   { background: #e8f8ee; color: #1a7a3c; }
-.module-card .card-status.wip    { background: #fff3e0; color: #b45309; }
-.module-card .card-status.stub   { background: #f0f0f0; color: #888; }
-
+.module-card .card-status.live { background: #e8f8ee; color: #1a7a3c; }
+.module-card .card-status.wip { background: #fff3e0; color: #b45309; }
+.module-card .card-status.stub { background: #f0f0f0; color: #888; }
 /* Empty state */
 .dash-empty {
-  grid-column: 1/-1;
-  text-align: center;
-  padding: 40px;
-  color: var(--text-muted, #667788);
-  font-size: 13px;
+grid-column: 1/-1;
+text-align: center;
+padding: 40px;
+color: var(--text-muted, #667788);
+font-size: 13px;
 }
-
 /* Status bar */
 .dash-status {
-  padding: 5px 16px;
-  font-size: 10px;
-  color: var(--text-muted, #667788);
-  border-top: 1px solid var(--border-light, #c5daf0);
-  background: var(--navy-50, #eef4fb);
-  flex-shrink: 0;
+padding: 5px 16px;
+font-size: 10px;
+color: var(--text-muted, #667788);
+border-top: 1px solid var(--border-light, #c5daf0);
+background: var(--navy-50, #eef4fb);
+flex-shrink: 0;
 }
-
 /* Sidebar nav for dashboard uses category filter */
 .cat-nav { padding: 6px 0; }
 .cat-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 7px 14px;
-  cursor: pointer;
-  font-size: 11px; font-weight: 500;
-  color: var(--text-mid, #334455);
-  border-left: 3px solid transparent;
-  transition: all .12s;
+display: flex; align-items: center; gap: 8px;
+padding: 7px 14px;
+cursor: pointer;
+font-size: 11px; font-weight: 500;
+color: var(--text-mid, #334455);
+border-left: 3px solid transparent;
+transition: all .12s;
 }
-.cat-item:hover  { background: rgba(255,255,255,.35); border-left-color: var(--navy-300, #7aadd4); }
+.cat-item:hover { background: rgba(255,255,255,.35); border-left-color: var(--navy-300, #7aadd4); }
 .cat-item.active { background: rgba(13,52,96,.12); border-left-color: var(--amber, #e69c24); color: var(--navy-900, #061d3a); font-weight: 700; }
 .cat-icon { font-size: 14px; flex-shrink: 0; }
 .cat-badge {
-  margin-left: auto;
-  font-size: 9px; font-weight: 700;
-  background: var(--navy-800, #0d3460); color: #fff;
-  padding: 1px 5px; border-radius: 99px;
+margin-left: auto;
+font-size: 9px; font-weight: 700;
+background: var(--navy-800, #0d3460); color: #fff;
+padding: 1px 5px; border-radius: 99px;
 }
 .cat-item.active .cat-badge { background: var(--amber, #e69c24); color: var(--navy-900, #061d3a); }
 </style>
 </head>
 <body>
-
 <div class="window-container">
-
-  <!-- ── Title Bar ─────────────────────────────────────── -->
-  <div class="title-bar">
-    <div class="title-branding-block">
-      <svg class="header-logo-svg" viewBox="0 0 100 100">
-        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
-        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
-        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
-        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
-        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
-        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
-      </svg>
-      <div class="title-text-block">
-        <span class="title-main">Africa Village Microfinance</span>
-        <span class="title-sub">Core Banking System v2.0 — Module Dashboard</span>
-      </div>
-    </div>
-    <div class="title-meta">
-      <span id="systemDate" class="title-date"></span>
-      <span class="title-user">👤 Operator</span>
-    </div>
-    <div class="window-controls">
-      <span title="Minimize">─</span>
-      <span title="Maximize">▢</span>
-      <span title="Close" class="wc-close">✕</span>
-    </div>
-  </div>
-
-  <!-- ── Workspace ─────────────────────────────────────── -->
-  <div class="workspace">
-
-    <!-- Left Sidebar — category filter -->
-    <div class="sidebar">
-      <div class="sidebar-header">
-        <span class="sidebar-header-icon">🏠</span>
-        Module Navigator
-      </div>
-      <div class="cat-nav" id="catNav"></div>
-      <div class="sidebar-footer-brand">
-        <svg viewBox="0 0 100 100" width="28" height="28">
-          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
-        </svg>
-        <span>AVMF CBS v2.0</span>
-      </div>
-    </div>
-
-    <!-- Main Content -->
-    <div class="main-content">
-      <div class="module-view active">
-        <div class="context-badge-bar">
-          <span class="badge-icon">🏠</span>
-          Central Dashboard — Select a Module to Open
-        </div>
-
-        <div class="dash-wrap">
-
-          <!-- Search + count -->
-          <div class="dash-search-bar">
-            <input type="text" id="moduleSearch" placeholder="Search modules by name or category…"/>
-            <span class="dash-count" id="moduleCount">16 modules</span>
-          </div>
-
-          <!-- Filter pills -->
-          <div class="dash-filters" id="dashFilters"></div>
-
-          <!-- Module cards -->
-          <div class="module-grid" id="moduleGrid"></div>
-
-          <!-- Status bar -->
-          <div class="dash-status" id="dashStatus">AVMF CBS v2.0 — All systems operational</div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- Right action sidebar -->
-    <div class="action-sidebar">
-      <div class="sidebar-footer">AVMF CBS v2.0</div>
-    </div>
-
-  </div>
+<!-- ── Title Bar ─────────────────────────────────────── -->
+<div class="title-bar">
+<div class="title-branding-block">
+<svg class="header-logo-svg" viewBox="0 0 100 100">
+<path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
+<path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
+<polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
+<polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
+<polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
+<polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+</svg>
+<div class="title-text-block">
+<span class="title-main">Africa Village Microfinance</span>
+<span class="title-sub">Core Banking System v2.0 — Module Dashboard</span>
+</div>
+</div>
+<div class="title-meta">
+<span id="systemDate" class="title-date"></span>
+<span class="title-user">👤 Operator</span>
+</div>
+<div class="window-controls">
+<span title="Minimize">─</span>
+<span title="Maximize">▢</span>
+<span title="Close" class="wc-close">✕</span>
+</div>
+</div>
+<!-- ── Workspace ─────────────────────────────────────── -->
+<div class="workspace">
+<!-- Left Sidebar — category filter -->
+<div class="sidebar">
+<div class="sidebar-header">
+<span class="sidebar-header-icon">🏠</span>
+Module Navigator
+</div>
+<div class="cat-nav" id="catNav"></div>
+<div class="sidebar-footer-brand">
+<svg viewBox="0 0 100 100" width="28" height="28">
+<path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
+</svg>
+<span>AVMF CBS v2.0</span>
+</div>
+</div>
+<!-- Main Content -->
+<div class="main-content">
+<div class="module-view active">
+<div class="context-badge-bar">
+<span class="badge-icon">🏠</span>
+Central Dashboard — Select a Module to Open
+</div>
+<div class="dash-wrap">
+<!-- Search + count -->
+<div class="dash-search-bar">
+<input type="text" id="moduleSearch" placeholder="Search modules by name or category…"/>
+<span class="dash-count" id="moduleCount">17 modules</span>
+</div>
+<!-- Filter pills -->
+<div class="dash-filters" id="dashFilters"></div>
+<!-- Module cards -->
+<div class="module-grid" id="moduleGrid"></div>
+<!-- Status bar -->
+<div class="dash-status" id="dashStatus">AVMF CBS v2.0 — All systems operational</div>
+</div>
+</div>
+</div>
+<!-- Right action sidebar -->
+<div class="action-sidebar">
+<div class="sidebar-footer">AVMF CBS v2.0</div>
+</div>
+</div>
 </div>
 
 <script>
 /* ── Module registry ─────────────────────────────────────
-   status: 'live' = fully wired | 'wip' = partial | 'stub' = not yet built
+status: 'live' = fully wired | 'wip' = partial | 'stub' = not yet built
 ══════════════════════════════════════════════════════════ */
 const MODULES = [
-  {
-    num: '00', name: 'Client Master Registry',
-    icon: '👤', cat: 'client',
-    path: 'client-maintenance.html',
-    desc: 'Register and maintain client profiles, KYC, income data',
-    status: 'live'
-  },
-  {
-    num: '01', name: 'Individual Loan Application',
-    icon: '📋', cat: 'credit',
-    path: 'loan-application.html',
-    desc: 'Capture individual loan applications with live summary',
-    status: 'live'
-  },
-  {
-    num: '02', name: 'Center / Group Loan Projection',
-    icon: '👥', cat: 'credit',
-    path: 'group-loan-projection.html',
-    desc: 'Batch entry for group/center loan applications',
-    status: 'live'
-  },
-  {
-    num: '03', name: 'Loan Appraisal Management',
-    icon: '🔎', cat: 'credit',
-    path: 'loan-appraisal-management.html',
-    desc: 'Credit risk assessment, DSR, collateral appraisal',
-    status: 'live'
-  },
-  {
-    num: '04', name: 'Credit Sanction Console',
-    icon: '✅', cat: 'credit',
-    path: 'credit-sanction-console.html',
-    desc: 'Sanction decisions, approval workflow, loan terms',
-    status: 'live'
-  },
-  {
-    num: '05', name: 'Loan Account Maintenance',
-    icon: '🏦', cat: 'credit',
-    path: 'loan-account-maintenance.html',
-    desc: 'Manage active loan account parameters and schedules',
-    status: 'live'
-  },
-  {
-    num: '06', name: 'Collateral Inventory Risk',
-    icon: '🏠', cat: 'risk',
-    path: 'collateral-inventory-risk.html',
-    desc: 'Register and value collateral assets, risk scoring',
-    status: 'live'
-  },
-  {
-    num: '07', name: 'Guarantor Asset Registry',
-    icon: '🤝', cat: 'risk',
-    path: 'guarantor-asset-registry.html',
-    desc: 'Link guarantors to loans, net worth and liability',
-    status: 'live'
-  },
-  {
-    num: '08', name: 'Teller Cash Vault Control',
-    icon: '🗄️', cat: 'teller',
-    path: 'teller-cash-vault-control.html',
-    desc: 'Till open/close, cash denominations, vault control',
-    status: 'live'
-  },
-  {
-    num: '09', name: 'Settlement / Early Payoff',
-    icon: '💸', cat: 'financials',
-    path: 'settlement-early-payoff.html',
-    desc: 'Preclosure, early payoff calculation, payoff registry',
-    status: 'live'
-  },
-  {
-    num: '10', name: 'Loan Disbursement',
-    icon: '📤', cat: 'credit',
-    path: 'disbursement.html',
-    desc: 'Post disbursement, generate amortization schedule',
-    status: 'live'
-  },
-  {
-    num: '11', name: 'Loan Ledger Report',
-    icon: '📊', cat: 'reports',
-    path: 'ledger-report.html',
-    desc: 'Account statement, internal ledger, amortization view',
-    status: 'live'
-  },
-  {
-    num: '12', name: 'General Ledger',
-    icon: '📒', cat: 'financials',
-    path: 'general-ledger.html',
-    desc: 'Chart of accounts, GL journal, loan ledger engine',
-    status: 'live'
-  },
-  {
-    num: '13', name: 'Account Maintenance',
-    icon: '💳', cat: 'client',
-    path: 'account-maintenance.html',
-    desc: 'Open and manage client financial accounts (Savings, Repayment, Current)',
-    status: 'live'
-  },
-  {
-    num: '14', name: 'Delinquency & PAR Dashboard',
-    icon: '⚠️', cat: 'reports',
-    path: 'delinquency-dashboard.html',
-    desc: 'Portfolio at risk, PAR buckets, collection status tracking',
-    status: 'live'
-  },
-  {
-    num: '15', name: 'Loan Repayment / Collection',
-    icon: '💵', cat: 'credit',
-    path: 'loan-repayment-collection.html',
-    desc: 'Record installment payments — allocates penalty→interest→principal, posts atomically to ledger, schedule, and GL',
-    status: 'live'
-  },
-  {
-    num: '00', name: 'Client Directory (Views)',
-    icon: '📁', cat: 'client',
-    path: 'client-directory.html',
-    desc: 'Search and browse registered clients',
-    status: 'live'
-  },
-  {
-    num: '—', name: 'Loan Status Guard — Test Harness',
-    icon: '🧪', cat: 'dev',
-    path: 'loan-status-guard-test.html',
-    desc: 'Diagnostic tool: test transition rules and run live guard checks against Supabase',
-    status: 'live'
-  },
+{
+num: '00', name: 'Client Master Registry',
+icon: '👤', cat: 'client',
+path: 'client-maintenance.html',
+desc: 'Register and maintain client profiles, KYC, income data',
+status: 'live'
+},
+{
+num: '01', name: 'Individual Loan Application',
+icon: '📋', cat: 'credit',
+path: 'loan-application.html',
+desc: 'Capture individual loan applications with live summary',
+status: 'live'
+},
+{
+num: '02', name: 'Center / Group Loan Projection',
+icon: '👥', cat: 'credit',
+path: 'group-loan-projection.html',
+desc: 'Batch entry for group/center loan applications',
+status: 'live'
+},
+{
+num: '03', name: 'Loan Appraisal Management',
+icon: '🔎', cat: 'credit',
+path: 'loan-appraisal-management.html',
+desc: 'Credit risk assessment, DSR, collateral appraisal',
+status: 'live'
+},
+{
+num: '04', name: 'Credit Sanction Console',
+icon: '✅', cat: 'credit',
+path: 'credit-sanction-console.html',
+desc: 'Sanction decisions, approval workflow, loan terms',
+status: 'live'
+},
+{
+num: '05', name: 'Loan Account Maintenance',
+icon: '🏦', cat: 'credit',
+path: 'loan-account-maintenance.html',
+desc: 'Manage active loan account parameters and schedules',
+status: 'live'
+},
+{
+num: '06', name: 'Collateral Inventory Risk',
+icon: '🏠', cat: 'risk',
+path: 'collateral-inventory-risk.html',
+desc: 'Register and value collateral assets, risk scoring',
+status: 'live'
+},
+{
+num: '07', name: 'Guarantor Asset Registry',
+icon: '🤝', cat: 'risk',
+path: 'guarantor-asset-registry.html',
+desc: 'Link guarantors to loans, net worth and liability',
+status: 'live'
+},
+{
+num: '08', name: 'Teller Cash Vault Control',
+icon: '🗄️', cat: 'teller',
+path: 'teller-cash-vault-control.html',
+desc: 'Till open/close, cash denominations, vault control',
+status: 'live'
+},
+{
+num: '09', name: 'Settlement / Early Payoff',
+icon: '💸', cat: 'financials',
+path: 'settlement-early-payoff.html',
+desc: 'Preclosure, early payoff calculation, payoff registry',
+status: 'live'
+},
+{
+num: '10', name: 'Loan Disbursement',
+icon: '📤', cat: 'credit',
+path: 'disbursement.html',
+desc: 'Post disbursement, generate amortization schedule',
+status: 'live'
+},
+{
+num: '11', name: 'Loan Ledger Report',
+icon: '📊', cat: 'reports',
+path: 'ledger-report.html',
+desc: 'Account statement, internal ledger, amortization view',
+status: 'live'
+},
+{
+num: '12', name: 'General Ledger',
+icon: '📒', cat: 'financials',
+path: 'general-ledger.html',
+desc: 'Chart of accounts, GL journal, loan ledger engine',
+status: 'live'
+},
+{
+num: '13', name: 'Account Maintenance',
+icon: '💳', cat: 'client',
+path: 'account-maintenance.html',
+desc: 'Open and manage client financial accounts (Savings, Repayment, Current)',
+status: 'live'
+},
+{
+num: '14', name: 'Delinquency & PAR Dashboard',
+icon: '⚠️', cat: 'reports',
+path: 'delinquency-dashboard.html',
+desc: 'Portfolio at risk, PAR buckets, collection status tracking',
+status: 'live'
+},
+{
+num: '15', name: 'Client Directory (Views)',
+icon: '📁', cat: 'client',
+path: 'client-directory.html',
+desc: 'Search and browse registered clients',
+status: 'live'
+},
+{
+num: 'DEV', name: 'Loan Status Guard — Test Harness',
+icon: '🧪', cat: 'dev',
+path: 'loan-status-guard-test.html',
+desc: 'Diagnostic tool: test transition rules and run live guard checks against Supabase',
+status: 'live'
+},
 ];
 
 const CATEGORIES = [
-  { id: 'all',        label: 'All Modules',         icon: '🌐' },
-  { id: 'client',     label: 'Client Management',   icon: '👤' },
-  { id: 'credit',     label: 'Credit Operations',   icon: '📋' },
-  { id: 'risk',       label: 'Risk & Collateral',   icon: '🛡️' },
-  { id: 'teller',     label: 'Teller & Cash',       icon: '🏧' },
-  { id: 'financials', label: 'Financials & Ledger', icon: '💰' },
-  { id: 'reports',    label: 'Reports',             icon: '📊' },
-  { id: 'dev',        label: 'Diagnostics & Tools',  icon: '🧪' },
+{ id: 'all', label: 'All Modules', icon: '🌐' },
+{ id: 'client', label: 'Client Management', icon: '👤' },
+{ id: 'credit', label: 'Credit Operations', icon: '📋' },
+{ id: 'risk', label: 'Risk & Collateral', icon: '🛡️' },
+{ id: 'teller', label: 'Teller & Cash', icon: '🏧' },
+{ id: 'financials', label: 'Financials & Ledger', icon: '💰' },
+{ id: 'reports', label: 'Reports', icon: '📊' },
+{ id: 'dev', label: 'Diagnostics & Tools', icon: '🧪' },
 ];
 
 let currentCat = 'all';
-let searchTerm  = '';
+let searchTerm = '';
 
 /* ── Counts per category ─── */
 function countByCat(catId) {
-  return catId === 'all'
-    ? MODULES.length
-    : MODULES.filter(m => m.cat === catId).length;
+return catId === 'all'
+? MODULES.length
+: MODULES.filter(m => m.cat === catId).length;
 }
 
 /* ── Render sidebar categories ─── */
 function renderCatNav() {
-  document.getElementById('catNav').innerHTML = CATEGORIES.map(c => `
-    <div class="cat-item ${c.id === currentCat ? 'active' : ''}"
-         onclick="setFilter('${c.id}')">
-      <span class="cat-icon">${c.icon}</span>
-      <span>${c.label}</span>
-      <span class="cat-badge">${countByCat(c.id)}</span>
-    </div>
-  `).join('');
+document.getElementById('catNav').innerHTML = CATEGORIES.map(c => `
+<div class="cat-item ${c.id === currentCat ? 'active' : ''}"
+onclick="setFilter('${c.id}')">
+<span class="cat-icon">${c.icon}</span>
+<span>${c.label}</span>
+<span class="cat-badge">${countByCat(c.id)}</span>
+</div>
+`).join('');
 }
 
 /* ── Render filter pills ─── */
 function renderPills() {
-  document.getElementById('dashFilters').innerHTML = CATEGORIES.map(c => `
-    <div class="dash-pill ${c.id === currentCat ? 'active' : ''}"
-         onclick="setFilter('${c.id}')">
-      ${c.icon} ${c.label} (${countByCat(c.id)})
-    </div>
-  `).join('');
+document.getElementById('dashFilters').innerHTML = CATEGORIES.map(c => `
+<div class="dash-pill ${c.id === currentCat ? 'active' : ''}"
+onclick="setFilter('${c.id}')">
+${c.icon} ${c.label} (${countByCat(c.id)})
+</div>
+`).join('');
 }
 
 /* ── Render module cards ─── */
 function renderModules() {
-  let list = MODULES;
-  if (currentCat !== 'all') list = list.filter(m => m.cat === currentCat);
-  if (searchTerm)           list = list.filter(m =>
-    m.name.toLowerCase().includes(searchTerm) ||
-    m.desc.toLowerCase().includes(searchTerm) ||
-    m.num.includes(searchTerm)
-  );
+let list = MODULES;
+if (currentCat !== 'all') list = list.filter(m => m.cat === currentCat);
+if (searchTerm) list = list.filter(m =>
+m.name.toLowerCase().includes(searchTerm) ||
+m.desc.toLowerCase().includes(searchTerm) ||
+m.num.toLowerCase().includes(searchTerm)
+);
 
-  const grid = document.getElementById('moduleGrid');
-  const count = document.getElementById('moduleCount');
-  count.textContent = `${list.length} module${list.length !== 1 ? 's' : ''}`;
+const grid = document.getElementById('moduleGrid');
+const count = document.getElementById('moduleCount');
+count.textContent = `${list.length} module${list.length !== 1 ? 's' : ''}`;
 
-  if (!list.length) {
-    grid.innerHTML = '<div class="dash-empty">No modules match your search.</div>';
-    return;
-  }
+if (!list.length) {
+grid.innerHTML = '<div class="dash-empty">No modules match your search.</div>';
+return;
+}
 
-  grid.innerHTML = list.map(m => `
-    <div class="module-card ${m.status === 'stub' ? 'disabled' : ''}"
-         onclick="openModule('${m.path}', '${m.status}')"
-         title="${m.name}">
-      <span class="card-cat">${m.cat}</span>
-      <div class="card-icon">${m.icon}</div>
-      <div class="card-num">Module ${m.num}</div>
-      <div class="card-name">${m.name}</div>
-      <div class="card-desc">${m.desc}</div>
-      <span class="card-status ${m.status}">${
-        m.status === 'live'  ? '● Live' :
-        m.status === 'wip'   ? '◐ In Progress' :
-        '○ Not Built'
-      }</span>
-    </div>
-  `).join('');
+grid.innerHTML = list.map(m => `
+<div class="module-card ${m.status === 'stub' ? 'disabled' : ''}"
+onclick="openModule('${m.path}', '${m.status}')"
+title="${m.name}">
+<span class="card-cat">${m.cat}</span>
+<div class="card-icon">${m.icon}</div>
+<div class="card-num">Module ${m.num}</div>
+<div class="card-name">${m.name}</div>
+<div class="card-desc">${m.desc}</div>
+<span class="card-status ${m.status}">${
+m.status === 'live' ? '● Live' :
+m.status === 'wip' ? '◐ In Progress' :
+'○ Not Built'
+}</span>
+</div>
+`).join('');
 }
 
 function openModule(path, status) {
-  if (status === 'stub') return;
-  window.location.href = path;
+if (status === 'stub') return;
+window.location.href = path;
 }
 
 function setFilter(catId) {
-  currentCat = catId;
-  renderCatNav();
-  renderPills();
-  renderModules();
-  document.getElementById('dashStatus').textContent =
-    `Showing: ${catId === 'all' ? 'All Modules' : CATEGORIES.find(c=>c.id===catId)?.label}`;
+currentCat = catId;
+renderCatNav();
+renderPills();
+renderModules();
+document.getElementById('dashStatus').textContent =
+`Showing: ${catId === 'all' ? 'All Modules' : CATEGORIES.find(c=>c.id===catId)?.label}`;
 }
 
 /* ── Search ─── */
 document.getElementById('moduleSearch').addEventListener('input', function() {
-  searchTerm = this.value.toLowerCase().trim();
-  renderModules();
+searchTerm = this.value.toLowerCase().trim();
+renderModules();
 });
 
 /* ── System Date ─── */
 document.getElementById('systemDate').textContent = new Date().toLocaleDateString('en-ET', {
-  weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
 });
 
 /* ── Init ─── */
