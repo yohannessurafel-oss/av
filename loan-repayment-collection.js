@@ -51,6 +51,24 @@ async function sbFetch(path, opts = {}) {
   try { return JSON.parse(body); } catch { return null; }
 }
 
+async function sbRpc(fnName, params) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fnName}`, {
+    method: 'POST',
+    headers: {
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type':  'application/json'
+    },
+    body: JSON.stringify(params)
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    // Postgres RAISE EXCEPTION messages arrive in data.message
+    throw new Error((data && data.message) || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
 /* ── Toast / status bar ──────────────────────────────────── */
 const toastEl = document.getElementById('toastNotification');
 let _toastTimer = null;
@@ -286,7 +304,6 @@ async function postPayment() {
   if (!refBatch) { toast('Reference / Batch is required.', 'error'); return; }
 
   const alloc = allocatePayment(amount);
-  const today = toISO(new Date());
   const appId = _record.application_id;
 
   if (!confirm(
@@ -297,73 +314,42 @@ async function postPayment() {
   )) return;
 
   setSB('Posting repayment…');
+  document.getElementById('btnPost').disabled = true;
 
   try {
-    const newBalance = parseFloat((alloc.principalDue - alloc.principalApplied).toFixed(2));
-
-    // ── STEP 1: Post the repayment row to loan_ledger ──────────
-    const ledgerRow = {
-      application_id:  appId,
-      client_id:       _record.client_id || null,
-      account_number:  _lastLedgerRow.account_number || null,
-      product_name:    _lastLedgerRow.product_name || null,
-      post_date:       today,
-      value_date:      payDate,
-      description:     `Repayment — ${payMode}`,
-      ref_batch:       refBatch,
-      principal:       parseFloat((-alloc.principalApplied).toFixed(2)),
-      interest:        parseFloat((-alloc.interestApplied).toFixed(2)),
-      charges_penalties: alloc.penaltyApplied > 0 ? parseFloat((-alloc.penaltyApplied).toFixed(2)) : 0,
-      accrued_interest_receivable: 0,
-      total_paid:      parseFloat(amount.toFixed(2)),
-      accrued_unpaid_interest: Math.max(0, parseFloat((alloc.interestDue - alloc.interestApplied).toFixed(2))),
-      running_balance: newBalance,
-      borrower_name:   _record.client_name || _lastLedgerRow.borrower_name || null
-    };
-
-    await sbFetch('loan_ledger', {
-      method: 'POST', prefer: 'return=minimal', body: JSON.stringify(ledgerRow)
+    // Single atomic transaction — allocates across ALL unpaid installments,
+    // updates the ledger, posts double-entry to the GL, and auto-matures
+    // the loan if this payment clears it, all-or-nothing.
+    const result = await sbRpc('post_loan_repayment', {
+      p_application_id:    appId,
+      p_amount_received:   amount,
+      p_penalty_collected: alloc.penaltyApplied || 0,
+      p_payment_date:      payDate,
+      p_ref_batch:         refBatch,
+      p_payment_mode:      payMode || null,
+      p_posted_by:         (window.currentUserEmail || null)
     });
 
-    // ── STEP 2: Update the installment this payment covers ─────
-    if (_nextInstallment) {
-      const fullyCovers = alloc.interestApplied >= alloc.interestDue - 0.01 &&
-                           alloc.principalApplied >= (parseFloat(_nextInstallment.principal_due) || 0) - 0.01;
-      await sbFetch(`amortization_schedules?id=eq.${_nextInstallment.id}`, {
-        method: 'PATCH', prefer: 'return=minimal',
-        body: JSON.stringify({ status: fullyCovers ? 'PAID' : 'PARTIAL' })
-      });
-    }
-
-    // ── STEP 3: If the loan is now fully repaid, try to mature it ──
     let maturedMsg = '';
-    if (newBalance <= 0.01 && window.LoanStatusGuard) {
-      const check = LoanStatusGuard.canTransition(_record.application_status, 'Matured', 'loan-repayment-collection');
-      if (check.allowed) {
-        await sbFetch(`loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}`, {
-          method: 'PATCH', prefer: 'return=minimal',
-          body: JSON.stringify({ application_status: 'Matured', modified_on: new Date().toISOString() })
-        });
-        await LoanStatusGuard.logStatusTransition(sbFetch, {
-          applicationId: appId, fromStatus: _record.application_status, toStatus: 'Matured',
-          sourceModule: 'loan-repayment-collection', changedBy: null
-        });
-        maturedMsg = ' Loan fully repaid — status set to Matured.';
-      } else {
-        maturedMsg = ` Balance is now zero, but status could not auto-update (${check.reason}) — close it via Module 09.`;
-      }
+    if (result.loan_matured) {
+      maturedMsg = ' Loan fully repaid — status set to Matured.';
+    }
+    let overpayMsg = '';
+    if (result.unallocated_overpayment > 0) {
+      overpayMsg = ` ⚠️ ${fmt(result.unallocated_overpayment)} could not be allocated (exceeds total remaining principal) — review manually.`;
     }
 
-    toast(`Payment posted.${maturedMsg}`, 'success', 5500);
-    setSB(`Posted ${fmt(amount)} against ${appId}. New balance: ${fmt(newBalance)}${maturedMsg}`);
+    toast(`Payment posted.${maturedMsg}${overpayMsg}`, overpayMsg ? 'warning' : 'success', 6500);
+    setSB(`Posted ${fmt(amount)} against ${appId}. New balance: ${fmt(result.new_balance)}.${maturedMsg}`);
 
-    // Reload to reflect the new state
     document.getElementById('fAmount').value = '';
     await loadLoan();
 
   } catch (err) {
     toast('Post failed: ' + err.message, 'error');
     setSB('Post failed.');
+  } finally {
+    document.getElementById('btnPost').disabled = false;
   }
 }
 
