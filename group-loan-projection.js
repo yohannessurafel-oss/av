@@ -45,6 +45,43 @@ async function sbFetch(path, opts = {}) {
   try { return JSON.parse(body); } catch { return null; }
 }
 
+async function sbRpc(fnName, params) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fnName}`, {
+    method: 'POST',
+    headers: {
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type':  'application/json'
+    },
+    body: JSON.stringify(params)
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error((data && data.message) || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
+/* Populate the #groupRegistryId dropdown with existing groups, showing
+   each group's name alongside its collective credit limit so the loan
+   officer can see capacity before picking one. */
+async function loadGroupOptions() {
+  const sel = document.getElementById('groupRegistryId');
+  if (!sel) return; // HTML hasn't added this field yet — see note below saveBatch()
+  try {
+    const rows = await sbFetch(
+      'portfoliogrouphierarchy?select=group_registry_id,group_name_alias,collective_credit_limit&order=group_name_alias.asc'
+    );
+    sel.innerHTML = '<option value="">— Create a new group —</option>' +
+      (rows || []).map(g =>
+        `<option value="${g.group_registry_id}">${g.group_name_alias} (limit: ${Number(g.collective_credit_limit).toLocaleString()} ETB)</option>`
+      ).join('');
+  } catch (e) {
+    console.error('Failed to load group list:', e);
+  }
+}
+document.addEventListener('DOMContentLoaded', loadGroupOptions);
+
 /* ── Toast ─────────────────────────────────────────────── */
 const toastEl = document.getElementById('toastNotification');
 let _toastTimer = null;
@@ -166,6 +203,13 @@ document.getElementById('groupCenterId')?.addEventListener('blur', async functio
 });
 
 /* ── Client Lookup ──────────────────────────────────────── */
+// Queries ONLY ClientMasterRecords, matching every other module in the
+// system (client-directory, client-maintenance, loan-account-maintenance,
+// loan-appraisal-management, credit-sanction-console all do the same).
+// This previously had a silent fallback to a separate 'clients' table that
+// no other module references — removed, since a fallback across two
+// different sources of truth can silently return stale/wrong data with no
+// indication of which table actually answered.
 async function lookupClient(clientId) {
   const val = (clientId || '').trim();
   if (!val) return null;
@@ -173,12 +217,11 @@ async function lookupClient(clientId) {
     const rows = await sbFetch(
       `${encodeURIComponent(TABLE_CLIENTS)}?client_id=eq.${encodeURIComponent(val)}&select=client_id,first_name,middle_name,last_name,client_name&limit=1`
     );
-    if (rows && rows[0]) return rows[0];
-  } catch { /* fall through */ }
-  try {
-    const rows = await sbFetch(`clients?client_id=eq.${encodeURIComponent(val)}&select=client_id,client_name&limit=1`);
     return (rows && rows[0]) ? rows[0] : null;
-  } catch { return null; }
+  } catch (e) {
+    toast('Client lookup failed: ' + e.message, 'error');
+    return null;
+  }
 }
 
 function clientDisplayName(rec) {
@@ -226,7 +269,6 @@ let _selectedIdx  = -1;
 function getCurrentFormRow() {
   const g = id => document.getElementById(id)?.value || '';
   return {
-    group_id:       g('groupCenterId'),
     client_id:      g('groupClientId'),
     client_name:    g('groupClientName'),
     loan_cycle:     g('groupLoanCycle'),
@@ -300,7 +342,6 @@ function renderGrid() {
     tr.dataset.rowIdx = idx;   // ← critical fix: Alter needs this
 
     tr.innerHTML = `
-      <td>${row.group_id   || ''}</td>
       <td>${row.client_id  || ''}</td>
       <td>${row.client_name || ''}</td>
       <td>${row.loan_cycle  || ''}</td>
@@ -432,102 +473,125 @@ async function saveBatch() {
   }
 
   const g = id => document.getElementById(id)?.value || '';
-  const branchId      = g('groupBranchId');
-  const disbursDate   = g('groupDisbursementDate');
-  const modeOfDisb    = g('groupModeOfDisbursement');
-  const fileNumber    = g('groupFileNumber');
-  const fundId        = g('groupFundId');
-  const loanPurpose   = g('groupLoanPurpose');
-  const productId     = g('groupProductId');
-  const currencyId    = g('groupCurrencyId') || 'ETB';
-  const creditOfficer = g('groupCreditOfficer');
-  const centerId      = g('groupCenterId');
-  const lineOfBiz     = g('groupLineOfBusiness');
-  const groupClass    = g('groupGroupClass');
-  const gracePeriod   = g('groupGracePeriod');
+  const branchId       = g('groupBranchId');
+  const disbursDate    = g('groupDisbursementDate');
+  const modeOfDisb     = g('groupModeOfDisbursement');
+  const fileNumber     = g('groupFileNumber');
+  const fundId         = g('groupFundId');
+  const loanPurpose    = g('groupLoanPurpose');
+  const productId      = g('groupProductId');
+  const currencyId     = g('groupCurrencyId') || 'ETB';
+  const creditOfficer  = g('groupCreditOfficer');
+  const centerId       = g('groupCenterId');
+  const lineOfBiz      = g('groupLineOfBusiness');
+  const groupClass     = g('groupGroupClass');
+  const gracePeriod    = g('groupGracePeriod');
   const repaymentAccId = g('groupRepaymentAccId');
+
+  // Group registry — either pick an existing group, or create a new one
+  // with a stated collective credit limit. These are new fields; see the
+  // note below the function for the HTML inputs this expects.
+  const existingGroupId = g('groupRegistryId');
+  const newGroupName    = g('groupNewName');
+  const newGroupLimit   = g('groupNewLimit');
+  const subGroupId      = g('groupSubGroupId');
 
   if (!branchId)  { toast('Branch is required.', 'warning'); document.getElementById('groupBranchId')?.focus(); return; }
   if (!productId) { toast('Product is required.', 'warning'); document.getElementById('groupProductId')?.focus(); return; }
   if (!repaymentAccId) { toast('Repayment Acc ID is required.', 'warning'); document.getElementById('groupRepaymentAccId')?.focus(); return; }
+  if (!existingGroupId && !newGroupName) {
+    toast('Select an existing group, or enter a name to create a new one.', 'warning');
+    return;
+  }
 
   const sb = document.getElementById('statusBar');
-  if (sb) sb.textContent = 'Saving batch…';
+  if (sb) sb.textContent = 'Checking group limit and saving batch…';
 
-  let saved = 0, errors = 0;
-
+  const members = [];
+  let skipped = 0;
   for (const row of _gridRows) {
     if (!row.client_id || !row.loan_amount || !row.term || !row.interest_rate) {
       console.warn('Skipping incomplete row:', row);
-      errors++;
+      skipped++;
       continue;
     }
-
-    const applicationId = `GRP-${branchId}-${Date.now()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
-
-    try {
-      /* Step 1 — loanapplications (parent, must exist before loanmasterrecords FK) */
-      await sbFetch('loanapplications', {
-        method: 'POST',
-        prefer: 'return=minimal',
-        body: JSON.stringify({
-          application_id:     applicationId,
-          application_date:   disbursDate || new Date().toISOString().slice(0,10),
-          branch_id:          branchId,
-          application_status: 'Draft',
-        })
-      });
-
-      /* Step 2 — loanmasterrecords */
-      await sbFetch('loanmasterrecords', {
-        method: 'POST',
-        prefer: 'return=minimal',
-        body: JSON.stringify({
-          application_id:            applicationId,
-          branch_id:                 branchId,
-          center_id:                 centerId  || null,
-          client_id:                 row.client_id,
-          client_name:               row.client_name,
-          product_id:                productId,
-          main_repayment_account_id: repaymentAccId,
-          fund_id:                   fundId    || null,
-          loan_purpose:              loanPurpose || null,
-          line_of_business:          lineOfBiz  || null,
-          credit_officer_id:         creditOfficer || null,
-          file_number:               fileNumber || null,
-          applied_amount:            parseFloat(row.loan_amount),
-          currency_id:               currencyId,
-          term_months:               parseInt(row.term),
-          repayment_term_months:     row.repayment_term ? parseInt(row.repayment_term) : null,
-          loan_cycle_no:             row.loan_cycle ? parseInt(row.loan_cycle) : 1,
-          loan_level_no:             row.loan_level ? parseInt(row.loan_level) : 1,
-          group_class:               groupClass || null,
-          repayment_frequency:       row.frequency || 'Monthly',
-          interest_rate:             parseFloat(row.interest_rate),
-          penalty_rate:              row.penalty_rate ? parseFloat(row.penalty_rate) : null,
-          mode_of_disbursement:      modeOfDisb || 'Transfer',
-          disbursement_date:         disbursDate || null,
-          grace_period:              gracePeriod || null,
-          application_status:        'DataEntry',
-        })
-      });
-
-      saved++;
-    } catch (e) {
-      console.error('Save error for client', row.client_id, e);
-      errors++;
-    }
+    members.push({
+      client_id:      row.client_id,
+      client_name:    row.client_name,
+      loan_amount:    parseFloat(row.loan_amount),
+      term:           parseInt(row.term),
+      repayment_term: row.repayment_term || null,
+      loan_cycle:     row.loan_cycle || 1,
+      loan_level:     row.loan_level || 1,
+      frequency:      row.frequency || 'Monthly',
+      interest_rate:  parseFloat(row.interest_rate),
+      penalty_rate:   row.penalty_rate || null
+    });
   }
 
-  if (saved > 0) {
-    toast(`Saved ${saved} member record(s)${errors > 0 ? ` — ${errors} failed` : ''}.`, errors > 0 ? 'warning' : 'success');
-  } else {
-    toast(`Save failed — ${errors} error(s). Check console.`, 'error');
+  if (members.length === 0) {
+    toast('No complete member rows to save.', 'error');
+    return;
   }
 
-  if (sb) sb.textContent = `Saved ${saved} / ${_gridRows.length} rows`;
-  if (saved > 0) setMode('view');
+  try {
+    // Single atomic transaction: resolves/creates the group, checks the
+    // WHOLE batch against the group's collective_credit_limit BEFORE
+    // writing anything, then inserts every member's loanapplications +
+    // loanmasterrecords pair together. Either the entire group saves, or
+    // none of it does — no more partial batches with orphaned rows.
+    const result = await sbRpc('create_group_loan_batch', {
+      p_branch_id:                  branchId,
+      p_product_id:                 productId,
+      p_repayment_account_id:       repaymentAccId,
+      p_members:                    members,
+      p_group_registry_id:          existingGroupId || null,
+      p_new_group_name:             existingGroupId ? null : newGroupName,
+      p_new_group_collective_limit: existingGroupId ? null : (parseFloat(newGroupLimit) || null),
+      p_center_id:                  centerId || null,
+      p_fund_id:                    fundId || null,
+      p_loan_purpose:               loanPurpose || null,
+      p_line_of_business:           lineOfBiz || null,
+      p_credit_officer_id:          creditOfficer || null,
+      p_file_number:                fileNumber || null,
+      p_currency_id:                currencyId,
+      p_group_class:                groupClass || null,
+      p_mode_of_disbursement:       modeOfDisb || 'Transfer',
+      p_disbursement_date:          disbursDate || null,
+      p_grace_period:               gracePeriod || null,
+      p_sub_group_id:               subGroupId || null
+    });
+
+    toast(
+      `Saved ${result.members_saved} member loan(s) under group ${result.group_registry_id}. ` +
+      `Group exposure now ${result.new_total_exposure.toLocaleString()} / ${result.collective_limit.toLocaleString()} ETB limit.` +
+      (skipped > 0 ? ` (${skipped} incomplete row(s) skipped.)` : ''),
+      'success', 7000
+    );
+    if (sb) sb.textContent = `Saved ${result.members_saved} / ${_gridRows.length} rows under ${result.group_registry_id}.`;
+    setMode('view');
+
+  } catch (e) {
+    // The RPC rejects the ENTIRE batch if it would exceed the group's
+    // collective limit, or if any member row is invalid — nothing gets
+    // written in that case, so there's nothing to clean up.
+    toast('Batch save failed: ' + e.message, 'error', 8000);
+    if (sb) sb.textContent = 'Batch save failed — nothing was written.';
+  }
 }
+
+/* ============================================================================
+   NEW HTML INPUTS THIS FUNCTION EXPECTS (add these to group-loan-projection.html):
+     #groupRegistryId  — <select> populated from portfoliogrouphierarchy,
+                          letting the user pick an EXISTING group
+     #groupNewName     — <input> for creating a NEW group (used only if
+                          groupRegistryId is left blank)
+     #groupNewLimit    — <input type="number"> the new group's collective
+                          credit limit (required only when creating new)
+     #groupSubGroupId  — <input> optional sub-group code
+   Consider calling a loadGroupOptions() function on page load to populate
+   #groupRegistryId from: portfoliogrouphierarchy?select=group_registry_id,group_name_alias,collective_credit_limit
+   ============================================================================ */
 
 /* ── Global Toolbar ─────────────────────────────────────── */
 document.getElementById('btnGlobalView')?.addEventListener('click', () => {
