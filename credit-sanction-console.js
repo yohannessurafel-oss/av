@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 04 Credit Sanction Console
-   credit-sanction-console.js  v2.2 — RESOLVED SCHEDULING & PERSISTENCE
+   credit-sanction-console.js  v2.3 — TRANSITION GUARD ADDED
    Tables: loanapplications · loanmasterrecords · branchregistry
 
    Workflow:
@@ -11,6 +11,16 @@
      3. User clicks Edit → adjusts sanction fields → Save
      4. Save PATCHes loanmasterrecords + loanapplications with
         status = 'Sanctioned'.
+
+   WHAT CHANGED FROM v2.2
+   saveSanction() previously wrote application_status: 'Sanctioned'
+   unconditionally and only called LoanStatusGuard.logStatusTransition()
+   to record the change AFTER it already happened — nothing actually
+   blocked an invalid transition (e.g. sanctioning a Closed or
+   WrittenOff loan). This now re-verifies the record's live status from
+   the DB and calls LoanStatusGuard.canTransition() BEFORE writing,
+   refusing to save if the transition isn't allowed — same pattern
+   already in loan-appraisal-management.js and disbursement.js.
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -214,6 +224,37 @@ async function saveSanction() {
     return;
   }
 
+  // Re-verify the record's CURRENT status fresh from the DB before writing —
+  // same pattern as loan-appraisal-management.js. _loadedPrevStatus was
+  // captured at lookup time and could be stale if another module moved
+  // this loan since then.
+  let currentStatus;
+  try {
+    const fresh = await sbFetch(
+      `loanmasterrecords?application_id=eq.${encodeURIComponent(_loadedAppId)}&select=application_status&limit=1`
+    );
+    if (!fresh || !fresh[0]) {
+      toast('Could not re-verify this record — it may have been deleted. Reload and try again.', 'error');
+      return;
+    }
+    currentStatus = fresh[0].application_status;
+  } catch (e) {
+    toast('Could not verify current status before saving: ' + e.message, 'error');
+    return;
+  }
+
+  if (!window.LoanStatusGuard) {
+    toast('Loan Status Guard is not loaded — cannot safely save. Add loan-status-guard.js to this page.', 'error');
+    return;
+  }
+  const check = window.LoanStatusGuard.canTransition(currentStatus, 'Sanctioned', 'credit-sanction-console');
+  if (!check.allowed) {
+    toast(`Cannot save: ${check.reason}`, 'error');
+    const sbEl = document.getElementById('statusBar');
+    if (sbEl) sbEl.textContent = `Blocked — record is currently "${currentStatus}", not sanctionable from here.`;
+    return;
+  }
+
   const getVal  = id => { const el = document.getElementById(id); return el ? el.value.trim() || null : null; };
   const getNum  = id => { const v = parseFloat(getVal(id)); return isNaN(v) ? null : v; };
   const getInt  = id => { const v = parseInt(getVal(id));   return isNaN(v) ? null : v; };
@@ -266,17 +307,13 @@ async function saveSanction() {
     // Record the transition in the audit log, same pattern as disbursement.js.
     // No-ops safely (with a console warning) if loan-status-guard.js isn't
     // loaded on this page yet.
-    if (window.LoanStatusGuard) {
-      await LoanStatusGuard.logStatusTransition(sbFetch, {
-        applicationId: _loadedAppId,
-        fromStatus:    _loadedPrevStatus || 'DataEntry',
-        toStatus:      'Sanctioned',
-        sourceModule:  'credit-sanction-console',
-        changedBy:     payload.approved_by || null
-      });
-    } else {
-      console.warn('LoanStatusGuard not found — sanction transition not logged to audit trail.');
-    }
+    await LoanStatusGuard.logStatusTransition(sbFetch, {
+      applicationId: _loadedAppId,
+      fromStatus:    currentStatus,
+      toStatus:      'Sanctioned',
+      sourceModule:  'credit-sanction-console',
+      changedBy:     payload.approved_by || null
+    });
 
     toast(`Application ${_loadedAppId} sanctioned successfully.`, 'success');
     if (sb) sb.textContent = `Sanctioned — ${_loadedAppId}`;
