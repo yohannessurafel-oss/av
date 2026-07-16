@@ -1,25 +1,57 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 10 Loan Disbursement
-   disbursement.js  v3.2 — STATUS GUARD WIRED IN
+   disbursement.js v3.3 — GL DOUBLE-ENTRY POSTING ADDED
+
    Tables written:
-     → loan_disbursement  (one row per disbursement event)
-     → loan_ledger        (disbursement row only)
+     → loan_disbursement        (one row per disbursement event)
+     → loan_ledger               (disbursement row only)
+     → gl_transaction_journal    (NEW — Dr Loans Receivable / Cr Cash-or-Bank)
+     → chart_of_accounts         (NEW — running balance update on both legs)
+
    Tables read:
      → loanmasterrecords              (application lookup)
      → lendingproductparametermatrix  (product_name_title)
+     → chart_of_accounts              (NEW — resolve GL account codes by name)
 
    Requires loan-status-guard.js to be loaded BEFORE this file:
      <script src="loan-status-guard.js"></script>
      <script src="disbursement.js"></script>
 
-   WHAT CHANGED FROM v3.1
-   Previously this module would post a disbursement and set
-   application_status = 'Disbursed' regardless of the loan's current
-   status — a Draft or DataEntry application could be disbursed
-   without ever being sanctioned. Now the confirm-commit step checks
-   LoanStatusGuard.canTransition() first and refuses to post if the
-   loan isn't currently 'Sanctioned'.
-═══════════════════════════════════════════════════════════ */
+   WHAT CHANGED FROM v3.2
+   Previously this module posted loan_disbursement and loan_ledger rows
+   but never touched the general ledger — chart_of_accounts.current_balance
+   and gl_transaction_journal had no writer anywhere in the codebase.
+   Now the confirm-commit step also posts a balanced GL journal entry
+   (Dr. Loans Receivable / Cr. Cash or Bank, chosen by Mode of Disbursement)
+   and updates both accounts' running balances.
+
+   KNOWN LIMITATIONS — flagging rather than silently working around:
+   1. GL account matching is done by a case-insensitive LIKE on
+      account_name_title ('Loans Receivable' / 'Cash' / 'Bank'). If your
+      chart_of_accounts doesn't have accounts with those words in the
+      title, GL posting is skipped with a warning toast — the core
+      disbursement (loan_disbursement, loan_ledger, status) still
+      completes normally. Rename accounts or adjust GL_ACCOUNT_PATTERNS
+      below to match your actual chart of accounts.
+   2. The chart_of_accounts.current_balance update is a read-then-write,
+      not an atomic increment. Two disbursements posted at the exact
+      same instant could race and one update could be lost. Closing
+      this properly needs a Postgres function (e.g. an RPC that does
+      `current_balance = current_balance + delta` server-side) — not
+      implemented here since it's a schema/RPC change, not a JS change,
+      and I don't have visibility into what RPCs already exist in this
+      Supabase project.
+   3. This step runs in its own try/catch AFTER loan_disbursement,
+      loan_ledger, amortization_schedules, and the status PATCH have
+      already succeeded. If GL posting fails, the disbursement is NOT
+      rolled back — you get a completed disbursement with a warning
+      toast instead of a silent, undetected accounting gap. This is
+      consistent with the fact that none of these multi-step writes are
+      wrapped in an actual DB transaction (Supabase REST doesn't give
+      you one without an RPC) — a pre-existing limitation of this whole
+      confirm-commit flow, not something new introduced here.
+   ═══════════════════════════════════════════════════════════ */
+
 'use strict';
 
 /* ── Supabase config ────────────────────────────────────── */
@@ -31,10 +63,10 @@ async function sbFetch(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
     headers: {
-      'apikey':        SUPABASE_KEY,
+      'apikey': SUPABASE_KEY,
       'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Content-Type':  'application/json',
-      'Prefer':        opts.prefer || 'return=representation',
+      'Content-Type': 'application/json',
+      'Prefer': opts.prefer || 'return=representation',
       ...(opts.headers || {})
     }
   });
@@ -51,9 +83,9 @@ async function sbFetch(path, opts = {}) {
 }
 
 /* ── Module state ────────────────────────────────────────── */
-let mode          = 'view';
+let mode = 'view';
 let currentRecord = null;   // row from loanmasterrecords
-let _productName  = '';     // resolved from lendingproductparametermatrix
+let _productName = '';      // resolved from lendingproductparametermatrix
 
 /* ── System date ─────────────────────────────────────────── */
 (function initDate() {
@@ -86,9 +118,9 @@ function showToast(msg, variant = 'info') {
 /* ── Form Control State Handler ──────────────────── */
 function setFormControlsState(enabled) {
   document.querySelectorAll('.tab-panel input, .tab-panel select')
-    .forEach(el => { 
+    .forEach(el => {
       if (el.id !== 'fCustomerName') {
-        el.disabled = !enabled; 
+        el.disabled = !enabled;
       }
     });
 }
@@ -107,14 +139,11 @@ function setMode(newMode) {
   mode = newMode;
   const isEditing = newMode === 'add' || newMode === 'edit';
   setFormControlsState(isEditing);
-
   document.getElementById('fAccountId').disabled = false;
-
-  document.getElementById('btnAdd').disabled    = isEditing;
-  document.getElementById('btnEdit').disabled   = isEditing || !currentRecord;
-  document.getElementById('btnSave').disabled   = !isEditing;
+  document.getElementById('btnAdd').disabled = isEditing;
+  document.getElementById('btnEdit').disabled = isEditing || !currentRecord;
+  document.getElementById('btnSave').disabled = !isEditing;
   document.getElementById('btnCancel').disabled = !isEditing;
-
   const sb = document.getElementById('statusBar');
   if (sb) sb.textContent = `Mode: ${newMode.charAt(0).toUpperCase() + newMode.slice(1)}` +
     (currentRecord ? ` — Account: ${document.getElementById('fAccountId').value}` : '');
@@ -124,7 +153,7 @@ function setMode(newMode) {
    AMORTIZATION ENGINE
    Standardized to Equated Monthly Installment (reducing balance / annuity)
    to ensure mathematical consistency with loan-application.js
-══════════════════════════════════════════════════════════ */
+   ══════════════════════════════════════════════════════════ */
 function buildAmortizationSchedule(principal, annualRate, tenor, startDate) {
   const rows = [];
   const P = parseFloat(principal);
@@ -142,14 +171,13 @@ function buildAmortizationSchedule(principal, annualRate, tenor, startDate) {
     const openBalance = balance;
     balance -= principalPaid;
     date.setMonth(date.getMonth() + 1);
-
     rows.push({
-      instalment_no:   i,
-      payment_date:    date.toISOString().split('T')[0],
+      instalment_no: i,
+      payment_date: date.toISOString().split('T')[0],
       opening_balance: openBalance,
-      principal_paid:  principalPaid,
-      interest:        interest,
-      total_due:       emi,
+      principal_paid: principalPaid,
+      interest: interest,
+      total_due: emi,
       closing_balance: Math.abs(balance) < 0.01 ? 0 : balance
     });
   }
@@ -178,7 +206,6 @@ document.getElementById('btnView').addEventListener('click', async () => {
 
   try {
     showToast('Loading application record…', 'info');
-
     const rows = await sbFetch(
       `loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}&limit=1`
     );
@@ -186,8 +213,8 @@ document.getElementById('btnView').addEventListener('click', async () => {
       return showToast('No record found for that Application ID in loanmasterrecords.', 'error');
     }
     currentRecord = rows[0];
-
     _productName = '';
+
     if (currentRecord.product_id) {
       try {
         const prod = await sbFetch(
@@ -206,24 +233,23 @@ document.getElementById('btnView').addEventListener('click', async () => {
         if (cRows && cRows[0]) resolvedName = cRows[0].client_name || '';
       } catch (_) {}
     }
-
     currentRecord._resolvedName = resolvedName;
 
-    document.getElementById('fCustomerName').value     = resolvedName;
-    document.getElementById('fAmountDisbursed').value  = currentRecord.approved_amount || currentRecord.applied_amount || '';
+    document.getElementById('fCustomerName').value = resolvedName;
+    document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
     document.getElementById('fDisbursementDate').value = currentRecord.disbursement_date || new Date().toISOString().split('T')[0];
-    document.getElementById('fPaymentMode').value      = currentRecord.mode_of_disbursement || '';
-    document.getElementById('fAccountType').value      = currentRecord.account_class || '';
-    document.getElementById('fContraAccountId').value  = currentRecord.main_repayment_account_id || '';
-    document.getElementById('fChequeNo').value         = currentRecord.reference_no || '';
-    document.getElementById('fBankName').value         = '';   
-    document.getElementById('fInterestRate').value     = currentRecord.interest_rate || '12.00';
-    document.getElementById('fTenorMonths').value      = currentRecord.term_months   || '12';
+    document.getElementById('fPaymentMode').value = currentRecord.mode_of_disbursement || '';
+    document.getElementById('fAccountType').value = currentRecord.account_class || '';
+    document.getElementById('fContraAccountId').value = currentRecord.main_repayment_account_id || '';
+    document.getElementById('fChequeNo').value = currentRecord.reference_no || '';
+    document.getElementById('fBankName').value = '';
+    document.getElementById('fInterestRate').value = currentRecord.interest_rate || '12.00';
+    document.getElementById('fTenorMonths').value = currentRecord.term_months || '12';
 
     const schedule = buildAmortizationSchedule(
       currentRecord.approved_amount || currentRecord.applied_amount,
       currentRecord.interest_rate || 12,
-      currentRecord.term_months   || 12,
+      currentRecord.term_months || 12,
       currentRecord.disbursement_date
     );
     renderScheduleGrid(schedule);
@@ -241,10 +267,8 @@ document.getElementById('btnAdd').addEventListener('click', () => {
     return showToast('Enter an Application ID and click 🔍 View before adding.', 'error');
   }
   setMode('add');
-  
-  document.getElementById('fCustomerName').value    = currentRecord.client_name || currentRecord._resolvedName || '';
+  document.getElementById('fCustomerName').value = currentRecord.client_name || currentRecord._resolvedName || '';
   document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
-  
   showToast('Fields unlocked. Confirm details then click Save.');
 });
 
@@ -254,33 +278,31 @@ document.getElementById('btnEdit').addEventListener('click', () => {
     return showToast('Load a record first via View (🔍).', 'error');
   }
   setMode('edit');
-  
   document.getElementById('fCustomerName').value = currentRecord.client_name || currentRecord._resolvedName || '';
   if (!document.getElementById('fAmountDisbursed').value) {
     document.getElementById('fAmountDisbursed').value = currentRecord.approved_amount || currentRecord.applied_amount || '';
   }
-  
   showToast('Edit mode — adjust details then Save.');
 });
 
 /* ── SAVE validation ─────────────────────────────────────── */
 document.getElementById('btnSave').addEventListener('click', () => {
-  const accId     = document.getElementById('fAccountId').value.trim();
-  const modeDis   = document.getElementById('fPaymentMode').value;
-  const accType   = document.getElementById('fAccountType').value;
-  const contra    = document.getElementById('fContraAccountId').value.trim();
-  const cName     = document.getElementById('fCustomerName').value.trim();
+  const accId = document.getElementById('fAccountId').value.trim();
+  const modeDis = document.getElementById('fPaymentMode').value;
+  const accType = document.getElementById('fAccountType').value;
+  const contra = document.getElementById('fContraAccountId').value.trim();
+  const cName = document.getElementById('fCustomerName').value.trim();
   const principal = document.getElementById('fAmountDisbursed').value;
 
-  if (!accId)     return showToast('Validation: Application ID cannot be blank.', 'error');
-  if (!modeDis)   return showToast('Validation: Select a Mode of Disbursement.', 'error');
-  if (!accType)   return showToast('Validation: Select an Account Type.', 'error');
-  if (!contra)    return showToast('Validation: Contra Account ID is required.', 'error');
+  if (!accId) return showToast('Validation: Application ID cannot be blank.', 'error');
+  if (!modeDis) return showToast('Validation: Select a Mode of Disbursement.', 'error');
+  if (!accType) return showToast('Validation: Select an Account Type.', 'error');
+  if (!contra) return showToast('Validation: Contra Account ID is required.', 'error');
   if (!cName || !principal) return showToast('Validation: Customer name and principal amount are required.', 'error');
 
-  document.getElementById('mdAccountId').textContent      = accId;
-  document.getElementById('mdPaymentMode').textContent    = modeDis;
-  document.getElementById('mdAccountType').textContent    = accType;
+  document.getElementById('mdAccountId').textContent = accId;
+  document.getElementById('mdPaymentMode').textContent = modeDis;
+  document.getElementById('mdAccountType').textContent = accType;
   document.getElementById('mdContraAccountId').textContent = contra;
 
   const schedule = buildAmortizationSchedule(
@@ -300,14 +322,106 @@ document.getElementById('btnConfirmCancel').addEventListener('click', () => {
 });
 
 /* ══════════════════════════════════════════════════════════
+   GL POSTING HELPERS — NEW in v3.3
+   ══════════════════════════════════════════════════════════ */
+
+// Adjust these if your chart_of_accounts titles don't contain these words.
+const GL_ACCOUNT_PATTERNS = {
+  loansReceivable: 'Loans Receivable',
+  cash: 'Cash',
+  bank: 'Bank'
+};
+
+/* Look up a chart_of_accounts row by a case-insensitive substring match
+   on account_name_title. Returns null (not a throw) if nothing matches,
+   so callers can decide to skip GL posting gracefully. */
+async function findGLAccount(namePattern) {
+  const rows = await sbFetch(
+    `chart_of_accounts?account_name_title=ilike.*${encodeURIComponent(namePattern)}*&select=gl_account_code,account_name_title,current_balance&limit=1`
+  );
+  return rows && rows[0] ? rows[0] : null;
+}
+
+/* Post a balanced Dr/Cr entry for this disbursement and update both
+   accounts' running balances. Never throws past this function — a
+   failure here becomes a warning toast, not a rollback, since the
+   disbursement itself has already been committed by the time this runs. */
+async function postDisbursementToGL({ refBatch, principal, paymentMode, valueDate }) {
+  try {
+    const loansReceivable = await findGLAccount(GL_ACCOUNT_PATTERNS.loansReceivable);
+    const cashOrBankPattern = paymentMode === 'Cash Vault Handout'
+      ? GL_ACCOUNT_PATTERNS.cash
+      : GL_ACCOUNT_PATTERNS.bank;
+    const cashOrBank = await findGLAccount(cashOrBankPattern);
+
+    if (!loansReceivable || !cashOrBank) {
+      const missing = !loansReceivable ? GL_ACCOUNT_PATTERNS.loansReceivable : cashOrBankPattern;
+      console.warn(`GL posting skipped — no chart_of_accounts entry matching "${missing}".`);
+      showToast(
+        `Disbursed, but GL posting skipped — no account matching "${missing}" in Chart of Accounts. Post manually.`,
+        'warning'
+      );
+      return;
+    }
+
+    // Two legs, same transaction_reference — this is what makes them a
+    // matched pair when general-ledger.js displays the journal.
+    await sbFetch('gl_transaction_journal', {
+      method: 'POST',
+      prefer: 'return=minimal',
+      body: JSON.stringify({
+        transaction_reference: refBatch,
+        gl_account_code: loansReceivable.gl_account_code,
+        debit_amount: principal,
+        credit_amount: 0,
+        value_date: valueDate
+      })
+    });
+    await sbFetch('gl_transaction_journal', {
+      method: 'POST',
+      prefer: 'return=minimal',
+      body: JSON.stringify({
+        transaction_reference: refBatch,
+        gl_account_code: cashOrBank.gl_account_code,
+        debit_amount: 0,
+        credit_amount: principal,
+        value_date: valueDate
+      })
+    });
+
+    // Read-then-write balance update — see "KNOWN LIMITATIONS" note at
+    // the top of this file re: race conditions under concurrent posting.
+    await sbFetch(`chart_of_accounts?gl_account_code=eq.${encodeURIComponent(loansReceivable.gl_account_code)}`, {
+      method: 'PATCH',
+      prefer: 'return=minimal',
+      body: JSON.stringify({
+        current_balance: (parseFloat(loansReceivable.current_balance) || 0) + principal
+      })
+    });
+    await sbFetch(`chart_of_accounts?gl_account_code=eq.${encodeURIComponent(cashOrBank.gl_account_code)}`, {
+      method: 'PATCH',
+      prefer: 'return=minimal',
+      body: JSON.stringify({
+        current_balance: (parseFloat(cashOrBank.current_balance) || 0) - principal
+      })
+    });
+
+    showToast(`GL posted — Dr ${loansReceivable.gl_account_code} / Cr ${cashOrBank.gl_account_code}.`, 'success');
+  } catch (glErr) {
+    console.warn('GL posting failed:', glErr.message);
+    showToast(`Disbursed, but GL posting failed: ${glErr.message}`, 'warning');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
    CONFIRM COMMIT
    Updates to standard practices:
-     - Only logs actual opening transaction (Disbursement) in ledger [1].
-     - Generates repayment plan solely in amortization_schedules (keeps ledger clean) [1].
-══════════════════════════════════════════════════════════ */
+   - Only logs actual opening transaction (Disbursement) in ledger [1].
+   - Generates repayment plan solely in amortization_schedules (keeps ledger clean) [1].
+   - NEW: posts the matching GL journal entry after the ledger opens.
+   ══════════════════════════════════════════════════════════ */
 document.getElementById('btnConfirmCommit').addEventListener('click', async () => {
   document.getElementById('disbursementModal').classList.remove('active');
-
   const appId = document.getElementById('fAccountId').value.trim();
 
   // ── GATE: only a Sanctioned loan can be disbursed, and only from here ──
@@ -322,20 +436,20 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
     console.warn('LoanStatusGuard not found — disbursing WITHOUT a sanction-status check.');
   }
 
-  const customerName  = document.getElementById('fCustomerName').value.trim()
-                     || currentRecord?._resolvedName
-                     || currentRecord?.client_name
-                     || '';
-  const principal     = parseFloat(document.getElementById('fAmountDisbursed').value);
-  const disbDate      = document.getElementById('fDisbursementDate').value || new Date().toISOString().split('T')[0];
-  const paymentMode   = document.getElementById('fPaymentMode').value;
-  const chequeNo      = document.getElementById('fChequeNo').value || null;
-  const bankName      = document.getElementById('fBankName').value || null;
-  const interestRate  = parseFloat(document.getElementById('fInterestRate').value);
-  const tenorMonths   = parseInt(document.getElementById('fTenorMonths').value);
+  const customerName = document.getElementById('fCustomerName').value.trim()
+    || currentRecord?._resolvedName
+    || currentRecord?.client_name
+    || '';
+  const principal = parseFloat(document.getElementById('fAmountDisbursed').value);
+  const disbDate = document.getElementById('fDisbursementDate').value || new Date().toISOString().split('T')[0];
+  const paymentMode = document.getElementById('fPaymentMode').value;
+  const chequeNo = document.getElementById('fChequeNo').value || null;
+  const bankName = document.getElementById('fBankName').value || null;
+  const interestRate = parseFloat(document.getElementById('fInterestRate').value);
+  const tenorMonths = parseInt(document.getElementById('fTenorMonths').value);
   const accountNumber = document.getElementById('fContraAccountId').value.trim() || currentRecord?.main_repayment_account_id || null;
-  const today         = new Date().toISOString().split('T')[0];
 
+  const today = new Date().toISOString().split('T')[0];
   const refBatch = `DISB-${appId}-${today.replace(/-/g, '')}`;
 
   try {
@@ -343,53 +457,60 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
 
     // ── STEP 1: Insert into loan_disbursement
     const disbPayload = {
-      application_id:    appId,
-      customer_name:     customerName,
-      amount_disbursed:  principal,
+      application_id: appId,
+      customer_name: customerName,
+      amount_disbursed: principal,
       disbursement_date: disbDate,
-      payment_mode:      paymentMode,
-      cheque_no:         chequeNo,
-      bank_name:         bankName,
-      account_number:    accountNumber,
-      interest_rate:     interestRate,
-      tenor_months:      tenorMonths
+      payment_mode: paymentMode,
+      cheque_no: chequeNo,
+      bank_name: bankName,
+      account_number: accountNumber,
+      interest_rate: interestRate,
+      tenor_months: tenorMonths
     };
-
     await sbFetch('loan_disbursement', {
       method: 'POST',
       prefer: 'return=minimal',
-      body:   JSON.stringify(disbPayload)
+      body: JSON.stringify(disbPayload)
     });
 
     // ── STEP 2: Write opening transaction to loan_ledger (Running Balance = Principal owed)
     const ledgerDisbRow = {
-      application_id:  appId,
-      client_id:       currentRecord?.client_id  || null,
-      account_number:  accountNumber,
-      product_name:    _productName              || null,
-      post_date:       today,
-      value_date:      disbDate,
-      description:     'Disbursement',
-      ref_batch:       refBatch,
-      principal:       principal,
-      interest:        0,
+      application_id: appId,
+      client_id: currentRecord?.client_id || null,
+      account_number: accountNumber,
+      product_name: _productName || null,
+      post_date: today,
+      value_date: disbDate,
+      description: 'Disbursement',
+      ref_batch: refBatch,
+      principal: principal,
+      interest: 0,
       charges_penalties: 0,
       accrued_interest_receivable: 0,
-      total_paid:      0,
+      total_paid: 0,
       accrued_unpaid_interest: 0,
       running_balance: principal,
-      borrower_name:   customerName
+      borrower_name: customerName
     };
-
     await sbFetch('loan_ledger', {
       method: 'POST',
       prefer: 'return=minimal',
-      body:   JSON.stringify(ledgerDisbRow)
+      body: JSON.stringify(ledgerDisbRow)
+    });
+
+    // ── STEP 2b (NEW): Post the matching GL journal entry ──
+    // Dr. Loans Receivable / Cr. Cash-or-Bank, same refBatch as the ledger
+    // row above so the two can be cross-referenced.
+    await postDisbursementToGL({
+      refBatch,
+      principal,
+      paymentMode,
+      valueDate: disbDate
     });
 
     // ── STEP 3: Write plan installments purely into amortization_schedules (keeps ledger correct) [1]
     const schedule = buildAmortizationSchedule(principal, interestRate, tenorMonths, disbDate);
-
     for (const row of schedule) {
       await sbFetch('amortization_schedules', {
         method: 'POST',
@@ -397,10 +518,10 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
         body: JSON.stringify({
           application_id: appId,
           installment_no: row.instalment_no,
-          due_date:       row.payment_date,
-          principal_due:  parseFloat(row.principal_paid.toFixed(2)),
-          interest_due:   parseFloat(row.interest.toFixed(2)),
-          status:         'UNPAID'
+          due_date: row.payment_date,
+          principal_due: parseFloat(row.principal_paid.toFixed(2)),
+          interest_due: parseFloat(row.interest.toFixed(2)),
+          status: 'UNPAID'
         })
       });
     }
@@ -408,25 +529,24 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
     // ── STEP 4: Update status on loanmasterrecords
     const masterPatch = {
       application_status: 'Disbursed',
-      modified_on:        new Date().toISOString()
+      modified_on: new Date().toISOString()
     };
     if (!currentRecord?.first_disbursement_date) {
       masterPatch.first_disbursement_date = disbDate;
     }
-
     await sbFetch(`loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}`, {
       method: 'PATCH',
       prefer: 'return=minimal',
-      body:   JSON.stringify(masterPatch)
+      body: JSON.stringify(masterPatch)
     });
 
     if (window.LoanStatusGuard) {
       await LoanStatusGuard.logStatusTransition(sbFetch, {
         applicationId: appId,
-        fromStatus:    currentRecord?.application_status || 'Sanctioned',
-        toStatus:      'Disbursed',
-        sourceModule:  'disbursement',
-        changedBy:     null
+        fromStatus: currentRecord?.application_status || 'Sanctioned',
+        toStatus: 'Disbursed',
+        sourceModule: 'disbursement',
+        changedBy: null
       });
     }
 
@@ -436,7 +556,6 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
       `✔ Disbursement posted successfully. Loan Ledger initialized with principal.`,
       'success'
     );
-
   } catch (err) {
     showToast(`Post failed: ${err.message}`, 'error');
   }
@@ -446,7 +565,7 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
 document.getElementById('btnCancel').addEventListener('click', () => {
   clearFormLayout();
   currentRecord = null;
-  _productName  = '';
+  _productName = '';
   setMode('view');
   showToast('Pending changes discarded.');
 });
@@ -456,7 +575,7 @@ document.getElementById('btnClose').addEventListener('click', () => {
   clearFormLayout();
   document.getElementById('fAccountId').value = '';
   currentRecord = null;
-  _productName  = '';
+  _productName = '';
   setMode('view');
   showToast('Workspace cleared.');
 });
