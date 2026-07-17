@@ -156,6 +156,77 @@ background: var(--navy-800, #0d3460); color: #fff;
 padding: 1px 5px; border-radius: 99px;
 }
 .cat-item.active .cat-badge { background: var(--amber, #e69c24); color: var(--navy-900, #061d3a); }
+
+/* ── Help System & Manual Styles ────────────────────────── */
+.manual-wrap {
+display: flex;
+flex-direction: column;
+height: 100%;
+background: var(--white, #fff);
+overflow-y: auto;
+padding: 20px;
+box-sizing: border-box;
+}
+.manual-header {
+border-bottom: 2px solid var(--amber, #e69c24);
+padding-bottom: 12px;
+margin-bottom: 20px;
+}
+.manual-title {
+font-size: 18px;
+font-weight: 700;
+color: var(--navy-900, #061d3a);
+margin: 0;
+}
+.manual-subtitle {
+font-size: 11px;
+color: var(--text-muted, #667788);
+margin-top: 4px;
+}
+.manual-section {
+margin-bottom: 24px;
+}
+.manual-section h4 {
+font-size: 13px;
+font-weight: 600;
+color: var(--navy-700, #1b5199);
+margin: 0 0 8px 0;
+border-bottom: 1px dashed var(--border-light, #c5daf0);
+padding-bottom: 4px;
+}
+.manual-section p {
+font-size: 12px;
+color: var(--text-dark, #0d2a4a);
+line-height: 1.5;
+margin: 0 0 10px 0;
+}
+.manual-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+gap: 12px;
+margin-top: 10px;
+}
+.manual-card-info {
+background: var(--navy-50, #eef4fb);
+border: 1px solid var(--border-light, #c5daf0);
+border-radius: 4px;
+padding: 12px;
+}
+.manual-card-info h5 {
+font-size: 11px;
+font-weight: 700;
+margin: 0 0 6px 0;
+color: var(--navy-800, #0d3460);
+text-transform: uppercase;
+letter-spacing: 0.02em;
+}
+.manual-card-info ul {
+margin: 0;
+padding-left: 16px;
+font-size: 11px;
+color: var(--text-mid, #334455);
+line-height: 1.5;
+}
 </style>
 </head>
 <body>
@@ -202,9 +273,10 @@ Module Navigator
 <span>AVMF CBS v2.0</span>
 </div>
 </div>
-<!-- Main Content -->
+<!-- Main Content Area -->
 <div class="main-content">
-<div class="module-view active">
+<!-- DASHBOARD VIEW CONTAINER -->
+<div id="viewDashboard" class="module-view active">
 <div class="context-badge-bar">
 <span class="badge-icon">🏠</span>
 Central Dashboard — Select a Module to Open
@@ -221,6 +293,58 @@ Central Dashboard — Select a Module to Open
 <div class="module-grid" id="moduleGrid"></div>
 <!-- Status bar -->
 <div class="dash-status" id="dashStatus">AVMF CBS v2.0 — All systems operational</div>
+</div>
+</div>
+
+<!-- HELP MANUAL VIEW CONTAINER -->
+<div id="viewHelp" class="module-view" style="display: none; height: 100%;">
+<div class="context-badge-bar">
+<span class="badge-icon">❓</span>
+System Documentation & User Operations Manual
+</div>
+<div class="manual-wrap">
+<div class="manual-header">
+<h3 class="manual-title">📖 AVMF Core Banking System — User Manual</h3>
+<p class="manual-subtitle">Standard Operating Guide for Ledger Control & Credit Operations</p>
+</div>
+
+<div class="manual-section">
+<h4>1. Core Architecture Overview</h4>
+<p>The AVMF CBS v2.0 Platform functions as a centralized ledger engine interfacing operational data models directly with high-integrity database schemas (Supabase backend synchronization). Operational tasks must follow a rigorous registration-appraisal-sanction sequence to preserve legal credit parameters.</p>
+</div>
+
+<div class="manual-section">
+<h4>2. Workflow Lifecycle & Procedures</h4>
+<div class="manual-grid">
+<div class="manual-card-info">
+<h5>A. Client Management</h5>
+<ul>
+<li><strong>Master Registry:</strong> Input full verification data, KYC parameters, and record unique identifying details.</li>
+<li><strong>Account Maintenance:</strong> Allocate secondary saving pockets, current sub-ledgers, or dedicated loan holding routes.</li>
+</ul>
+</div>
+<div class="manual-card-info">
+<h5>B. Credit Processing Cycle</h5>
+<ul>
+<li><strong>Application Setup:</strong> Register individualized or structured sub-group loan requests.</li>
+<li><strong>Risk Appraisal:</strong> Process debt-service ratios (DSR) and collateral asset valuations.</li>
+<li><strong>Sanction Controls:</strong> Authorize official credit allocations via approval checkpoints.</li>
+</ul>
+</div>
+<div class="manual-card-info">
+<h5>C. Ledger & Teller Controls</h5>
+<ul>
+<li><strong>Vault Management:</strong> Tellers must declare structural coin/note breakdowns at open and close shifts.</li>
+<li><strong>Atomic Allocation:</strong> System automatically funnels repayment capital down sequentially into accrued Penalties → Due Interest → Core Principal.</li>
+</ul>
+</div>
+</div>
+</div>
+
+<div class="manual-section">
+<h4>3. System Support & Exception Resolution</h4>
+<p>For transaction rollback requests, structural schema mismatches, or diagnostic checking overrides, navigate to the <strong>Diagnostics & Tools</strong> category to run the live Supabase Test Harness, or request infrastructure clearance from your Lead IT Systems Administrator.</p>
+</div>
 </div>
 </div>
 </div>
@@ -364,6 +488,7 @@ status: 'live'
 },
 ];
 
+/* Added a structural help element to the global CATEGORIES array */
 const CATEGORIES = [
 { id: 'all', label: 'All Modules', icon: '🌐' },
 { id: 'client', label: 'Client Management', icon: '👤' },
@@ -373,6 +498,7 @@ const CATEGORIES = [
 { id: 'financials', label: 'Financials & Ledger', icon: '💰' },
 { id: 'reports', label: 'Reports', icon: '📊' },
 { id: 'dev', label: 'Diagnostics & Tools', icon: '🧪' },
+{ id: 'help', label: 'HELP / MANUAL', icon: '❓' }
 ];
 
 let currentCat = 'all';
@@ -380,6 +506,7 @@ let searchTerm = '';
 
 /* ── Counts per category ─── */
 function countByCat(catId) {
+if (catId === 'help') return 1;
 return catId === 'all'
 ? MODULES.length
 : MODULES.filter(m => m.cat === catId).length;
@@ -449,17 +576,40 @@ if (status === 'stub') return;
 window.location.href = path;
 }
 
+/* ── Tab Layout Switch Engine ─── */
 function setFilter(catId) {
 currentCat = catId;
 renderCatNav();
 renderPills();
+
+const viewDash = document.getElementById('viewDashboard');
+const viewHelp = document.getElementById('viewHelp');
+
+if (catId === 'help') {
+// Toggle views to present user documentation tab
+viewDash.style.display = 'none';
+viewHelp.style.display = 'block';
+document.getElementById('dashStatus').textContent = "Showing: Core Banking System User Operations Manual";
+} else {
+// Default view
+viewDash.style.display = 'block';
+viewHelp.style.display = 'none';
 renderModules();
 document.getElementById('dashStatus').textContent =
 `Showing: ${catId === 'all' ? 'All Modules' : CATEGORIES.find(c=>c.id===catId)?.label}`;
 }
+}
 
 /* ── Search ─── */
 document.getElementById('moduleSearch').addEventListener('input', function() {
+// Auto-bounce back to dashboard workspace if a search is performed while in manual
+if (currentCat === 'help') {
+currentCat = 'all';
+document.getElementById('viewDashboard').style.display = 'block';
+document.getElementById('viewHelp').style.display = 'none';
+renderCatNav();
+renderPills();
+}
 searchTerm = this.value.toLowerCase().trim();
 renderModules();
 });
