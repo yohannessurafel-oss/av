@@ -105,6 +105,8 @@ let _loadedAppId = null;
 let _loanRecord  = null;
 let _scheduleRows = [];
 let _ledgerRows   = [];
+const FALLBACK_EARLY_SETTLEMENT_PENALTY_RATE = 0.02; // 2%, matches existing sample contract terms
+let _earlySettlementPenaltyRate = FALLBACK_EARLY_SETTLEMENT_PENALTY_RATE;
 
 /* ── Load Loan + Schedule + Ledger ───────────────────────── */
 async function loadPayoffRecord() {
@@ -125,6 +127,21 @@ async function loadPayoffRecord() {
     }
     _loanRecord = loanRows[0];
     _loadedAppId = _loanRecord.application_id;
+
+    // Pull this loan's PRODUCT-SPECIFIC early-settlement penalty rate,
+    // falling back to the sample contract default (2%) only if the
+    // product row is missing it.
+    try {
+      const productRows = await sbFetch(
+        `lendingproductparametermatrix?product_code_id=eq.${encodeURIComponent(_loanRecord.product_id)}&select=early_settlement_penalty_rate&limit=1`
+      );
+      const prod = productRows && productRows[0];
+      _earlySettlementPenaltyRate = (prod && prod.early_settlement_penalty_rate != null)
+        ? prod.early_settlement_penalty_rate : FALLBACK_EARLY_SETTLEMENT_PENALTY_RATE;
+    } catch (e) {
+      console.warn('Could not load product penalty policy, using default:', e.message);
+      _earlySettlementPenaltyRate = FALLBACK_EARLY_SETTLEMENT_PENALTY_RATE;
+    }
 
     const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
     v('payoffClientId',   _loanRecord.client_id);
@@ -238,17 +255,24 @@ function computePayoff() {
   const settlementDateObj = settlementDateStr ? new Date(settlementDateStr) : new Date();
 
   let unpaidPrincipal = 0, unpaidInterest = 0;
-  
-  _scheduleRows.forEach(r => {
+  let lastDueDateBeforeSettlement = null; // most recent installment due-date <= settlement date
+
+  // Sort ascending by due date so we can find the period boundaries correctly
+  const sortedRows = [..._scheduleRows].sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+
+  sortedRows.forEach(r => {
+    const dueDateObj = new Date(r.due_date);
     if (r.status !== 'PAID') {
       unpaidPrincipal += (parseFloat(r.principal_due||0) - parseFloat(r.principal_paid||0));
-      
+
       // Standard Financial Protection:
-      // Exclude future unearned interest [1]. Only accrued/overdue interest is billed [1].
-      const dueDateObj = new Date(r.due_date);
+      // Exclude future unearned interest. Only accrued/overdue interest is billed.
       if (dueDateObj <= settlementDateObj) {
         unpaidInterest += (parseFloat(r.interest_due||0) - parseFloat(r.interest_paid||0));
       }
+    }
+    if (dueDateObj <= settlementDateObj) {
+      lastDueDateBeforeSettlement = dueDateObj;
     }
   });
 
@@ -260,7 +284,25 @@ function computePayoff() {
     unpaidInterest  = 0;
   }
 
-  const penaltyRate = 0.02;
+  // ── Day-count accrued interest for the CURRENT, not-yet-due period ──
+  // Standard microfinance convention: actual calendar days / 365, applied
+  // to the declining principal balance, at the loan's contracted annual
+  // rate. Covers the gap between the last due date that's already been
+  // billed above and the actual settlement date — e.g. a customer settling
+  // on the 15th, mid-cycle, owes 14 days of real accrued interest that a
+  // due-date-only calculation would otherwise miss entirely.
+  let accruedPartialInterest = 0;
+  const periodStart = lastDueDateBeforeSettlement || new Date(_loanRecord.disbursement_date || _loanRecord.created_on);
+  const daysSincePeriodStart = Math.max(0, Math.round((settlementDateObj - periodStart) / 86400000));
+  const annualRate = parseFloat(_loanRecord.interest_rate || 0) / 100;
+  if (daysSincePeriodStart > 0 && annualRate > 0 && unpaidPrincipal > 0) {
+    accruedPartialInterest = parseFloat(
+      (unpaidPrincipal * annualRate * (daysSincePeriodStart / 365)).toFixed(2)
+    );
+  }
+  unpaidInterest += accruedPartialInterest;
+
+  const penaltyRate = _earlySettlementPenaltyRate;
   const penalty = unpaidPrincipal * penaltyRate;
 
   const waiver = parseFloat(document.getElementById('payoffWaiver')?.value || 0) || 0;
@@ -270,8 +312,9 @@ function computePayoff() {
   if (tbody) {
     tbody.innerHTML = `
       <tr><td>Outstanding Principal</td><td class="text-right">${fmt(unpaidPrincipal)}</td></tr>
-      <tr><td>Accrued / Overdue Interest</td><td class="text-right">${fmt(unpaidInterest)}</td></tr>
-      <tr><td>Early Settlement Penalty (2%)</td><td class="text-right">${fmt(penalty)}</td></tr>
+      <tr><td>Overdue Interest (billed installments)</td><td class="text-right">${fmt(unpaidInterest - accruedPartialInterest)}</td></tr>
+      <tr><td>Accrued Interest — current period (${daysSincePeriodStart}d @ actual/365)</td><td class="text-right">${fmt(accruedPartialInterest)}</td></tr>
+      <tr><td>Early Settlement Penalty (${(penaltyRate*100).toFixed(2)}%)</td><td class="text-right">${fmt(penalty)}</td></tr>
       <tr><td>Less: Approved Waiver</td><td class="text-right">−${fmt(waiver)}</td></tr>
       <tr style="border-top:2px solid var(--accent,#0d3460);">
         <td style="font-weight:700;">Net Settlement Amount</td>
