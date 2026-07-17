@@ -23,10 +23,12 @@
 
    MODULE IDS IN USE
      'loan-application'         → Module 01
+     'loan-appraisal-management'→ Module 03
      'credit-sanction-console'  → Module 04
      'loan-account-maintenance' → Module 05
      'disbursement'             → Module 10
      'settlement'               → Module 09 (Early Payoff / Settlement — wire in when ready)
+     'loan-repayment-collection'→ Module 15 (routine installment repayments — NOT early payoff)
 
    This file has no dependencies and attaches itself to `window.LoanStatusGuard`.
 ═══════════════════════════════════════════════════════════ */
@@ -50,7 +52,7 @@
     Draft:       { Submitted:  ['loan-application'] },
     Submitted:   { DataEntry:  ['loan-application'] },
     DataEntry:   {
-      Appraisal:  ['loan-application', 'credit-sanction-console'],
+      Appraisal:  ['loan-application', 'credit-sanction-console', 'loan-appraisal-management'],
       Closed:     ['loan-account-maintenance']   // withdraw/cancel an application before it's ever sanctioned
     },
     Appraisal:   {
@@ -62,7 +64,9 @@
       Appraisal:  ['credit-sanction-console']    // send back for re-appraisal
     },
     Disbursed:   {
-      Matured:    ['settlement'],
+      // Matured: reachable either by Module 09 (early payoff) or Module 15
+      // (routine repayment that brings the schedule to zero naturally).
+      Matured:    ['settlement', 'loan-repayment-collection'],
       Closed:     ['settlement'],                // full settlement/payoff — NOT loan-account-maintenance
       WrittenOff: ['settlement']
     },
