@@ -105,9 +105,15 @@ function fmtDate(dateStr) {
 function toISO(d) { return d.toISOString().split('T')[0]; }
 function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
 
-/* ── Penalty policy (configurable defaults — matches sample PDF Section 4) ── */
-const GRACE_PERIOD_DAYS = 5;
-const DAILY_PENALTY_RATE = 0.00025; // 0.025% per day, per contract terms in sample
+/* ── Penalty policy — now configurable PER PRODUCT via
+   lendingproductparametermatrix (penalty_rate_daily, grace_period_days),
+   fetched fresh for each loaded loan instead of a single hardcoded global
+   constant. These fallbacks match the sample contract terms only as a
+   safety net if a product row is somehow missing its own values. ── */
+const FALLBACK_GRACE_PERIOD_DAYS = 5;
+const FALLBACK_DAILY_PENALTY_RATE = 0.00025;
+let _graceperiodDays  = FALLBACK_GRACE_PERIOD_DAYS;
+let _dailyPenaltyRate = FALLBACK_DAILY_PENALTY_RATE;
 
 /* ── State ────────────────────────────────────────────────── */
 let _record        = null;   // loanmasterrecords row
@@ -140,6 +146,21 @@ async function loadLoan() {
       setSB(`Loan status: ${_record.application_status} — repayment blocked.`);
       resetPanels();
       return;
+    }
+
+    // Pull this loan's PRODUCT-SPECIFIC penalty policy, falling back to the
+    // sample contract defaults only if the product row is missing values.
+    try {
+      const productRows = await sbFetch(
+        `lendingproductparametermatrix?product_code_id=eq.${encodeURIComponent(_record.product_id)}&select=penalty_rate_daily,grace_period_days,interest_calculation_method&limit=1`
+      );
+      const prod = productRows && productRows[0];
+      _graceperiodDays  = (prod && prod.grace_period_days  != null) ? prod.grace_period_days  : FALLBACK_GRACE_PERIOD_DAYS;
+      _dailyPenaltyRate = (prod && prod.penalty_rate_daily != null) ? prod.penalty_rate_daily : FALLBACK_DAILY_PENALTY_RATE;
+    } catch (e) {
+      console.warn('Could not load product penalty policy, using defaults:', e.message);
+      _graceperiodDays  = FALLBACK_GRACE_PERIOD_DAYS;
+      _dailyPenaltyRate = FALLBACK_DAILY_PENALTY_RATE;
     }
 
     const ledgerRows = await sbFetch(
@@ -182,11 +203,11 @@ function computePenaltyPreview() {
   if (today <= due) return;
 
   _daysOverdue = daysBetween(due, today);
-  const chargeableDays = Math.max(0, _daysOverdue - GRACE_PERIOD_DAYS);
+  const chargeableDays = Math.max(0, _daysOverdue - _graceperiodDays);
   if (chargeableDays <= 0) return;
 
   const balance = parseFloat(_lastLedgerRow.running_balance) || 0;
-  _computedPenalty = parseFloat((balance * DAILY_PENALTY_RATE * chargeableDays).toFixed(2));
+  _computedPenalty = parseFloat((balance * _dailyPenaltyRate * chargeableDays).toFixed(2));
 }
 
 /* ── Render summary card ─────────────────────────────────── */
@@ -208,13 +229,13 @@ function renderSummary() {
 
   const daysEl = document.getElementById('sDaysOverdue');
   daysEl.textContent = _daysOverdue > 0 ? `${_daysOverdue} days` : 'Not overdue';
-  daysEl.className = 'rpc-meta-value' + (_daysOverdue > GRACE_PERIOD_DAYS ? ' danger' : _daysOverdue > 0 ? ' warn' : '');
+  daysEl.className = 'rpc-meta-value' + (_daysOverdue > _graceperiodDays ? ' danger' : _daysOverdue > 0 ? ' warn' : '');
 
   const noteEl = document.getElementById('penaltyNote');
   if (_computedPenalty > 0) {
     noteEl.style.display = 'block';
-    noteEl.innerHTML = `⚠ ${_daysOverdue} days overdue (grace period ${GRACE_PERIOD_DAYS} days). ` +
-      `Computed penalty: <strong>${fmt(_computedPenalty)}</strong> at ${(DAILY_PENALTY_RATE*100).toFixed(3)}%/day. ` +
+    noteEl.innerHTML = `⚠ ${_daysOverdue} days overdue (grace period ${_graceperiodDays} days). ` +
+      `Computed penalty: <strong>${fmt(_computedPenalty)}</strong> at ${(_dailyPenaltyRate*100).toFixed(3)}%/day. ` +
       `Check "Waive penalty" to skip it for this payment.`;
   } else {
     noteEl.style.display = 'none';
