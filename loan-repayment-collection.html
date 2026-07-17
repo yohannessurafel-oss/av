@@ -254,6 +254,22 @@
             </div>
           </div>
 
+          <div class="rpc-panel" id="rpcScheduleLivePanel" style="display:none; margin-top:16px;">
+            <h3>📅 Amortization Schedule — Live</h3>
+            <table class="hier-table" style="width:100%;">
+              <thead>
+                <tr>
+                  <th>#</th><th>Due Date</th>
+                  <th class="r">Principal Due</th><th class="r">Principal Paid</th>
+                  <th class="r">Interest Due</th><th class="r">Interest Paid</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyScheduleLive"></tbody>
+            </table>
+            <div class="audit-note" id="scheduleLiveNote" style="margin-top:8px;"></div>
+          </div>
+
         </div>
 
         <div class="sub-footer-token" id="statusBar">Status: Ready</div>
