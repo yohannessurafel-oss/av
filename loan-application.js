@@ -334,7 +334,7 @@ function clearLoanAppForm() {
   const cy = document.getElementById('fCurrencyId');
   if (cy) cy.value = 'ETB';
   document.querySelector('#tblClientResults tbody').innerHTML =
-    '<tr><td colspan="5" class="text-center gray-text italic">No records to display.</td></tr>';
+    '<tr><td colspan="6" class="text-center gray-text italic">No records to display.</td></tr>';
   calcLoanSummary();
 }
 
@@ -454,7 +454,7 @@ async function loadRecentApplications() {
     );
 
     if (!rows || !rows.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="text-center gray-text italic">No records to display.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center gray-text italic">No records to display.</td></tr>';
       return;
     }
 
@@ -469,6 +469,7 @@ async function loadRecentApplications() {
         <td style="text-align:center;">
           <button type="button" class="lookup-btn" style="padding:1px 8px;" data-load-appid="${r[COL.application_id]}" title="Load this application">▶</button>
         </td>
+        <td style="font-weight:700;color:#0d3460;">${r[COL.application_id] || '—'}</td>
         <td>${r[COL.client_id] || '—'}</td>
         <td data-name-for="${r[COL.client_id] || ''}">${r[COL.client_name] || '<span class="gray-text italic">loading…</span>'}</td>
         <td>${r[COL.branch_id] || '—'}</td>
@@ -513,7 +514,7 @@ async function loadRecentApplications() {
     });
   } catch (e) {
     console.error('loadRecentApplications failed:', e);
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center gray-text italic">Could not load recent applications.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center gray-text italic">Could not load recent applications.</td></tr>';
   }
 }
 
