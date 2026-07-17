@@ -421,6 +421,23 @@ async function postDisbursementToGL({ refBatch, principal, paymentMode, valueDat
    - NEW: posts the matching GL journal entry after the ledger opens.
    ══════════════════════════════════════════════════════════ */
 document.getElementById('btnConfirmCommit').addEventListener('click', async () => {
+  // ── Guard against double-submission ──
+  // This handler does several sequential writes (loan_disbursement,
+  // loan_ledger, one insert per schedule installment, GL journal entries,
+  // and a chart_of_accounts balance update) with no atomicity — a
+  // double-click here previously inserted the ENTIRE amortization
+  // schedule twice (confirmed on a real test loan), and in this v3.3
+  // version would ALSO duplicate GL journal entries and double-increment
+  // account balances, since nothing stopped the handler from running a
+  // second time while the first was still in flight.
+  if (window._disbursementInFlight) {
+    console.warn('Disbursement already in progress — ignoring duplicate click.');
+    return;
+  }
+  window._disbursementInFlight = true;
+  const commitBtn = document.getElementById('btnConfirmCommit');
+  if (commitBtn) commitBtn.disabled = true;
+
   document.getElementById('disbursementModal').classList.remove('active');
   const appId = document.getElementById('fAccountId').value.trim();
 
@@ -430,6 +447,8 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
     const check = LoanStatusGuard.canTransition(currentStatus, 'Disbursed', 'disbursement');
     if (!check.allowed) {
       showToast(check.reason, 'error');
+      window._disbursementInFlight = false;
+      if (commitBtn) commitBtn.disabled = false;
       return;
     }
   } else {
@@ -558,6 +577,9 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
     );
   } catch (err) {
     showToast(`Post failed: ${err.message}`, 'error');
+  } finally {
+    window._disbursementInFlight = false;
+    if (commitBtn) commitBtn.disabled = false;
   }
 });
 
