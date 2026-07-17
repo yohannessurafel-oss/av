@@ -450,7 +450,7 @@ async function loadRecentApplications() {
 
   try {
     const rows = await sbFetch(
-      `${TABLE_LOANS}?select=${COL.application_id},${COL.client_id},${COL.client_name},${COL.branch_id},${COL.app_status}&order=${COL.application_id}.desc&limit=15`
+      `${TABLE_LOANS}?select=${COL.application_id},${COL.client_id},${COL.client_name},${COL.branch_id},${COL.app_status},created_on&order=created_on.desc&limit=15`
     );
 
     if (!rows || !rows.length) {
@@ -470,11 +470,29 @@ async function loadRecentApplications() {
           <button type="button" class="lookup-btn" style="padding:1px 8px;" data-load-appid="${r[COL.application_id]}" title="Load this application">▶</button>
         </td>
         <td>${r[COL.client_id] || '—'}</td>
-        <td>${r[COL.client_name] || '—'}</td>
+        <td data-name-for="${r[COL.client_id] || ''}">${r[COL.client_name] || '<span class="gray-text italic">loading…</span>'}</td>
         <td>${r[COL.branch_id] || '—'}</td>
         <td><span style="background:${statusColor[r[COL.app_status]] || '#eef4fb'};padding:1px 7px;border-radius:10px;font-weight:700;font-size:10px;">${r[COL.app_status] || '—'}</span></td>
       </tr>
     `).join('');
+
+    // Safety net: if client_name is missing on any row (e.g. a save that
+    // predates the v2.1 client_name fix, or a lookup that failed at
+    // save-time), fetch it live from ClientMasterRecords rather than
+    // showing a permanent "—". This doesn't fix the underlying stored
+    // data — run backfill_client_name.sql for that — it just keeps the
+    // list itself accurate in the meantime.
+    const missingNameRows = rows.filter(r => !r[COL.client_name] && r[COL.client_id]);
+    missingNameRows.forEach(async (r) => {
+      try {
+        const cRows = await sbFetch(`${TABLE_CLIENTS}?client_id=eq.${encodeURIComponent(r[COL.client_id])}&select=client_name&limit=1`);
+        const cell = tbody.querySelector(`[data-name-for="${CSS.escape(r[COL.client_id])}"]`);
+        if (cell) cell.textContent = (cRows && cRows[0] && cRows[0].client_name) || '—';
+      } catch (_) {
+        const cell = tbody.querySelector(`[data-name-for="${CSS.escape(r[COL.client_id])}"]`);
+        if (cell) cell.textContent = '—';
+      }
+    });
 
     tbody.querySelectorAll('[data-load-appid]').forEach(btn => {
       btn.addEventListener('click', async (e) => {
