@@ -82,6 +82,23 @@ async function sbFetch(path, opts = {}) {
   try { return JSON.parse(body); } catch { return null; }
 }
 
+async function sbRpc(fnName, params) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fnName}`, {
+    method: 'POST',
+    headers: {
+      'apikey':        SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type':  'application/json'
+    },
+    body: JSON.stringify(params)
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error((data && data.message) || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
 /* ── Module state ────────────────────────────────────────── */
 let mode = 'view';
 let currentRecord = null;   // row from loanmasterrecords
@@ -322,96 +339,12 @@ document.getElementById('btnConfirmCancel').addEventListener('click', () => {
 });
 
 /* ══════════════════════════════════════════════════════════
-   GL POSTING HELPERS — NEW in v3.3
+   GL posting is now handled server-side, inside the atomic
+   post_loan_disbursement() function — see post_loan_disbursement.sql.
+   The client-side findGLAccount()/postDisbursementToGL() helpers that
+   used to live here (v3.3) are superseded and removed, since duplicating
+   that account-matching logic in two places would let them drift apart.
    ══════════════════════════════════════════════════════════ */
-
-// Adjust these if your chart_of_accounts titles don't contain these words.
-const GL_ACCOUNT_PATTERNS = {
-  loansReceivable: 'Loans Receivable',
-  cash: 'Cash',
-  bank: 'Bank'
-};
-
-/* Look up a chart_of_accounts row by a case-insensitive substring match
-   on account_name_title. Returns null (not a throw) if nothing matches,
-   so callers can decide to skip GL posting gracefully. */
-async function findGLAccount(namePattern) {
-  const rows = await sbFetch(
-    `chart_of_accounts?account_name_title=ilike.*${encodeURIComponent(namePattern)}*&select=gl_account_code,account_name_title,current_balance&limit=1`
-  );
-  return rows && rows[0] ? rows[0] : null;
-}
-
-/* Post a balanced Dr/Cr entry for this disbursement and update both
-   accounts' running balances. Never throws past this function — a
-   failure here becomes a warning toast, not a rollback, since the
-   disbursement itself has already been committed by the time this runs. */
-async function postDisbursementToGL({ refBatch, principal, paymentMode, valueDate }) {
-  try {
-    const loansReceivable = await findGLAccount(GL_ACCOUNT_PATTERNS.loansReceivable);
-    const cashOrBankPattern = paymentMode === 'Cash Vault Handout'
-      ? GL_ACCOUNT_PATTERNS.cash
-      : GL_ACCOUNT_PATTERNS.bank;
-    const cashOrBank = await findGLAccount(cashOrBankPattern);
-
-    if (!loansReceivable || !cashOrBank) {
-      const missing = !loansReceivable ? GL_ACCOUNT_PATTERNS.loansReceivable : cashOrBankPattern;
-      console.warn(`GL posting skipped — no chart_of_accounts entry matching "${missing}".`);
-      showToast(
-        `Disbursed, but GL posting skipped — no account matching "${missing}" in Chart of Accounts. Post manually.`,
-        'warning'
-      );
-      return;
-    }
-
-    // Two legs, same transaction_reference — this is what makes them a
-    // matched pair when general-ledger.js displays the journal.
-    await sbFetch('gl_transaction_journal', {
-      method: 'POST',
-      prefer: 'return=minimal',
-      body: JSON.stringify({
-        transaction_reference: refBatch,
-        gl_account_code: loansReceivable.gl_account_code,
-        debit_amount: principal,
-        credit_amount: 0,
-        value_date: valueDate
-      })
-    });
-    await sbFetch('gl_transaction_journal', {
-      method: 'POST',
-      prefer: 'return=minimal',
-      body: JSON.stringify({
-        transaction_reference: refBatch,
-        gl_account_code: cashOrBank.gl_account_code,
-        debit_amount: 0,
-        credit_amount: principal,
-        value_date: valueDate
-      })
-    });
-
-    // Read-then-write balance update — see "KNOWN LIMITATIONS" note at
-    // the top of this file re: race conditions under concurrent posting.
-    await sbFetch(`chart_of_accounts?gl_account_code=eq.${encodeURIComponent(loansReceivable.gl_account_code)}`, {
-      method: 'PATCH',
-      prefer: 'return=minimal',
-      body: JSON.stringify({
-        current_balance: (parseFloat(loansReceivable.current_balance) || 0) + principal
-      })
-    });
-    await sbFetch(`chart_of_accounts?gl_account_code=eq.${encodeURIComponent(cashOrBank.gl_account_code)}`, {
-      method: 'PATCH',
-      prefer: 'return=minimal',
-      body: JSON.stringify({
-        current_balance: (parseFloat(cashOrBank.current_balance) || 0) - principal
-      })
-    });
-
-    showToast(`GL posted — Dr ${loansReceivable.gl_account_code} / Cr ${cashOrBank.gl_account_code}.`, 'success');
-  } catch (glErr) {
-    console.warn('GL posting failed:', glErr.message);
-    showToast(`Disbursed, but GL posting failed: ${glErr.message}`, 'warning');
-  }
-}
 
 /* ══════════════════════════════════════════════════════════
    CONFIRM COMMIT
@@ -472,107 +405,45 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
   const refBatch = `DISB-${appId}-${today.replace(/-/g, '')}`;
 
   try {
-    showToast('Posting disbursement records…', 'info');
+    showToast('Posting disbursement…', 'info');
 
-    // ── STEP 1: Insert into loan_disbursement
-    const disbPayload = {
-      application_id: appId,
-      customer_name: customerName,
-      amount_disbursed: principal,
-      disbursement_date: disbDate,
-      payment_mode: paymentMode,
-      cheque_no: chequeNo,
-      bank_name: bankName,
-      account_number: accountNumber,
-      interest_rate: interestRate,
-      tenor_months: tenorMonths
-    };
-    await sbFetch('loan_disbursement', {
-      method: 'POST',
-      prefer: 'return=minimal',
-      body: JSON.stringify(disbPayload)
-    });
-
-    // ── STEP 2: Write opening transaction to loan_ledger (Running Balance = Principal owed)
-    const ledgerDisbRow = {
-      application_id: appId,
-      client_id: currentRecord?.client_id || null,
-      account_number: accountNumber,
-      product_name: _productName || null,
-      post_date: today,
-      value_date: disbDate,
-      description: 'Disbursement',
-      ref_batch: refBatch,
-      principal: principal,
-      interest: 0,
-      charges_penalties: 0,
-      accrued_interest_receivable: 0,
-      total_paid: 0,
-      accrued_unpaid_interest: 0,
-      running_balance: principal,
-      borrower_name: customerName
-    };
-    await sbFetch('loan_ledger', {
-      method: 'POST',
-      prefer: 'return=minimal',
-      body: JSON.stringify(ledgerDisbRow)
-    });
-
-    // ── STEP 2b (NEW): Post the matching GL journal entry ──
-    // Dr. Loans Receivable / Cr. Cash-or-Bank, same refBatch as the ledger
-    // row above so the two can be cross-referenced.
-    await postDisbursementToGL({
-      refBatch,
-      principal,
-      paymentMode,
-      valueDate: disbDate
-    });
-
-    // ── STEP 3: Write plan installments purely into amortization_schedules (keeps ledger correct) [1]
+    // Single atomic transaction: loan_disbursement, loan_ledger,
+    // amortization_schedules, GL journal + balance updates, status change,
+    // and audit log all happen together — either the whole disbursement
+    // completes, or none of it does. See post_loan_disbursement.sql for
+    // the full rationale (this replaces six previously-sequential,
+    // non-atomic client-side writes, including the read-then-write
+    // chart_of_accounts race condition flagged in this file's own v3.3
+    // header comments).
     const schedule = buildAmortizationSchedule(principal, interestRate, tenorMonths, disbDate);
-    for (const row of schedule) {
-      await sbFetch('amortization_schedules', {
-        method: 'POST',
-        prefer: 'return=minimal',
-        body: JSON.stringify({
-          application_id: appId,
-          installment_no: row.instalment_no,
-          due_date: row.payment_date,
-          principal_due: parseFloat(row.principal_paid.toFixed(2)),
-          interest_due: parseFloat(row.interest.toFixed(2)),
-          status: 'UNPAID'
-        })
-      });
-    }
+    const schedulePayload = schedule.map(row => ({
+      installment_no: row.instalment_no,
+      due_date:       row.payment_date,
+      principal_due:  parseFloat(row.principal_paid.toFixed(2)),
+      interest_due:   parseFloat(row.interest.toFixed(2))
+    }));
 
-    // ── STEP 4: Update status on loanmasterrecords
-    const masterPatch = {
-      application_status: 'Disbursed',
-      modified_on: new Date().toISOString()
-    };
-    if (!currentRecord?.first_disbursement_date) {
-      masterPatch.first_disbursement_date = disbDate;
-    }
-    await sbFetch(`loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}`, {
-      method: 'PATCH',
-      prefer: 'return=minimal',
-      body: JSON.stringify(masterPatch)
+    const result = await sbRpc('post_loan_disbursement', {
+      p_application_id:    appId,
+      p_customer_name:     customerName,
+      p_principal:         principal,
+      p_disbursement_date: disbDate,
+      p_payment_mode:      paymentMode,
+      p_interest_rate:     interestRate,
+      p_tenor_months:      tenorMonths,
+      p_account_number:    accountNumber,
+      p_schedule:          schedulePayload,
+      p_ref_batch:         refBatch,
+      p_product_name:      _productName || null,
+      p_cheque_no:         chequeNo,
+      p_bank_name:         bankName,
+      p_posted_by:         (window.currentUserEmail || null)
     });
-
-    if (window.LoanStatusGuard) {
-      await LoanStatusGuard.logStatusTransition(sbFetch, {
-        applicationId: appId,
-        fromStatus: currentRecord?.application_status || 'Sanctioned',
-        toStatus: 'Disbursed',
-        sourceModule: 'disbursement',
-        changedBy: null
-      });
-    }
 
     currentRecord = { ...currentRecord, application_status: 'Disbursed' };
     setMode('view');
     showToast(
-      `✔ Disbursement posted successfully. Loan Ledger initialized with principal.`,
+      `✔ Disbursement posted. ${result.installments_created} installments created. GL: Dr ${result.gl_dr_account} / Cr ${result.gl_cr_account}.`,
       'success'
     );
   } catch (err) {
