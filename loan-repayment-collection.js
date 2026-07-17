@@ -103,6 +103,12 @@ function fmtDate(dateStr) {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-');
 }
 function toISO(d) { return d.toISOString().split('T')[0]; }
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
 function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
 
 /* ── Penalty policy — now configurable PER PRODUCT via
@@ -179,6 +185,13 @@ async function loadLoan() {
     );
     _nextInstallment = (schedRows && schedRows[0]) || null;
 
+    // Full schedule for the live display panel — ALL rows, any status,
+    // ordered by installment number (not just the next unpaid one above).
+    const fullSchedule = await sbFetch(
+      `amortization_schedules?application_id=eq.${encodeURIComponent(appId)}&order=installment_no.asc`
+    );
+    renderLiveSchedule(fullSchedule || []);
+
     computePenaltyPreview();
     renderSummary();
     document.getElementById('fRefBatch').value = `RCPT-${appId}-${Date.now().toString().slice(-6)}`;
@@ -189,6 +202,52 @@ async function loadLoan() {
   } catch (err) {
     toast('Load failed: ' + err.message, 'error');
     setSB('Load failed.');
+  }
+}
+
+/* ── Live amortization schedule display ──────────────────── */
+function renderLiveSchedule(rows) {
+  const panel = document.getElementById('rpcScheduleLivePanel');
+  const tbody = document.getElementById('tbodyScheduleLive');
+  const note  = document.getElementById('scheduleLiveNote');
+  if (!panel || !tbody) return;
+
+  if (!rows.length) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = 'block';
+
+  // Flag duplicate installment_no values directly in the UI — this is a
+  // real data problem (usually caused by disbursement running twice for
+  // the same loan), not just a display quirk, and it silently breaks
+  // repayment allocation if left unnoticed.
+  const seen = new Map();
+  rows.forEach(r => seen.set(r.installment_no, (seen.get(r.installment_no) || 0) + 1));
+  const duplicateNos = [...seen.entries()].filter(([, count]) => count > 1).map(([no]) => no);
+
+  tbody.innerHTML = rows.map(r => {
+    const isDup = duplicateNos.includes(r.installment_no);
+    return `
+      <tr${isDup ? ' style="background:#fee2e2;"' : ''}>
+        <td>${escapeHtml(r.installment_no)}${isDup ? ' ⚠️' : ''}</td>
+        <td>${escapeHtml(fmtDate(r.due_date))}</td>
+        <td class="r">${fmt(r.principal_due)}</td>
+        <td class="r">${fmt(r.principal_paid)}</td>
+        <td class="r">${fmt(r.interest_due)}</td>
+        <td class="r">${fmt(r.interest_paid)}</td>
+        <td>${escapeHtml(r.status)}</td>
+      </tr>`;
+  }).join('');
+
+  if (duplicateNos.length > 0) {
+    note.innerHTML = `⚠️ <strong>Data problem:</strong> installment number(s) ${duplicateNos.join(', ')} ` +
+      `appear more than once for this loan — usually means disbursement ran twice for the same application. ` +
+      `This can cause a single payment to be mis-allocated across duplicate rows. Recommend checking ` +
+      `<code>disbursement.js</code> for a duplicate-insert, and cleaning up the extra row(s) before posting further repayments on this loan.`;
+    note.style.color = '#dc2626';
+  } else {
+    note.textContent = '';
   }
 }
 
@@ -253,6 +312,7 @@ function resetPanels() {
   document.getElementById('rpcEmpty').style.display = 'flex';
   document.getElementById('rpcEntryPanel').style.display = 'none';
   document.getElementById('rpcBreakdownPanel').style.display = 'none';
+  document.getElementById('rpcScheduleLivePanel').style.display = 'none';
   document.getElementById('btnPost').disabled = true;
   _record = null; _lastLedgerRow = null; _nextInstallment = null;
 }
