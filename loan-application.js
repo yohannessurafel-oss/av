@@ -1,7 +1,16 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 01 Loan Application
-   01-loan-application.js  v2.1 — RESOLVED client_name INSERT BUG
+   01-loan-application.js  v2.2 — RECENT APPLICATIONS LIST WIRED UP
    Supabase CRUD · Toast Notifications · Live Calculations
+
+   WHAT CHANGED FROM v2.1
+   #tblClientResults (the inline table under the form) was dead UI —
+   nothing ever wrote rows into it, so it always showed "No records to
+   display." even with many saved applications. Added
+   loadRecentApplications(), called on init() and after every successful
+   save, to populate it with the 15 most recent applications. Each row
+   has a ▶ button to load that record into the form directly, as an
+   inline alternative to the 🔍 View button's popup modal.
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -430,6 +439,66 @@ function buildViewModal(rows) {
   }
 }
 
+/* ── Recent Applications — populates the inline #tblClientResults table ──
+   Previously this table was dead UI: nothing ever wrote rows into it, so
+   it always showed the static "No records to display." placeholder even
+   with many saved applications. This fetches the most recent applications
+   and renders them inline, with each row loadable via its ▶ button. ── */
+async function loadRecentApplications() {
+  const tbody = document.querySelector('#tblClientResults tbody');
+  if (!tbody) return;
+
+  try {
+    const rows = await sbFetch(
+      `${TABLE_LOANS}?select=${COL.application_id},${COL.client_id},${COL.client_name},${COL.branch_id},${COL.app_status}&order=${COL.application_id}.desc&limit=15`
+    );
+
+    if (!rows || !rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center gray-text italic">No records to display.</td></tr>';
+      return;
+    }
+
+    const statusColor = {
+      DataEntry: '#ddeaf7', Draft: '#e9ecef', Submitted: '#d6e4f0',
+      Appraisal: '#fff3cd', Sanctioned: '#d4edda', Disbursed: '#d1ecf1',
+      Matured: '#e2e3e5', Closed: '#e2e3e5', WrittenOff: '#fde8e8'
+    };
+
+    tbody.innerHTML = rows.map(r => `
+      <tr data-appid="${r[COL.application_id]}" class="clientresult-row" style="cursor:pointer;">
+        <td style="text-align:center;">
+          <button type="button" class="lookup-btn" style="padding:1px 8px;" data-load-appid="${r[COL.application_id]}" title="Load this application">▶</button>
+        </td>
+        <td>${r[COL.client_id] || '—'}</td>
+        <td>${r[COL.client_name] || '—'}</td>
+        <td>${r[COL.branch_id] || '—'}</td>
+        <td><span style="background:${statusColor[r[COL.app_status]] || '#eef4fb'};padding:1px 7px;border-radius:10px;font-weight:700;font-size:10px;">${r[COL.app_status] || '—'}</span></td>
+      </tr>
+    `).join('');
+
+    tbody.querySelectorAll('[data-load-appid]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const appId = btn.dataset.loadAppid;
+        try {
+          const rec = await sbFetch(`${TABLE_LOANS}?${COL.application_id}=eq.${encodeURIComponent(appId)}&select=*&limit=1`);
+          if (rec && rec[0]) {
+            currentRecord = rec[0];
+            fillForm(rec[0]);
+            setMode('view');
+            toast(`✔ Loaded: ${rec[0][COL.application_id]} — ${rec[0][COL.client_name] || ''}`, 'success');
+          }
+        } catch (err) {
+          toast('Could not load that application: ' + err.message, 'error');
+        }
+      });
+    });
+  } catch (e) {
+    console.error('loadRecentApplications failed:', e);
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center gray-text italic">Could not load recent applications.</td></tr>';
+  }
+}
+
 /* ── Disbursement Date ─── */
 function populateDisbursementDates(existingDate) {
   const el = document.getElementById('fDisbursementDate');
@@ -558,6 +627,7 @@ async function commitSave(payload) {
     if (currentRecord) fillForm(currentRecord);
     setMode('view');
     toast('✔ Loan application saved.', 'success');
+    loadRecentApplications();
   } catch (error) {
     console.error('Save error:', error);
     toast(`Save failed: ${error.message}`, 'error');
@@ -658,5 +728,6 @@ async function init() {
   document.getElementById('loanBranchId').disabled = false;
   const dateEl = document.getElementById('fDate');
   if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
+  loadRecentApplications();
 }
 init();
