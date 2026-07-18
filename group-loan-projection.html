@@ -85,6 +85,28 @@
                 <span class="search-btn" title="Verify Center ID">🔍</span>
               </div>
             </div>
+
+            <div class="section-divider"></div>
+            <div class="card-header-banner" style="font-size:11px;">Group Registry — select an existing group, or fill in the two "New Group" fields to create one</div>
+
+            <div class="form-row">
+              <label>Existing Group ID</label>
+              <select id="groupRegistryId" class="width-full">
+                <option value="">-- Select existing group, or create new below --</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>— OR — New Group Name</label>
+              <input type="text" id="groupNewName" class="width-full" placeholder="Only if creating a new group"/>
+            </div>
+            <div class="form-row">
+              <label>New Group Collective Limit (ETB)</label>
+              <input type="number" id="groupNewLimit" class="text-right width-full" step="0.01" placeholder="Required only when creating a new group"/>
+            </div>
+            <div class="form-row">
+              <label>Sub Group ID</label>
+              <input type="text" id="groupSubGroupId" class="width-full" placeholder="Optional"/>
+            </div>
             <div class="form-row">
               <label>Scheme ID</label>
               <div class="input-group width-full">
