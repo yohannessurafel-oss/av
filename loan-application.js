@@ -51,6 +51,23 @@ async function sbFetch(path, opts = {}) {
   try { return JSON.parse(body); } catch { return null; }
 }
 
+async function sbRpc(fnName, params) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fnName}`, {
+    method: 'POST',
+    headers: {
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type':  'application/json'
+    },
+    body: JSON.stringify(params)
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error((data && data.message) || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
 /* ── Column Map ─────────────────────────────────────────── */
 const COL = {
   application_id:   'application_id',
@@ -603,31 +620,45 @@ async function commitSave(payload) {
     if (currentMode === 'add') {
       if (!appId) throw new Error('Application ID is required.');
 
-      await sbFetch('loanapplications', {
-        method:  'POST',
-        prefer:  'return=minimal',
-        headers: { 'Prefer': 'return=minimal,resolution=ignore-duplicates' },
-        body: JSON.stringify({
-          application_id:     appId,
-          branch_id:          branchId || null,
-          application_date:   appDate,
-          // loanapplications is the intake staging table — its
-          // application_status CHECK constraint only allows 'Draft'/
-          // 'Submitted', NOT the full lifecycle list used by
-          // loanmasterrecords. Always send 'Draft' here regardless of
-          // what's showing in the form, same pattern as module 02
-          // (group-loan-projection.js). The real status (appStatus,
-          // e.g. 'DataEntry') is written to loanmasterrecords below.
-          application_status: 'Draft',
-        })
+      // Single atomic transaction: loanapplications + loanmasterrecords
+      // are created together, both with the SAME status ('DataEntry') —
+      // previously these were two sequential, non-atomic writes, and
+      // loanapplications was set to 'Draft' based on a stale comment about
+      // a CHECK constraint that doesn't actually exist in the live schema.
+      // See create_loan_application.sql for the full explanation.
+      const result = await sbRpc('create_loan_application', {
+        p_application_id:    appId,
+        p_branch_id:         branchId,
+        p_client_id:         writePayload[COL.client_id],
+        p_product_id:        writePayload[COL.product_id],
+        p_repayment_acc_id:  writePayload[COL.repayment_acc_id],
+        p_applied_amount:    writePayload[COL.applied_amount],
+        p_term:              writePayload[COL.term],
+        p_interest_rate:     writePayload[COL.interest_rate],
+        p_group_id:          writePayload[COL.group_id],
+        p_sub_group_id:      writePayload[COL.sub_group_id],
+        p_client_name:       writePayload[COL.client_name],
+        p_donor_id:          writePayload[COL.donor_id],
+        p_loan_purpose:      writePayload[COL.loan_purpose],
+        p_officer_id:        writePayload[COL.officer_id],
+        p_tax_rate:          writePayload[COL.tax_rate],
+        p_commission_rate:   writePayload[COL.commission_rate],
+        p_effective_rate:    writePayload[COL.effective_rate],
+        p_spread:            writePayload[COL.spread],
+        p_file_number:       writePayload[COL.file_number],
+        p_sales_officer:     writePayload[COL.sales_officer],
+        p_app_date:          appDate,
+        p_disbursement_date: writePayload[COL.disbursement_date],
+        p_line_of_business:  writePayload[COL.line_of_business],
+        p_currency_id:       writePayload[COL.currency_id] || 'ETB'
       });
 
-      const responseData = await sbFetch(TABLE_LOANS, {
-        method: 'POST',
-        prefer: 'return=representation',
-        body:   JSON.stringify(writePayload),
-      });
-      currentRecord = Array.isArray(responseData) ? responseData[0] : responseData;
+      // Re-fetch the full row for display, same as before (the RPC
+      // returns a small confirmation object, not the full record).
+      const freshRows = await sbFetch(
+        `${TABLE_LOANS}?${COL.application_id}=eq.${encodeURIComponent(appId)}&limit=1`
+      );
+      currentRecord = freshRows && freshRows[0] ? freshRows[0] : null;
 
     } else if (currentMode === 'edit') {
       const currentAppId = currentRecord[COL.application_id];
