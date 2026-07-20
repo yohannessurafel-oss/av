@@ -1,10 +1,23 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 09 Settlement / Early Payoff
-   settlement-early-payoff.js  v1.1 — SYSTEM BALANCED
+   settlement-early-payoff.js  v1.2 — STATUS + GUARD FIX
    Tables:
      loanmasterrecords      — loan master record (read)
      loan_ledger            — transaction history (read, write on settle)
      amortization_schedules — installment schedule (read)
+
+   WHAT CHANGED FROM v1.1
+   1. Was writing application_status: 'Settled' — not a valid status.
+      loanmasterrecords' CHECK constraint only allows Draft/Submitted/
+      DataEntry/Appraisal/Sanctioned/Disbursed/Matured/Closed/WrittenOff,
+      so every settlement attempt should have been failing outright with
+      a constraint violation. Changed to 'Closed', matching what
+      loan-status-guard.js's own TRANSITIONS table already expected this
+      module to write.
+   2. Was never calling LoanStatusGuard.canTransition() at all, despite
+      being explicitly named ('settlement') in the guard's authorized-
+      module list. Added the gate, matching the pattern already proven
+      in disbursement.js and credit-sanction-console.js.
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -150,7 +163,7 @@ async function loadPayoffRecord() {
     v('payoffProductId',  _loanRecord.product_id);
     v('payoffCurrencyId', _loanRecord.currency_id || 'ETB');
     v('payoffCreatedOn',  _loanRecord.created_on ? new Date(_loanRecord.created_on).toLocaleString('en-ET') : '');
-    v('payoffPreclosureStatus', _loanRecord.application_status === 'Settled' ? 'Already Settled' : 'Eligible');
+    v('payoffPreclosureStatus', _loanRecord.application_status === 'Closed' ? 'Already Settled' : 'Eligible');
 
     const brSel = document.getElementById('payoffBranchId');
     if (brSel && _loanRecord.branch_id) {
@@ -335,7 +348,7 @@ document.getElementById('payoffSettlementDate')?.addEventListener('change', comp
 /* ── Process Settlement ─────────────────────────────────── */
 async function processSettlement() {
   if (!_loadedAppId || !_loanRecord) { toast('Load a loan record first.', 'warning'); return; }
-  if (_loanRecord.application_status === 'Settled') { toast('This loan is already settled.', 'warning'); return; }
+  if (_loanRecord.application_status === 'Closed') { toast('This loan is already settled.', 'warning'); return; }
 
   const components = computePayoff();
   const settlementDate = document.getElementById('payoffSettlementDate')?.value;
@@ -371,16 +384,44 @@ async function processSettlement() {
       })
     });
 
+    // Gate the transition before writing anything — this module is
+    // explicitly named in loan-status-guard.js's module list ('settlement')
+    // but was never actually calling it. A loan sitting in Disbursed OR
+    // Matured can both legitimately reach Closed via full settlement, so
+    // the guard is asked with whatever status is actually on the record,
+    // not assumed.
+    const fromStatus = _loanRecord.application_status;
+    if (window.LoanStatusGuard) {
+      const check = LoanStatusGuard.canTransition(fromStatus, 'Closed', 'settlement');
+      if (!check.allowed) {
+        toast(check.reason, 'error');
+        if (sb) sb.textContent = `Blocked — record is currently "${fromStatus}", not settleable from here.`;
+        return;
+      }
+    } else {
+      console.warn('LoanStatusGuard not found — settling WITHOUT a transition check.');
+    }
+
     // 2. Update loanmasterrecords status
     await sbFetch(`loanmasterrecords?application_id=eq.${encodeURIComponent(_loadedAppId)}`, {
       method: 'PATCH',
       prefer: 'return=minimal',
       body: JSON.stringify({
-        application_status: 'Settled',
+        application_status: 'Closed',
         modified_by: settledBy,
         modified_on: new Date().toISOString(),
       })
     });
+
+    if (window.LoanStatusGuard) {
+      await LoanStatusGuard.logStatusTransition(sbFetch, {
+        applicationId: _loadedAppId,
+        fromStatus:    fromStatus,
+        toStatus:      'Closed',
+        sourceModule:  'settlement',
+        changedBy:     settledBy
+      });
+    }
 
     toast(`✔ Loan ${_loadedAppId} settled. Net amount: ETB ${fmt(components.netSettlement)}`, 'success');
     if (sb) sb.textContent = `Settled — ${_loadedAppId}`;
