@@ -226,7 +226,51 @@ padding-left: 16px;
 font-size: 11px;
 color: var(--text-mid, #334455);
 line-height: 1.5;
+/* ── Window Controls: Minimize (to taskbar) / Maximize ──── */
+.window-container.is-hidden {
+display: none;
 }
+.window-container.is-maximized {
+width: 100%;
+max-width: 100%;
+height: 100vh;
+border-radius: 0;
+margin: 0;
+}
+.window-container.is-maximized .workspace {
+flex: 1;
+min-height: 0;
+}
+
+.desktop-taskbar {
+display: none;
+position: fixed;
+left: 0; right: 0; bottom: 0;
+height: 44px;
+background: linear-gradient(to bottom, #10386a 0%, #0a2547 100%);
+border-top: 2px solid var(--amber, #e69c24);
+align-items: center;
+padding: 0 14px;
+z-index: 500;
+box-shadow: 0 -2px 10px rgba(0,0,0,.25);
+}
+.desktop-taskbar.show { display: flex; }
+.taskbar-item {
+display: flex;
+align-items: center;
+gap: 8px;
+padding: 6px 14px;
+background: rgba(255,255,255,.12);
+border: 1px solid rgba(255,255,255,.25);
+border-radius: 4px;
+cursor: pointer;
+color: #fff;
+font-size: 12px;
+font-weight: 600;
+transition: background .12s;
+}
+.taskbar-item:hover { background: rgba(255,255,255,.22); }
+.taskbar-item-icon { font-size: 15px; }
 </style>
 </head>
 <body>
@@ -252,9 +296,9 @@ line-height: 1.5;
 <span class="title-user">👤 Operator</span>
 </div>
 <div class="window-controls">
-<span title="Minimize">─</span>
-<span title="Maximize">▢</span>
-<span title="Close" class="wc-close">✕</span>
+<span id="wcMinimize" title="Minimize" onclick="minimizeToTaskbar()">─</span>
+<span id="wcMaximize" title="Maximize" onclick="toggleMaximize()">▢</span>
+<span id="wcClose" title="Close" class="wc-close" onclick="minimizeToTaskbar()">✕</span>
 </div>
 </div>
 <!-- ── Workspace ─────────────────────────────────────── -->
@@ -352,6 +396,14 @@ System Documentation & User Operations Manual
 <div class="action-sidebar">
 <div class="sidebar-footer">AVMF CBS v2.0</div>
 </div>
+</div>
+</div>
+
+<!-- ── Taskbar (shown when window is minimized/closed) ──── -->
+<div id="desktopTaskbar" class="desktop-taskbar">
+<div class="taskbar-item" onclick="restoreFromTaskbar()">
+<span class="taskbar-item-icon">🏦</span>
+<span class="taskbar-item-label">AVMF — Module Dashboard</span>
 </div>
 </div>
 
@@ -623,6 +675,37 @@ weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
 renderCatNav();
 renderPills();
 renderModules();
+
+/* ── Window Controls: Minimize to Taskbar / Maximize ─────── */
+const dashWindowContainer = document.querySelector('.window-container');
+const dashTaskbar         = document.getElementById('desktopTaskbar');
+const dashWcMaximizeBtn   = document.getElementById('wcMaximize');
+
+// Minimize / Close both send the window down to the taskbar, leaving
+// the desktop backdrop visible. Clicking the taskbar item restores it.
+function minimizeToTaskbar() {
+if (!dashWindowContainer || !dashTaskbar) return;
+dashWindowContainer.classList.add('is-hidden');
+dashTaskbar.classList.add('show');
+}
+
+function restoreFromTaskbar() {
+if (!dashWindowContainer || !dashTaskbar) return;
+dashWindowContainer.classList.remove('is-hidden');
+dashTaskbar.classList.remove('show');
+}
+
+// Maximize expands the window to fill the viewport; independent of
+// the minimize/taskbar behavior above.
+function toggleMaximize() {
+if (!dashWindowContainer) return;
+dashWindowContainer.classList.toggle('is-maximized');
+const maximized = dashWindowContainer.classList.contains('is-maximized');
+if (dashWcMaximizeBtn) {
+dashWcMaximizeBtn.textContent = maximized ? '❐' : '▢';
+dashWcMaximizeBtn.title = maximized ? 'Restore Down' : 'Maximize';
+}
+}
 </script>
 </body>
 </html>
