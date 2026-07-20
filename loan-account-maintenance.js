@@ -60,6 +60,23 @@ async function sbFetch(path, opts = {}) {
   try { return JSON.parse(body); } catch { return null; }
 }
 
+async function sbRpc(fnName, params) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fnName}`, {
+    method: 'POST',
+    headers: {
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type':  'application/json'
+    },
+    body: JSON.stringify(params)
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error((data && data.message) || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
 /* ── Toast ─────────────────────────────────────────────── */
 const toastEl = document.getElementById('toastNotification');
 let _toastTimer = null;
@@ -409,25 +426,41 @@ async function saveRecord() {
 
   try {
     if (currentMode === 'add') {
-      await sbFetch(TABLE, { method: 'POST', prefer: 'return=minimal', body: JSON.stringify(rec) });
+      // Atomic: creates the matching loanapplications parent row too,
+      // which this path previously skipped entirely (unlike
+      // loan-application.js / group-loan-projection.js, which always
+      // create both). See loan_account_maintenance_fixes.sql.
+      await sbRpc('create_loan_account_direct', {
+        p_application_id: rec.application_id,
+        p_branch_id:      rec.branch_id || null,
+        p_record:         rec
+      });
       toast(`Account ${rec.application_id} created.`, 'success');
     } else {
-      const { application_id, ...updateFields } = rec;
-      updateFields.modified_on = new Date().toISOString();
-      await sbFetch(`${TABLE}?application_id=eq.${encodeURIComponent(application_id)}`, {
-        method: 'PATCH', prefer: 'return=minimal', body: JSON.stringify(updateFields)
-      });
+      const { application_id, application_status: newStatus, ...otherFields } = rec;
+      const statusChanged = newStatus && newStatus !== _loadedStatus;
+
+      // Regular field changes (if any) — already a single-table write,
+      // no atomicity gap here on their own.
+      if (Object.keys(otherFields).length > 0) {
+        otherFields.modified_on = new Date().toISOString();
+        await sbFetch(`${TABLE}?application_id=eq.${encodeURIComponent(application_id)}`, {
+          method: 'PATCH', prefer: 'return=minimal', body: JSON.stringify(otherFields)
+        });
+      }
       toast(`Account ${application_id} updated.`, 'success');
 
-      if (rec.application_status && rec.application_status !== _loadedStatus && window.LoanStatusGuard) {
-        await LoanStatusGuard.logStatusTransition(sbFetch, {
-          applicationId: application_id,
-          fromStatus:    _loadedStatus,
-          toStatus:      rec.application_status,
-          sourceModule:  'loan-account-maintenance',
-          changedBy:     getField('maintModifiedBy')
+      if (statusChanged) {
+        // Atomic: status PATCH + audit log insert together — previously
+        // these were two separate calls, so a failure between them left
+        // a successful status change with no audit trail entry.
+        await sbRpc('update_loan_account_status', {
+          p_application_id: application_id,
+          p_new_status:     newStatus,
+          p_changed_by:     getField('maintModifiedBy'),
+          p_source_module:  'loan-account-maintenance'
         });
-        _loadedStatus = rec.application_status;
+        _loadedStatus = newStatus;
       }
     }
     setMode('view');
@@ -496,16 +529,14 @@ document.getElementById('btnGlobalDelete')?.addEventListener('click', async () =
 
   if (!confirm(`Soft-delete account ${appId}?\nThis sets status to Closed.`)) return;
   try {
-    await sbFetch(`${TABLE}?application_id=eq.${encodeURIComponent(appId)}`, {
-      method: 'PATCH', prefer: 'return=minimal',
-      body: JSON.stringify({ application_status: 'Closed', modified_on: new Date().toISOString() })
+    // Atomic: status PATCH + audit log insert together, same fix as
+    // saveRecord()'s status-change path above.
+    await sbRpc('update_loan_account_status', {
+      p_application_id: appId,
+      p_new_status:     'Closed',
+      p_changed_by:     getField('maintModifiedBy'),
+      p_source_module:  'loan-account-maintenance'
     });
-    if (window.LoanStatusGuard) {
-      await LoanStatusGuard.logStatusTransition(sbFetch, {
-        applicationId: appId, fromStatus: _loadedStatus, toStatus: 'Closed',
-        sourceModule: 'loan-account-maintenance', changedBy: getField('maintModifiedBy')
-      });
-    }
     toast(`Account ${appId} closed.`, 'success');
     clearForm(); setMode('view');
   } catch (e) {
