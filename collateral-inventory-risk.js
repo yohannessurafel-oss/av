@@ -1,291 +1,358 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF — collateral-inventory-risk</title>
-<link rel="stylesheet" href="style2.css"/>
-</head>
-<body>
+/* ═══════════════════════════════════════════════════════════
+   Africa Village Microfinance — 06 Collateral Inventory Risk
+   collateral-inventory-risk.js  v2.3 — OWNER ID LOOKUP WIRED UP
+   Table: collateralinventory
 
-<div class="window-container">
+   WHAT CHANGED FROM v2.2
+   The Owner ID field's 🔍 button had no id attribute and no handler at
+   all — zero validation UX, unlike every other lookup field in this
+   codebase. Added lookupOwner(), wired to the button (now given an id)
+   and Enter key, plus a new read-only Owner Name field in the HTML so
+   the resolved name is actually visible. saveRecord() now also pre-
+   checks that Owner ID resolves before writing, giving a clean toast
+   instead of a raw FK-violation error from the owner_id FK added earlier.
+═══════════════════════════════════════════════════════════ */
 
-  <div class="title-bar">
-    <div class="title-branding-block">
-      <svg class="header-logo-svg" viewBox="0 0 100 100">
-        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
-        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
-        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
-        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
-        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
-        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
-      </svg>
-      <div class="title-text-block">
-        <span class="title-main">Africa Village Microfinance</span>
-        <span class="title-sub">06 — Collateral Inventory Risk</span>
-      </div>
-    </div>
-    <div class="title-meta">
-      <span id="systemDate" class="title-date"></span>
-      <span class="title-user">👤 Loan Officer</span>
-    </div>
-    <div class="window-controls">
-      <span title="Minimize">─</span>
-      <span title="Maximize">▢</span>
-      <span title="Close" class="wc-close" onclick="window.location='indexll.html'">✕</span>
-    </div>
-  </div>
+'use strict';
 
-  <div class="workspace">
+const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-        <div class="sidebar">
-      <div class="sidebar-header" style="cursor: pointer; background: var(--navy-900);" title="Return to Dashboard" onclick="window.location='indexll.html'">
-        🏠 Main Dashboard
-      </div>
-      <ul class="nav-menu">
-        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🌐</span><a href="indexll.html" class="nav-label">All Modules</a></li>
-        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📋</span><a href="indexll.html" class="nav-label">Credit Operations</a></li>
-        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">💰</span><a href="indexll.html" class="nav-label">Financials & Ledger</a></li>
-        <li class="active"><span class="nav-num" style="background:none;font-size:14px;padding:0;">🛡️</span><a href="indexll.html" class="nav-label">Risk & Collateral</a></li>
-        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🏧</span><a href="indexll.html" class="nav-label">Teller & Cash</a></li>
-        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📊</span><a href="indexll.html" class="nav-label">Reports</a></li>
-      </ul>
-      <div class="sidebar-footer-brand">
-        <svg viewBox="0 0 100 100" width="28" height="28">
-          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
-        </svg>
-        <span>AVMF CBS v2.0</span>
-      </div>
-    </div>
+/* ── HTTP Helper — Hardened raw text parsing ────────────────── */
+async function sbFetch(path, opts = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type':  'application/json',
+      'Prefer':        opts.prefer || 'return=representation',
+      ...(opts.headers || {})
+    }
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    let msg = 'HTTP ' + res.status;
+    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
+    throw new Error(msg);
+  }
+  const text = await res.text();
+  if (!text || !text.trim()) return null;
+  try { return JSON.parse(text); } catch { return null; }
+}
 
-    <div class="main-content">
-      <div class="module-view active" id="view-module-06">
-        <div class="context-badge-bar">
-          <span class="badge-icon">🏠</span>
-          Collateral Maintenance Registry — Risk Mitigation Evaluation
-        </div>
+/* ── Toast ─────────────────────────────────────────────── */
+const toastEl = document.getElementById('toastNotification');
+let _toastTimer = null;
+function toast(msg, type = '', duration = 3200) {
+  if (!toastEl) return;
+  toastEl.textContent = msg;
+  toastEl.className = `toast show ${type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { toastEl.className = 'toast'; }, duration);
+}
 
-        <form class="module-form grid-two-column" autocomplete="off">
-          <div class="sub-column">
+/* ── System Date ───────────────────────────────────────── */
+(function initDate() {
+  const el = document.getElementById('systemDate');
+  if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+  });
+})();
 
-            <!-- Branch -->
-            <div class="form-row">
-              <label>Branch ID</label>
-              <select id="collateralBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select>
-              <input type="text" id="collateralBranchName" class="width-remaining" placeholder="Branch name" readonly/>
-            </div>
+/* ── Field Map ── */
+const FIELD_MAP = {
+  collateralBranchId:             'branch_id',
+  collateralId:                   'collateral_id',
+  collateralDescription:          'description',
+  collateralType:                 'collateral_type',
+  collateralOwnerId:              'owner_id',
+  collateralLodgedDate:           'lodged_date',
+  collateralInsured:              'is_insured',
+  collateralNatureOfCharge:       'nature_of_charge',
+  collateralRemarks:              'remarks',
+  collateralValue:                'collateral_value',
+  usedCollateralValue:            'used_collateral_value',
+  collateralLoanCollValue:        'loan_collateral_value',
+  collateralApportionedRatio:     'apportioned_ratio',
+  collateralApportionedValue:     'apportioned_value',
+  collateralApportionedCollValue: 'apportioned_collateral_value',
+  collateralMargin:               'margin_percentage',
+  collateralExchangeRate:         'exchange_rate',
+  collateralCurrencyId:           'currency_id',
+  collateralValueType:            'value_type',
+  collateralAssignedDate:         'assigned_date',
+  collateralWithdrawnDate:        'withdrawn_date',
+  collateralWithdrawnReason:      'withdrawn_reason',
+  collateralStatus:               'status',
+  collateralCreatedBy:            'created_by',
+  collateralCreatedOn:            'created_on',
+  collateralModifiedBy:           'modified_by',
+  collateralModifiedOn:           'modified_on',
+  collateralSupervisedBy:         'supervised_by',
+  collateralSupervisedOn:         'supervised_on',
+};
 
-            <!-- Collateral ID -->
-            <div class="form-row">
-              <label>Collateral ID</label>
-              <div class="input-group width-full">
-                <input type="text" id="collateralId"/>
-                <span class="search-btn" id="btnSearchCollateral">🔍</span>
-              </div>
-            </div>
+/* ── Helpers ────────────────────────────────────────────── */
+function getField(id) {
+  const el = document.getElementById(id);
+  if (!el) return undefined;
+  if (el.type === 'checkbox') return el.checked;
+  return el.value.trim() || null;
+}
 
-            <!-- Description -->
-            <div class="form-row">
-              <label>Description</label>
-              <input type="text" id="collateralDescription" class="width-full"/>
-            </div>
+function setField(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el.type === 'checkbox') { el.checked = !!val; return; }
+  el.value = val ?? '';
+}
 
-            <!-- Collateral Type -->
-            <div class="form-row">
-              <label>Collateral Type</label>
-              <select id="collateralType" class="width-full">
-                <option value="">--Select--</option>
-                <option>Land</option>
-                <option>Building</option>
-                <option>Vehicle</option>
-                <option>Equipment</option>
-                <option>Inventory</option>
-              </select>
-            </div>
+function clearForm() {
+  Object.keys(FIELD_MAP).forEach(id => setField(id, ''));
+  const insuredEl = document.getElementById('collateralInsured');
+  if (insuredEl) insuredEl.checked = false;
+}
 
-            <!-- Owner ID -->
-            <div class="form-row">
-              <label>Owner ID</label>
-              <div class="input-group width-full">
-                <input type="text" id="collateralOwnerId"/>
-                <span class="search-btn" id="btnLookupOwner" title="Verify owner in client registry">🔍</span>
-              </div>
-            </div>
+function formToRecord() {
+  const rec = {};
+  Object.entries(FIELD_MAP).forEach(([htmlId, dbCol]) => {
+    const val = getField(htmlId);
+    if (val !== undefined) rec[dbCol] = val;
+  });
+  return rec;
+}
 
-            <!-- Owner Name — NEW, so the lookup has somewhere to show what it found -->
-            <div class="form-row">
-              <label>Owner Name</label>
-              <input type="text" id="collateralOwnerName" class="width-full" readonly placeholder="Auto-filled from registry"/>
-            </div>
+function recordToForm(rec) {
+  Object.entries(FIELD_MAP).forEach(([htmlId, dbCol]) => {
+    setField(htmlId, rec[dbCol] ?? '');
+  });
+}
 
-            <!-- Lodged Date -->
-            <div class="form-row">
-              <label>Lodged Date</label>
-              <input type="date" id="collateralLodgedDate" class="width-full"/>
-            </div>
+/* ── Branch Dropdown ───────────────────────────────────── */
+let _branchCache = [];
 
-            <!-- Insured -->
-            <div class="form-row">
-              <label>Insured</label>
-              <input type="checkbox" id="collateralInsured"/>
-            </div>
+async function loadBranches() {
+  const sel = document.getElementById('collateralBranchId');
+  if (sel) { sel.innerHTML = '<option value="">Loading branches…</option>'; sel.disabled = true; }
+  try {
+    const rows = await sbFetch('branchregistry?select=branch_id,branch_name&order=branch_id');
+    _branchCache = Array.isArray(rows) ? rows : [];
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Select Branch --</option>';
+    _branchCache.forEach(r => {
+      const o = document.createElement('option');
+      o.value = r.branch_id;
+      o.textContent = r.branch_id + (r.branch_name ? ' — ' + r.branch_name : '');
+      sel.appendChild(o);
+    });
+    sel.disabled = false;
+  } catch (e) {
+    toast('Could not load branch list.', 'error');
+    if (sel) { sel.innerHTML = '<option value="">-- Select Branch --</option>'; sel.disabled = false; }
+  }
+}
 
-            <!-- Nature of Charge -->
-            <div class="form-row">
-              <label>Nature Of Charge</label>
-              <select id="collateralNatureOfCharge" class="width-full">
-                <option value="">--Select--</option>
-                <option>First Charge</option>
-                <option>Second Charge</option>
-                <option>Hypothecation</option>
-              </select>
-            </div>
+/* ── Owner Lookup — NEW, this button previously had no id and no
+   handler at all; Owner ID had zero validation UX ── */
+async function lookupOwner() {
+  const ownerId = getField('collateralOwnerId');
+  if (!ownerId) { toast('Enter an Owner ID to look up.', 'warning'); return; }
+  try {
+    const rows = await sbFetch(
+      `ClientMasterRecords?client_id=eq.${encodeURIComponent(ownerId)}&select=client_id,client_name,first_name,middle_name,last_name&limit=1`
+    );
+    if (rows && rows[0]) {
+      const r = rows[0];
+      const fullName = r.client_name || [r.first_name, r.middle_name, r.last_name].filter(Boolean).join(' ');
+      setField('collateralOwnerName', fullName);
+      toast(`Owner found: ${fullName}`, 'success');
+    } else {
+      setField('collateralOwnerName', '');
+      toast(`Owner ID "${ownerId}" not found in client registry.`, 'warning');
+    }
+  } catch (e) {
+    toast('Owner lookup error: ' + e.message, 'error');
+  }
+}
+document.getElementById('btnLookupOwner')?.addEventListener('click', lookupOwner);
+document.getElementById('collateralOwnerId')?.addEventListener('keydown', e => { if (e.key === 'Enter') lookupOwner(); });
 
-            <!-- Remarks -->
-            <div class="form-row">
-              <label>Remarks</label>
-              <textarea id="collateralRemarks" class="width-full" rows="2"></textarea>
-            </div>
+/* ── View / Lookup ─────────────────────────────────────── */
+async function viewRecord() {
+  const collateralId = getField('collateralId');
+  if (!collateralId) { toast('Enter a Collateral ID to search.', 'warning'); return; }
+  try {
+    const rows = await sbFetch(
+      `collateralinventory?collateral_id=eq.${encodeURIComponent(collateralId)}&limit=1`
+    );
+    if (rows && rows[0]) {
+      recordToForm(rows[0]);
+      if (rows[0].owner_id) lookupOwner();
+      toast(`Record loaded: ${collateralId}`);
+      setMode('view');
+    } else {
+      toast('Collateral ID not found.', 'warning');
+    }
+  } catch (e) {
+    toast('Lookup error: ' + e.message, 'error');
+  }
+}
 
-            <div class="card-header-banner">Pricing &amp; Valuation Framework</div>
+/* ── Save (Insert or Update) ────────────────────────────── */
+async function saveRecord() {
+  const rec = formToRecord();
+  if (!rec.collateral_id)   { toast('Collateral ID is required.', 'warning'); return; }
+  if (!rec.branch_id)       { toast('Branch is required.', 'warning'); return; }
+  if (!rec.owner_id)        { toast('Owner ID is required.', 'warning'); return; }
+  if (!rec.collateral_type) { toast('Collateral Type is required.', 'warning'); return; }
 
-            <!-- Collateral Value -->
-            <div class="form-row">
-              <label>Collateral Value (ETB)</label>
-              <input type="text" id="collateralValue" class="width-full"/>
-            </div>
+  // NEW: owner_id already has a real FK to ClientMasterRecords (added
+  // earlier). Pre-checking here means a clean toast instead of a raw
+  // Postgres FK-violation error after clicking Save.
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = 'Verifying owner…';
+  try {
+    const ownerCheck = await sbFetch(
+      `ClientMasterRecords?client_id=eq.${encodeURIComponent(rec.owner_id)}&select=client_id&limit=1`
+    );
+    if (!ownerCheck || !ownerCheck[0]) {
+      toast(`Owner ID "${rec.owner_id}" is not a registered client.`, 'error');
+      document.getElementById('collateralOwnerId')?.focus();
+      if (sb) sb.textContent = 'Blocked — owner not found in client registry.';
+      return;
+    }
+  } catch (e) {
+    toast('Could not verify owner before saving: ' + e.message, 'error');
+    return;
+  }
 
-            <!-- Used Collateral Value -->
-            <div class="form-row">
-              <label>Used Collateral Value</label>
-              <input type="text" id="usedCollateralValue" class="width-full"/>
-            </div>
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = 'Saving…';
 
-            <!-- Withdrawn Date -->
-            <div class="form-row">
-              <label>Withdrawn Date</label>
-              <input type="date" id="collateralWithdrawnDate" class="width-full"/>
-            </div>
+  try {
+    if (currentMode === 'add') {
+      rec.created_on = new Date().toISOString();
+      await sbFetch('collateralinventory', {
+        method: 'POST',
+        prefer: 'return=minimal',
+        body: JSON.stringify(rec)
+      });
+      toast(`Collateral ${rec.collateral_id} created.`, 'success');
+    } else {
+      rec.modified_on = new Date().toISOString();
+      const { collateral_id, ...updateFields } = rec;
+      await sbFetch(`collateralinventory?collateral_id=eq.${encodeURIComponent(collateral_id)}`, {
+        method: 'PATCH',
+        prefer: 'return=minimal',
+        body: JSON.stringify(updateFields)
+      });
+      toast(`Collateral ${collateral_id} updated.`, 'success');
+    }
+    setMode('view');
+  } catch (e) {
+    toast('Save error: ' + e.message, 'error');
+    if (sb) sb.textContent = 'Save failed — see toast.';
+  }
+}
 
-            <!-- Withdrawn Reason -->
-            <div class="form-row">
-              <label>Withdrawn Reason</label>
-              <textarea id="collateralWithdrawnReason" class="width-full" rows="2"></textarea>
-            </div>
+/* ── Withdraw Action ────────────────────────────────────── */
+async function withdrawCollateral() {
+  const collateralId = getField('collateralId');
+  if (!collateralId) { toast('Load a record first.', 'warning'); return; }
+  const wDate   = getField('collateralWithdrawnDate');
+  const wReason = getField('collateralWithdrawnReason');
+  if (!wDate) { toast('Enter a Withdrawn Date before withdrawing.', 'warning'); return; }
+  try {
+    await sbFetch(`collateralinventory?collateral_id=eq.${encodeURIComponent(collateralId)}`, {
+      method: 'PATCH',
+      prefer: 'return=minimal',
+      body: JSON.stringify({ status: 'Withdrawn', withdrawn_date: wDate, withdrawn_reason: wReason || null })
+    });
+    setField('collateralStatus', 'Withdrawn');
+    toast(`Collateral ${collateralId} marked as Withdrawn.`, 'success');
+  } catch (e) {
+    toast('Withdraw error: ' + e.message, 'error');
+  }
+}
 
-            <!-- Created By -->
-            <div class="form-row">
-              <label>Created By</label>
-              <input type="text" id="collateralCreatedBy" class="width-full"/>
-            </div>
+/* ── Mode Control ──────────────────────────────────────── */
+let currentMode = 'view';
 
-            <!-- Created On -->
-            <div class="form-row">
-              <label>Created On</label>
-              <input type="text" id="collateralCreatedOn" class="width-full" readonly/>
-            </div>
+function setMode(mode) {
+  currentMode = mode;
+  const isEdit = mode === 'edit' || mode === 'add';
+  const view = document.querySelector('.module-view.active');
+  if (view) {
+    view.querySelectorAll('input, select, textarea').forEach(el => {
+      if (el.dataset.alwaysEnabled !== undefined) { el.disabled = false; return; }
+      if (el.hasAttribute('readonly')) { el.disabled = false; return; }
+      el.disabled = !isEdit;
+    });
+  }
 
-          </div><!-- /sub-column left -->
+  const btnSave   = document.getElementById('btnGlobalSave');
+  const btnCancel = document.getElementById('btnGlobalCancel');
+  const btnAdd    = document.getElementById('btnGlobalAdd');
+  const btnEdit   = document.getElementById('btnGlobalEdit');
+  const btnClose  = document.getElementById('btnGlobalClose');
+  const btnDelete = document.getElementById('btnGlobalDelete');
+  if (btnSave)   btnSave.disabled   = !isEdit;
+  if (btnCancel) btnCancel.disabled = !isEdit;
+  if (btnAdd)    btnAdd.disabled    = isEdit;
+  if (btnEdit)   btnEdit.disabled   = isEdit;
+  if (btnDelete) btnDelete.disabled = !isEdit;
+  if (btnClose)  btnClose.disabled  = isEdit;
 
-          <div class="sub-column">
-            <div class="form-spacer" style="height:175px;"></div>
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)} — Ready`;
+}
 
-            <div class="form-row">
-              <label class="shifted-label">Apportioned Ratio</label>
-              <input type="text" id="collateralApportionedRatio" class="width-full"/>
-            </div>
+/* ── Toolbar Buttons ────────────────────────────────────── */
+document.getElementById('btnGlobalView')?.addEventListener('click', viewRecord);
+document.getElementById('btnGlobalAdd')?.addEventListener('click', () => {
+  clearForm();
+  setMode('add');
+  toast('Add mode — enter collateral details then Save.');
+});
+document.getElementById('btnGlobalEdit')?.addEventListener('click', () => {
+  setMode('edit');
+  toast('Edit mode — make changes then Save.');
+});
+document.getElementById('btnGlobalSave')?.addEventListener('click', saveRecord);
+document.getElementById('btnGlobalCancel')?.addEventListener('click', () => {
+  setMode('view');
+  toast('Changes discarded.');
+});
+document.getElementById('btnGlobalClose')?.addEventListener('click', () => {
+  clearForm();
+  setMode('view');
+  toast('Record closed.');
+});
+document.getElementById('btnGlobalDelete')?.addEventListener('click', async () => {
+  const collateralId = getField('collateralId');
+  if (!collateralId) { toast('Load a record first.', 'warning'); return; }
+  if (!confirm(`Soft-delete collateral ${collateralId}?`)) return;
+  try {
+    await sbFetch(`collateralinventory?collateral_id=eq.${encodeURIComponent(collateralId)}`, {
+      method: 'PATCH',
+      prefer: 'return=minimal',
+      body: JSON.stringify({ status: 'Deleted' })
+    });
+    toast(`Collateral ${collateralId} marked deleted.`);
+    clearForm();
+    setMode('view');
+  } catch (e) {
+    toast('Delete error: ' + e.message, 'error');
+  }
+});
+document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
+document.getElementById('btnSearchCollateral')?.addEventListener('click', viewRecord);
+document.getElementById('btnWithdraw')?.addEventListener('click', withdrawCollateral);
 
-            <div class="form-row">
-              <label class="shifted-label">Apportioned Value</label>
-              <input type="text" id="collateralApportionedValue" class="width-full"/>
-            </div>
-
-            <div class="form-row">
-              <label class="shifted-label">Margin (%)</label>
-              <input type="text" id="collateralMargin" class="width-full"/>
-            </div>
-
-            <div class="form-row">
-              <label class="shifted-label">Apportioned Coll. Value</label>
-              <input type="text" id="collateralApportionedCollValue" class="width-full"/>
-            </div>
-
-            <div class="form-row">
-              <label class="shifted-label">Loan Collateral Value</label>
-              <input type="text" id="collateralLoanCollValue" class="width-full"/>
-            </div>
-
-            <div class="form-row">
-              <label class="shifted-label">Assigned Date</label>
-              <input type="date" id="collateralAssignedDate" class="width-full"/>
-            </div>
-
-            <div class="form-row">
-              <label class="shifted-label">Exchange Rate</label>
-              <input type="text" id="collateralExchangeRate" class="width-full"/>
-            </div>
-
-            <div class="form-spacer" style="height:15px;"></div>
-
-            <div class="form-row">
-              <label class="shifted-label">Currency ID</label>
-              <input type="text" id="collateralCurrencyId" class="width-full"/>
-            </div>
-
-            <div class="form-row">
-              <label class="shifted-label">Value Type</label>
-              <input type="text" id="collateralValueType" class="width-full"/>
-            </div>
-
-            <div class="form-row">
-              <label class="shifted-label">Status</label>
-              <input type="text" id="collateralStatus" class="width-full"/>
-            </div>
-
-            <div class="form-spacer" style="height:25px;"></div>
-
-            <div class="form-row">
-              <label class="shifted-label">Modified By</label>
-              <input type="text" id="collateralModifiedBy" class="width-medium"/>
-              <label style="width:75px;min-width:75px;">Supervised By</label>
-              <input type="text" id="collateralSupervisedBy" class="width-medium"/>
-            </div>
-
-            <div class="form-row">
-              <label class="shifted-label">Modified On</label>
-              <input type="text" id="collateralModifiedOn" class="width-medium" readonly/>
-              <label style="width:75px;min-width:75px;">Supervised On</label>
-              <input type="text" id="collateralSupervisedOn" class="width-medium" readonly/>
-            </div>
-
-          </div><!-- /sub-column right -->
-        </form>
-
-        <div class="action-row-container">
-          <button type="button" class="action-btn-inline" id="btnWithdraw">Withdraw</button>
-        </div>
-        <div class="sub-footer-token" id="statusBar">Status: Ready</div>
-      </div>
-    </div>
-
-    <div class="action-sidebar">
-      <button id="btnGlobalView"   class="action-btn">🔍 View</button>
-      <button id="btnGlobalAdd"    class="action-btn">➕ Add</button>
-      <button id="btnGlobalEdit"   class="action-btn">✏️ Edit</button>
-      <button id="btnGlobalClose"  class="action-btn">✕ Close</button>
-      <div class="sidebar-spacer"></div>
-      <button id="btnGlobalSave"   class="action-btn" disabled>💾 Save</button>
-      <button id="btnGlobalCancel" class="action-btn" disabled>🚫 Cancel</button>
-      <button id="btnGlobalDelete" class="action-btn" style="background:linear-gradient(to bottom,#f8d0d0,#f0a0a0);border-color:#c06060;color:#7a0000;" disabled>🗑 Delete</button>
-      <button id="btnGlobalPrint"  class="action-btn">🖨 Print</button>
-      <div class="sidebar-footer">AVMF CBS v2.0</div>
-    </div>
-
-  </div>
-</div>
-
-<div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
-
-<script src="collateral-inventory-risk.js"></script>
-</body>
-</html>
+/* ── Init ──────────────────────────────────────────────── */
+async function init() {
+  setMode('view');
+  await loadBranches();
+}
+init();
