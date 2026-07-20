@@ -149,6 +149,26 @@ body {
 .window-controls span:hover { opacity: 1; background: rgba(255,255,255,.18); }
 .window-controls .wc-close:hover { background: #e74c3c; opacity: 1; }
 
+/* ══ Minimize / Maximize States ══════════════════════════ */
+.window-container.is-maximized {
+  width: 100%;
+  max-width: 100%;
+  height: 100vh;
+  border-radius: 0;
+  margin: 0;
+}
+.window-container.is-maximized .workspace {
+  flex: 1;
+  min-height: 0;
+}
+
+.window-container.is-minimized .workspace {
+  display: none;
+}
+.window-container.is-minimized {
+  width: 320px;
+}
+
 /* ══ Workspace ═══════════════════════════════════════════ */
 .workspace {
   display: flex;
