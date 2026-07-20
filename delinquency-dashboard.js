@@ -1,7 +1,15 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 13 Delinquency & PAR Dashboard
-   delinquency-dashboard.js  v3.1 — RESOLVED KPI INCONSISTENCY
+   delinquency-dashboard.js  v3.2 — RECALCULATE WIRED TO NEW RPC
    Table: loan_delinquency_registry
+
+   WHAT CHANGED FROM v3.1
+   Nothing in this file ever INSERTed into loan_delinquency_registry —
+   only SELECT and PATCH on existing rows. See refresh_delinquency_registry.sql
+   for the actual automated population (scheduled nightly via pg_cron).
+   Added a manual "Recalculate" button here so an officer can trigger the
+   same computation on demand instead of waiting for the nightly run.
+   Requires a new button in the HTML — see deployment note.
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -20,6 +28,26 @@ async function sbFetch(path, opts = {}) {
       'Prefer':        opts.prefer || 'return=representation',
       ...(opts.headers || {})
     }
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(txt || `HTTP ${res.status}`);
+  }
+  const text = await res.text();
+  if (!text || !text.trim()) return null;
+  try { return JSON.parse(text); } catch { return null; }
+}
+
+/* ── RPC Helper — NEW, calls refresh_delinquency_registry ── */
+async function sbRpc(fnName, params = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fnName}`, {
+    method: 'POST',
+    headers: {
+      'apikey':        SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type':  'application/json'
+    },
+    body: JSON.stringify(params)
   });
   if (!res.ok) {
     const txt = await res.text().catch(() => '');
@@ -213,11 +241,29 @@ async function saveDetailPanel() {
   }
 }
 
+/* ── Manual Recalculate — NEW ──
+   Calls refresh_delinquency_registry() on demand, so an officer doesn't
+   have to wait for the nightly pg_cron run to see current numbers. Needs
+   a corresponding button in the HTML — see note below. ── */
+async function recalculateDelinquency() {
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = 'Recalculating delinquency from amortization schedules…';
+  try {
+    const result = await sbRpc('refresh_delinquency_registry');
+    toast(`Recalculated — ${result?.rows_upserted ?? 0} active loans, ${result?.rows_removed ?? 0} closed loans removed.`, 'success');
+    await loadDelinquencyRecords();
+  } catch (e) {
+    toast('Recalculate failed: ' + e.message, 'error');
+    if (sb) sb.textContent = `Error: ${e.message}`;
+  }
+}
+
 /* ── Event wiring ────────────────────────────────────────── */
 document.getElementById('searchAppId')?.addEventListener('input',  applyFiltersAndRender);
 document.getElementById('filterPAR')?.addEventListener('change',   applyFiltersAndRender);
 document.getElementById('filterCollStatus')?.addEventListener('change', applyFiltersAndRender);
 document.getElementById('btnRefresh')?.addEventListener('click', loadDelinquencyRecords);
+document.getElementById('btnRecalculate')?.addEventListener('click', recalculateDelinquency);
 document.getElementById('btnPrint')?.addEventListener('click', () => window.print());
 document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
 document.getElementById('btnCloseDetail')?.addEventListener('click',  closeDetailPanel);
