@@ -1,10 +1,21 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 07 Guarantor Asset Registry
-   guarantor-asset-registry.js  v2.3 — RESOLVED NAME SAVING & HARDENING
+   guarantor-asset-registry.js  v2.4 — GUARANTOR ID NOW VERIFIED CLIENT
    Table: guarantorriskregistry
    FK links: loanapplications (application_id)
              loanmasterrecords (account_id)
-             ClientMasterRecords (guarantor_id)
+             ClientMasterRecords (client_id)
+             ClientMasterRecords (guarantor_id) — NEW, hard-enforced
+
+   WHAT CHANGED FROM v2.3
+   guarantor_id previously had no FK and no save-time validation — an
+   officer could type any string and save, with the "look up guarantor"
+   button only offering an optional, non-blocking name resolution.
+   Decided: guarantors must be registered clients (matching the same
+   precedent already used for client_id and collateral owner_id), so
+   saveRecord() now blocks with a clear message if the entered Guarantor
+   ID doesn't resolve, before the database's new FK constraint would
+   otherwise reject it with a raw error. See fix_guarantor_id_fk.sql.
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -323,6 +334,28 @@ async function saveRecord() {
   if (!rec.application_id) {
     toast('Application ID is required — this links the guarantor to a loan.', 'warning');
     document.getElementById('guarantorApplicationId')?.focus();
+    return;
+  }
+
+  // NEW: guarantor_id now has a real FK to ClientMasterRecords (matching
+  // the same precedent already used for client_id and collateral owner_id
+  // elsewhere in this codebase). Pre-checking here means the officer gets
+  // a clear toast instead of a raw Postgres FK-violation error after
+  // clicking Save.
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = 'Verifying guarantor…';
+  try {
+    const guarantorCheck = await sbFetch(
+      `ClientMasterRecords?client_id=eq.${encodeURIComponent(rec.guarantor_id)}&select=client_id&limit=1`
+    );
+    if (!guarantorCheck || !guarantorCheck[0]) {
+      toast(`Guarantor ID "${rec.guarantor_id}" is not a registered client — every guarantor must be registered first.`, 'error');
+      document.getElementById('guarantorId')?.focus();
+      if (sb) sb.textContent = 'Blocked — guarantor not found in client registry.';
+      return;
+    }
+  } catch (e) {
+    toast('Could not verify guarantor before saving: ' + e.message, 'error');
     return;
   }
 
