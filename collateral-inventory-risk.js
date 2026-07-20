@@ -2,8 +2,7 @@
    Africa Village Microfinance — 06 Collateral Inventory Risk
    collateral-inventory-risk.js  v2.3 — OWNER ID LOOKUP WIRED UP
    Table: collateralinventory
-
-   WHAT CHANGED FROM v2.2
+WHAT CHANGED FROM v2.2
    The Owner ID field's 🔍 button had no id attribute and no handler at
    all — zero validation UX, unlike every other lookup field in this
    codebase. Added lookupOwner(), wired to the button (now given an id)
