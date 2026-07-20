@@ -1,11 +1,20 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 12 Client Financial Account Maintenance
-   account-maintenance.js  v1.1
+   account-maintenance.js  v1.2 — GL POSTING ADDED ON ACCOUNT OPENING
    Table : clientfinancialaccounts
-   FK    : client_id → clients(client_id)
+   FK    : client_id → ClientMasterRecords(client_id)
            branch_id → branchregistry(branch_id)
    CHECK : account_type  ∈ {Savings, Repayment, Current}
            account_status ∈ {Active, Dormant, Closed}
+
+   WHAT CHANGED FROM v1.1
+   New-account creation (the 'add' branch of saveRecord()) now calls the
+   post_account_opening RPC instead of inserting directly into
+   clientfinancialaccounts. Previously an Initial Deposit amount was saved
+   onto the account's own current_balance but never appeared anywhere in
+   chart_of_accounts or gl_transaction_journal — this closes that gap.
+   Editing an existing account still uses a plain PATCH, unchanged, since
+   that path never creates new deposit money.
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -34,6 +43,29 @@ async function sbFetch(path, opts = {}) {
     throw new Error(msg);
   }
   if (res.status === 204) return null;
+  const body = await res.text();
+  if (!body || !body.trim()) return null;
+  try { return JSON.parse(body); } catch { return null; }
+}
+
+/* ── RPC Helper — NEW, added to call post_account_opening ──
+   Same pattern as disbursement.js / loan-repayment-collection.js. ── */
+async function sbRpc(fnName, params = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fnName}`, {
+    method: 'POST',
+    headers: {
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type':  'application/json'
+    },
+    body: JSON.stringify(params)
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    let msg = 'HTTP ' + res.status;
+    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
+    throw new Error(msg);
+  }
   const body = await res.text();
   if (!body || !body.trim()) return null;
   try { return JSON.parse(body); } catch { return null; }
@@ -326,12 +358,29 @@ async function saveRecord() {
 
   try {
     if (currentMode === 'add' || !_currentAccountNumber) {
-      await sbFetch(TABLE, {
-        method: 'POST',
-        prefer: 'return=minimal',
-        body: JSON.stringify(rec)
+      // CHANGED: was a plain INSERT into clientfinancialaccounts with no
+      // GL involvement — the initial deposit never appeared anywhere in
+      // chart_of_accounts/gl_transaction_journal. Now routed through
+      // post_account_opening, which inserts the account AND posts the
+      // matching Cash/Deposits GL entry in one transaction, only when
+      // there's an actual deposit amount.
+      const result = await sbRpc('post_account_opening', {
+        p_account_number: rec.account_number,
+        p_client_id:      rec.client_id,
+        p_branch_id:      rec.branch_id,
+        p_account_type:   rec.account_type,
+        p_currency_id:    rec.currency_id || 'ETB',
+        p_initial_deposit: rec.initial_deposit_amount || 0,
+        p_account_status: rec.account_status || 'Active',
+        p_remarks:        rec.remarks || null,
+        p_created_by:     rec.created_by || null
       });
-      toast(`Account ${rec.account_number} opened successfully.`, 'success');
+      toast(
+        result?.gl_posted
+          ? `Account ${rec.account_number} opened — deposit posted to GL (${result.gl_dr_account} / ${result.gl_cr_account}).`
+          : `Account ${rec.account_number} opened successfully.`,
+        'success'
+      );
     } else {
       const { account_number, client_id, ...updateFields } = rec;
       // Never PATCH the PK or FK client_id
