@@ -108,8 +108,14 @@
               <label>Owner ID</label>
               <div class="input-group width-full">
                 <input type="text" id="collateralOwnerId"/>
-                <span class="search-btn">🔍</span>
+                <span class="search-btn" id="btnLookupOwner" title="Verify owner in client registry">🔍</span>
               </div>
+            </div>
+
+            <!-- Owner Name — NEW, so the lookup has somewhere to show what it found -->
+            <div class="form-row">
+              <label>Owner Name</label>
+              <input type="text" id="collateralOwnerName" class="width-full" readonly placeholder="Auto-filled from registry"/>
             </div>
 
             <!-- Lodged Date -->
