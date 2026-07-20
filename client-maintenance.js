@@ -727,3 +727,31 @@ setFormEnabled(false);
   const el = document.getElementById(id);
   if (el) el.style.display = 'none';
 });
+
+// ── Window Controls: Minimize / Maximize ────────────────────
+const windowContainer = document.querySelector('.window-container');
+const wcMinimizeBtn    = document.getElementById('wcMinimize');
+const wcMaximizeBtn    = document.getElementById('wcMaximize');
+
+function toggleMinimize() {
+  if (!windowContainer) return;
+  // Maximize and minimize are mutually exclusive
+  windowContainer.classList.remove('is-maximized');
+  if (wcMaximizeBtn) wcMaximizeBtn.textContent = '▢';
+  windowContainer.classList.toggle('is-minimized');
+  const minimized = windowContainer.classList.contains('is-minimized');
+  if (wcMinimizeBtn) wcMinimizeBtn.title = minimized ? 'Restore' : 'Minimize';
+}
+
+function toggleMaximize() {
+  if (!windowContainer) return;
+  // Maximize and minimize are mutually exclusive
+  windowContainer.classList.remove('is-minimized');
+  if (wcMinimizeBtn) wcMinimizeBtn.title = 'Minimize';
+  windowContainer.classList.toggle('is-maximized');
+  const maximized = windowContainer.classList.contains('is-maximized');
+  if (wcMaximizeBtn) {
+    wcMaximizeBtn.textContent = maximized ? '❐' : '▢';
+    wcMaximizeBtn.title = maximized ? 'Restore Down' : 'Maximize';
+  }
+}
