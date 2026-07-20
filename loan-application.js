@@ -326,9 +326,9 @@ function collectForm() {
     [COL.term]:             g('fTerm')           ? Number(g('fTerm'))           : null,
     [COL.interest_rate]:    g('fInterestRate')   ? Number(g('fInterestRate'))   : null,
     [COL.tax_rate]:         g('fTaxRate')        ? Number(g('fTaxRate'))        : null,
-    [COL.commission_rate]:  g('fCommissionRate') ? Number(g('fCommissionRate')) : null,
+   [COL.commission_rate]:  g('fCommissionRate') ? Number(g('fCommissionRate')) : null,
     [COL.effective_rate]:   g('fEffectiveRate')  ? Number(g('fEffectiveRate'))  : null,
-    [COL.spread]:           g('fSpread'),
+    [COL.spread]:           g('fSpread')         ? Number(g('fSpread'))         : null, // <-- Cast to Number here
     [COL.file_number]:      g('fFileNumber'),
     [COL.sales_officer]:    g('fSalesOfficer'),
     [COL.app_date]:         g('fDate'),
