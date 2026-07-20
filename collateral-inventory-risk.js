@@ -226,7 +226,6 @@ async function saveRecord() {
     return;
   }
 
-  const sb = document.getElementById('statusBar');
   if (sb) sb.textContent = 'Saving…';
 
   try {
