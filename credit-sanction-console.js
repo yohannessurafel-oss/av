@@ -131,6 +131,38 @@ let _loadedAppId = null;
 let _loadedPrevStatus = null;
 
 /* ── Application Lookup ─────────────────────────────────── */
+/* ── Group Context — NEW: shows whether this loan is part of a group
+   batch, and which member it is. Every group member gets its own
+   normal loanmasterrecords row (create_group_loan_batch), so this is
+   purely informational — nothing else in this module needs group_id
+   for its actual logic. ── */
+async function loadGroupContext(rec) {
+  const banner = document.getElementById('groupContextBanner');
+  const text   = document.getElementById('groupContextText');
+  if (!banner || !text) return;
+
+  if (!rec.group_id) {
+    banner.style.display = 'none';
+    return;
+  }
+
+  try {
+    const [members, groupRows] = await Promise.all([
+      sbFetch(`loanmasterrecords?group_id=eq.${encodeURIComponent(rec.group_id)}&select=application_id&order=application_id.asc`),
+      sbFetch(`portfoliogrouphierarchy?group_registry_id=eq.${encodeURIComponent(rec.group_id)}&select=group_name_alias&limit=1`)
+    ]);
+    const total = Array.isArray(members) ? members.length : 1;
+    const idx   = Array.isArray(members) ? members.findIndex(m => m.application_id === rec.application_id) + 1 : 1;
+    const groupName = (groupRows && groupRows[0] && groupRows[0].group_name_alias) ? ` — ${groupRows[0].group_name_alias}` : '';
+
+    text.textContent = `${rec.group_id}${groupName} — Member ${idx > 0 ? idx : '?'} of ${total}`;
+    banner.style.display = '';
+  } catch (e) {
+    text.textContent = `${rec.group_id} (could not load member count)`;
+    banner.style.display = '';
+  }
+}
+
 async function lookupApplication() {
   const appId = document.getElementById('sanctionApplicationId')?.value?.trim();
   if (!appId) { toast('Enter an Application ID to search.', 'warning'); return; }
@@ -206,6 +238,8 @@ async function lookupApplication() {
 
     toast(`Application ${_loadedAppId} loaded.`);
     if (sb) sb.textContent = `Application ${_loadedAppId} — click Edit to sanction`;
+
+    loadGroupContext(lmr);
 
     const btnEdit = document.getElementById('btnGlobalEdit');
     if (btnEdit) btnEdit.disabled = false;
