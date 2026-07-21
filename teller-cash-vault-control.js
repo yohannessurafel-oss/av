@@ -194,6 +194,25 @@ async function openTill() {
   const cashier  = getField('tellerCashierName');
   if (!branchId || !tillId) { toast('Select Branch and enter Till ID.', 'warning'); return; }
 
+  // FIX: _lastRunningBalance is only refreshed by loadTransactions(),
+  // which runs on search/post — but nothing previously checked whether
+  // the Till ID currently typed here actually matches the till that was
+  // last searched. Switching to a different Till ID without re-clicking
+  // 🔍 would silently carry over the WRONG till's balance into this
+  // one's opening transaction. Force a fresh check here, independent of
+  // whatever _lastRunningBalance currently holds.
+  if (tillId !== _currentTillId) {
+    try {
+      const existing = await sbFetch(
+        `${TABLE_TX}?till_id=eq.${encodeURIComponent(tillId)}&order=transaction_id.desc&limit=1&select=running_balance`
+      );
+      _lastRunningBalance = (existing && existing[0]) ? (parseFloat(existing[0].running_balance) || 0) : 0;
+    } catch (e) {
+      toast('Could not verify this till\'s balance before opening: ' + e.message, 'error');
+      return;
+    }
+  }
+
   try {
     await sbFetch(TABLE_TILL, {
       method: 'POST',
