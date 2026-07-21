@@ -9,6 +9,11 @@
 </head>
 <body>
 
+<!-- Live dashboard shown behind this window as the desktop backdrop -->
+<div class="desktop-backdrop">
+  <iframe src="indexll.html" title="AVMF Dashboard"></iframe>
+</div>
+
 <div class="window-container">
 
   <div class="title-bar">
@@ -31,8 +36,8 @@
       <span class="title-user">👤 Loan Officer</span>
     </div>
     <div class="window-controls">
-      <span title="Minimize">─</span>
-      <span title="Maximize">▢</span>
+      <span id="wcMinimize" title="Minimize" onclick="toggleMinimize()">─</span>
+      <span id="wcMaximize" title="Maximize" onclick="toggleMaximize()">▢</span>
       <span title="Close" class="wc-close" onclick="window.location='indexll.html'">✕</span>
     </div>
   </div>
@@ -331,6 +336,12 @@
 </div>
 
 <div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
+
+<!-- Docked chip shown when window is minimized -->
+<div id="dockSliver" class="dock-sliver" onclick="toggleMinimize()">
+  <span class="dock-icon">👥</span>
+  <span class="dock-label">AVMF — Group Loan Projection</span>
+</div>
 
 <script src="group-loan-projection.js"></script>
 </body>
