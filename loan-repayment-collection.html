@@ -188,6 +188,11 @@
             <button class="btn-load-loan" id="btnLoadLoan">🔍 Load Loan</button>
           </div>
 
+          <!-- Group Loan context — NEW, only shown when the loaded loan is part of a group batch -->
+          <div id="groupContextBanner" style="display:none; background:var(--navy-50,#eef4fb); border:0.5px solid var(--border,#8ab0d0); border-radius:4px; padding:6px 10px; font-size:12px; color:var(--navy-800,#0d3460); flex-shrink:0;">
+            🔗 <strong>Group Loan:</strong> <span id="groupContextText">—</span>
+          </div>
+
           <!-- Summary card -->
           <div class="rpc-summary-card" id="rpcSummaryCard" style="display:none;">
             <div class="rpc-summary-left">
