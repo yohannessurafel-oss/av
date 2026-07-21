@@ -409,3 +409,37 @@ async function init() {
   await loadBranches();
 }
 init();
+
+// ── Window Controls: Minimize / Maximize ────────────────────
+const windowContainer = document.querySelector('.window-container');
+const wcMinimizeBtn    = document.getElementById('wcMinimize');
+const wcMaximizeBtn    = document.getElementById('wcMaximize');
+const dockSliver        = document.getElementById('dockSliver');
+
+function toggleMinimize() {
+  if (!windowContainer || !dockSliver) return;
+  // Maximize and minimize are mutually exclusive
+  windowContainer.classList.remove('is-maximized');
+  if (wcMaximizeBtn) wcMaximizeBtn.textContent = '▢';
+
+  windowContainer.classList.toggle('is-minimized');
+  const minimized = windowContainer.classList.contains('is-minimized');
+  dockSliver.classList.toggle('show', minimized);
+  if (wcMinimizeBtn) wcMinimizeBtn.title = minimized ? 'Restore' : 'Minimize';
+}
+
+function toggleMaximize() {
+  if (!windowContainer) return;
+  // Maximize and minimize are mutually exclusive
+  if (windowContainer.classList.contains('is-minimized')) {
+    windowContainer.classList.remove('is-minimized');
+    if (dockSliver) dockSliver.classList.remove('show');
+    if (wcMinimizeBtn) wcMinimizeBtn.title = 'Minimize';
+  }
+  windowContainer.classList.toggle('is-maximized');
+  const maximized = windowContainer.classList.contains('is-maximized');
+  if (wcMaximizeBtn) {
+    wcMaximizeBtn.textContent = maximized ? '❐' : '▢';
+    wcMaximizeBtn.title = maximized ? 'Restore Down' : 'Maximize';
+  }
+}
