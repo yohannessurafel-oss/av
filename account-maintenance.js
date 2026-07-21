@@ -533,3 +533,4 @@ function toggleMaximize() {
     wcMaximizeBtn.title = maximized ? 'Restore Down' : 'Maximize';
   }
 }
+
