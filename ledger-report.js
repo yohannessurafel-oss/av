@@ -173,13 +173,23 @@ async function loadFromDB() {
 
   if (error) { toast('DB error: ' + error.message, 'error'); setSB('Load failed.'); return; }
 
-  // Reconstruct row_type from description (stripped before DB insert)
+  // Reconstruct row_type from description (stripped before DB insert).
+  // FIX: this previously checked for 'Loan Disbursement', 'Admin /
+  // Processing Fee', 'Late Penalty Fee' — those are the LOCAL SIMULATOR's
+  // synthetic conventions (see buildLedgerRows() below), not what the
+  // real post_loan_disbursement/post_loan_repayment RPCs actually write.
+  // Real disbursement rows say just 'Disbursement'. Real repayment rows
+  // say 'Repayment' (optionally '— <mode>') — there's no separate fee/
+  // penalty ROW at all in the live schema; those are COLUMNS
+  // (charges_penalties) on the same repayment row, not distinct rows.
+  // Getting this wrong meant row_type never actually equaled
+  // 'disbursement' for any real loan, which silently broke the "Total
+  // Principal" exclusion further down (see updateKPI/renderStatement/
+  // renderLedger) — the full disbursed amount was being counted as
+  // "principal paid" on every real loan's report.
   _rows = data.map(r => ({
     ...r,
-    row_type: r.description === 'Loan Disbursement'      ? 'disbursement'
-            : r.description === 'Admin / Processing Fee' ? 'fee'
-            : r.description === 'Late Penalty Fee'       ? 'penalty'
-            : 'installment'
+    row_type: r.description === 'Disbursement' ? 'disbursement' : 'installment'
   }));
 
   _scheduleRows = buildScheduleFromRows(_rows);
