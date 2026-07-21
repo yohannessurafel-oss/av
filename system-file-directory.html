@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AVMF — System File Directory</title>
+<link rel="stylesheet" href="style2.css"/>
+</head>
+<body>
+
+<div class="window-container">
+
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <svg class="header-logo-svg" viewBox="0 0 100 100">
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
+        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
+        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
+        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
+        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+      </svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance</span>
+        <span class="title-sub">16 — System File Directory</span>
+      </div>
+    </div>
+    <div class="title-meta">
+      <span id="systemDate" class="title-date"></span>
+      <span class="title-user">👤 System</span>
+    </div>
+    <div class="window-controls">
+      <span title="Minimize">─</span>
+      <span title="Maximize">▢</span>
+      <span title="Close" class="wc-close" onclick="window.location='indexll.html'">✕</span>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <div class="sidebar">
+      <div class="sidebar-header" style="cursor: pointer; background: var(--navy-900);" title="Return to Dashboard" onclick="window.location='indexll.html'">
+        🏠 Main Dashboard
+      </div>
+      <div class="sidebar-footer-brand">
+        <svg viewBox="0 0 100 100" width="28" height="28">
+          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
+        </svg>
+        <span>AVMF CBS v2.0</span>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="module-view active">
+        <div class="context-badge-bar">
+          <span class="badge-icon">🗂️</span>
+          Live File Inventory — verifies every registered module's files actually exist on the server
+        </div>
+
+        <div id="summaryCards" style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:16px 0;">
+          <div class="loan-summary-card"><div class="lsc-header">📋 Modules Registered</div><div class="lsc-row"><strong id="countModules" style="font-size:1.4em;">—</strong></div></div>
+          <div class="loan-summary-card"><div class="lsc-header">✅ HTML Files Found</div><div class="lsc-row"><strong id="countHtmlOk" style="font-size:1.4em; color:#16a34a;">—</strong></div></div>
+          <div class="loan-summary-card"><div class="lsc-header">✅ JS Files Found</div><div class="lsc-row"><strong id="countJsOk" style="font-size:1.4em; color:#16a34a;">—</strong></div></div>
+          <div class="loan-summary-card"><div class="lsc-header">⚠️ Missing Files</div><div class="lsc-row"><strong id="countMissing" style="font-size:1.4em; color:#dc2626;">—</strong></div></div>
+        </div>
+
+        <div class="grid-container" style="overflow-y:auto;">
+          <table class="ledger-grid" id="tblDirectory">
+            <thead>
+              <tr>
+                <th>#</th><th>Module Name</th><th>Category</th>
+                <th>HTML File</th><th>JS File</th><th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyDirectory">
+              <tr><td colspan="6" class="text-center gray-text italic">Checking files…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="sub-footer-token" id="statusBar">Status: Scanning…</div>
+      </div>
+    </div>
+
+    <div class="action-sidebar">
+      <button id="btnRescan" class="action-btn">🔄 Rescan</button>
+      <div class="sidebar-footer">AVMF CBS v2.0</div>
+    </div>
+  </div>
+</div>
+
+<script src="modules-registry.js"></script>
+<script src="system-file-directory.js"></script>
+</body>
+</html>
