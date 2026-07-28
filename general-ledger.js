@@ -82,11 +82,54 @@ async function loadLedger() {
       loadCOA(f),
       loadJournal(f),
       loadLoanLedger(f),
+      loadTrialBalance(),
     ]);
     if (sb) sb.textContent = 'Status: Ledger systems synchronized.';
   } catch (err) {
     toast('Load error: ' + err.message, 'error');
     if (sb) sb.textContent = `Error: ${err.message}`;
+  }
+}
+
+/* ── Trial Balance check ─────────────────────────────────
+   NEW: sums debit_amount and credit_amount across the FULL
+   gl_transaction_journal table (the Journal tab only ever fetches the
+   latest 200 rows for display, which isn't safe to use for this check).
+   Only pulls the two numeric columns needed, to keep this light even on
+   a large journal. Any correct double-entry posting keeps these equal —
+   if they ever diverge, something in the app posted an unbalanced
+   entry (this is exactly how the overpayment bug in post_loan_repayment
+   v3 would have shown up, before the v4 fix). ─────────────────────── */
+async function loadTrialBalance() {
+  const wrap = document.getElementById('tileTrialBalanceWrap');
+  const el   = document.getElementById('tileTrialBalance');
+  if (!el || !wrap) return;
+
+  try {
+    const rows = await sbFetch('gl_transaction_journal?select=debit_amount,credit_amount');
+    let totalDebit = 0, totalCredit = 0;
+    (rows || []).forEach(r => {
+      totalDebit  += parseFloat(r.debit_amount)  || 0;
+      totalCredit += parseFloat(r.credit_amount) || 0;
+    });
+
+    const diff = Math.round((totalDebit - totalCredit) * 100) / 100;
+    wrap.classList.remove('tb-balanced', 'tb-unbalanced');
+
+    if (Math.abs(diff) < 0.01) {
+      wrap.classList.add('tb-balanced');
+      el.textContent = '✓ Balanced';
+      el.title = `Total Dr ${fmt(totalDebit)} = Total Cr ${fmt(totalCredit)}`;
+    } else {
+      wrap.classList.add('tb-unbalanced');
+      el.textContent = `⚠ Off by ${fmt(Math.abs(diff))}`;
+      el.title = `Total Dr ${fmt(totalDebit)} vs Total Cr ${fmt(totalCredit)} — one or more postings are unbalanced. Check gl_transaction_journal for the offending transaction_reference.`;
+    }
+  } catch (err) {
+    wrap.classList.remove('tb-balanced');
+    wrap.classList.add('tb-unbalanced');
+    el.textContent = 'Error';
+    el.title = err.message;
   }
 }
 
