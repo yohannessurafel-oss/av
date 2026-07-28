@@ -1,7 +1,28 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 06 Collateral Inventory Risk
-   collateral-inventory-risk.js  v2.3 — OWNER ID LOOKUP WIRED UP
+   collateral-inventory-risk.js  v2.4 — APPLICATION ID LINKAGE ADDED
    Table: collateralinventory
+   FK links: ClientMasterRecords (owner_id)
+             loanmasterrecords (application_id) — NEW, see
+             fix_collateral_application_fk.sql
+
+WHAT CHANGED FROM v2.3
+   collateralinventory had no relationship to a loan at all — an officer
+   could lodge and fully value a piece of collateral with no record of
+   which loan it secures. Added an Application ID field (mirroring the
+   pattern already used in guarantor-asset-registry.js): lookupApplication()
+   checks loanapplications, falling back to loanmasterrecords (every row
+   in loanmasterrecords is created atomically with its loanapplications
+   row, so anything found in loanapplications also satisfies the FK on
+   loanmasterrecords — the fallback is just a friendlier error path).
+   Successful lookup convenience-fills Branch and Owner from the loan,
+   but never overwrites a value the officer already typed, since
+   collateral owner doesn't have to be the borrower (third-party
+   collateral). saveRecord() pre-checks application_id before writing,
+   same pattern as the existing owner_id check — Application ID is
+   optional (collateral can be lodged before assignment to a loan; see
+   assigned_date), so the check only runs when a value is present.
+
 WHAT CHANGED FROM v2.2
    The Owner ID field's 🔍 button had no id attribute and no handler at
    all — zero validation UX, unlike every other lookup field in this
@@ -63,6 +84,7 @@ function toast(msg, type = '', duration = 3200) {
 const FIELD_MAP = {
   collateralBranchId:             'branch_id',
   collateralId:                   'collateral_id',
+  collateralApplicationId:        'application_id',
   collateralDescription:          'description',
   collateralType:                 'collateral_type',
   collateralOwnerId:              'owner_id',
@@ -177,6 +199,52 @@ async function lookupOwner() {
 document.getElementById('btnLookupOwner')?.addEventListener('click', lookupOwner);
 document.getElementById('collateralOwnerId')?.addEventListener('keydown', e => { if (e.key === 'Enter') lookupOwner(); });
 
+/* ── Application Lookup — NEW, links this collateral to the loan it
+   secures. Mirrors guarantor-asset-registry.js's lookupApplication():
+   checks loanapplications first, falls back to loanmasterrecords. ── */
+async function lookupApplication() {
+  const appId = getField('collateralApplicationId');
+  if (!appId) { toast('Enter an Application ID to look up.', 'warning'); return; }
+
+  try {
+    let appRows = await sbFetch(
+      `loanapplications?application_id=eq.${encodeURIComponent(appId)}&select=application_id,client_id,branch_id&limit=1`
+    );
+    if (!appRows || !appRows[0]) {
+      appRows = await sbFetch(
+        `loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}&select=application_id,client_id,branch_id&limit=1`
+      );
+    }
+    if (!appRows || !appRows[0]) {
+      toast(`Application "${appId}" not found.`, 'warning');
+      document.getElementById('collateralApplicationId')?.classList.add('input-invalid');
+      return;
+    }
+
+    const app = appRows[0];
+
+    // Convenience only — pre-fill branch and owner from the loan, but
+    // never overwrite a value the officer already typed; collateral
+    // owner doesn't have to be the borrower (e.g. third-party collateral).
+    if (app.branch_id) {
+      const sel = document.getElementById('collateralBranchId');
+      if (sel && !sel.value) sel.value = app.branch_id;
+    }
+    const ownerEl = document.getElementById('collateralOwnerId');
+    if (app.client_id && ownerEl && !ownerEl.value) {
+      ownerEl.value = app.client_id;
+      lookupOwner();
+    }
+
+    document.getElementById('collateralApplicationId')?.classList.remove('input-invalid');
+    toast(`Application ${appId} found.`, 'success');
+  } catch (e) {
+    toast('Application lookup error: ' + e.message, 'error');
+  }
+}
+document.getElementById('btnLookupApplication')?.addEventListener('click', lookupApplication);
+document.getElementById('collateralApplicationId')?.addEventListener('keydown', e => { if (e.key === 'Enter') lookupApplication(); });
+
 /* ── View / Lookup ─────────────────────────────────────── */
 async function viewRecord() {
   const collateralId = getField('collateralId');
@@ -188,6 +256,7 @@ async function viewRecord() {
     if (rows && rows[0]) {
       recordToForm(rows[0]);
       if (rows[0].owner_id) lookupOwner();
+      if (rows[0].application_id) document.getElementById('collateralApplicationId')?.classList.remove('input-invalid');
       toast(`Record loaded: ${collateralId}`);
       setMode('view');
     } else {
@@ -224,6 +293,32 @@ async function saveRecord() {
   } catch (e) {
     toast('Could not verify owner before saving: ' + e.message, 'error');
     return;
+  }
+
+  // NEW: application_id is optional (collateral can be lodged before
+  // assignment to a loan — see assigned_date), so this only validates
+  // when a value is present. Same pattern as the owner_id check above.
+  if (rec.application_id) {
+    if (sb) sb.textContent = 'Verifying application…';
+    try {
+      let appCheck = await sbFetch(
+        `loanapplications?application_id=eq.${encodeURIComponent(rec.application_id)}&select=application_id&limit=1`
+      );
+      if (!appCheck || !appCheck[0]) {
+        appCheck = await sbFetch(
+          `loanmasterrecords?application_id=eq.${encodeURIComponent(rec.application_id)}&select=application_id&limit=1`
+        );
+      }
+      if (!appCheck || !appCheck[0]) {
+        toast(`Application "${rec.application_id}" not found — cannot link collateral to it.`, 'error');
+        document.getElementById('collateralApplicationId')?.focus();
+        if (sb) sb.textContent = 'Blocked — application not found.';
+        return;
+      }
+    } catch (e) {
+      toast('Could not verify application before saving: ' + e.message, 'error');
+      return;
+    }
   }
 
   if (sb) sb.textContent = 'Saving…';
