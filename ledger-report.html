@@ -1,711 +1,629 @@
-/* ═══════════════════════════════════════════════════════════
-   Africa Village Microfinance — 11 Loan Ledger Report
-   ledger-report.js  v1.0
-   Dual-mode:
-     A) Load from DB  — reads loan_ledger table by account_number
-     B) Generate      — builds projection locally (amortization engine)
-   Views: Account Statement | Internal Accounting Ledger | Amortization Schedule
-═══════════════════════════════════════════════════════════ */
-
-'use strict';
-
-const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
-
-/* ── Raw REST fetch (used for all Supabase reads on this page) */
-async function sbFetch(path, opts = {}) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...opts,
-    headers: {
-      'apikey':        SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      'Content-Type':  'application/json',
-      'Prefer':        opts.prefer || 'return=representation',
-      ...(opts.headers || {})
-    }
-  });
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    let msg = 'HTTP ' + res.status;
-    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
-    throw new Error(msg);
-  }
-  if (res.status === 204) return null;
-  const body = await res.text();
-  if (!body || !body.trim()) return null;
-  try { return JSON.parse(body); } catch { return null; }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AVMF — 11 Loan Ledger Report</title>
+<link rel="stylesheet" href="style2.css"/>
+<style>
+/* ── Ledger Report Styles (scoped inside .ledger-wrap) ── */
+.ledger-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  overflow: hidden;
 }
 
-/* ── Toast ─────────────────────────────────────────────── */
-const toastEl = document.getElementById('toastNotification');
-let _toastTimer = null;
-function toast(msg, type = '', duration = 3500) {
-  if (!toastEl) return;
-  toastEl.textContent = msg;
-  toastEl.className = `toast show ${type}`;
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => { toastEl.className = 'toast'; }, duration);
+/* ── Search / Identity Bar ──────────────────────────── */
+.ledger-identity-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--color-background-secondary, #f5f6f8);
+  border: 0.5px solid var(--color-border-tertiary, #e0e2e7);
+  border-radius: var(--border-radius-md, 6px);
+  flex-shrink: 0;
+}
+.ledger-id-field { display: flex; flex-direction: column; gap: 4px; }
+.ledger-id-field label { font-size: 11px; font-weight: 500; color: var(--color-text-secondary, #666); text-transform: uppercase; letter-spacing: .04em; }
+.ledger-id-field input, .ledger-id-field select {
+  height: 30px;
+  padding: 0 8px;
+  border: 0.5px solid var(--color-border-secondary, #c8ccd4);
+  border-radius: var(--border-radius-sm, 4px);
+  font-size: 13px;
+  background: var(--color-background-primary, #fff);
+  color: var(--color-text-primary, #111);
+  font-family: var(--font-mono, monospace);
+}
+.ledger-id-field input:focus, .ledger-id-field select:focus {
+  outline: none;
+  border-color: var(--color-primary, #1b5199);
+}
+.ledger-id-field.wide input { min-width: 200px; }
+.btn-fetch {
+  height: 30px;
+  padding: 0 14px;
+  background: linear-gradient(to bottom, var(--navy-600, #1b5199), var(--navy-800, #0f3068));
+  color: #fff;
+  border: none;
+  border-radius: var(--border-radius-sm, 4px);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  align-self: flex-end;
+}
+.btn-fetch:hover { opacity: .9; }
+.btn-fetch:disabled { opacity: .5; cursor: not-allowed; }
+.btn-generate-local {
+  height: 30px;
+  padding: 0 14px;
+  background: linear-gradient(to bottom, #e69c24, #ba7c0f);
+  color: #1a1a1a;
+  border: none;
+  border-radius: var(--border-radius-sm, 4px);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  align-self: flex-end;
+}
+.btn-generate-local:hover { opacity: .9; }
+.ledger-id-sep {
+  width: 1px; height: 30px;
+  background: var(--color-border-tertiary, #e0e2e7);
+  align-self: flex-end;
+  flex-shrink: 0;
 }
 
-/* ── System Date ───────────────────────────────────────── */
-(function() {
-  const el = document.getElementById('systemDate');
-  if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
-    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
-  });
-  document.getElementById('lrStartDate').valueAsDate = new Date();
-})();
+/* ── Account Card ───────────────────────────────────── */
+.acct-card {
+  display: flex;
+  align-items: stretch;
+  background: linear-gradient(135deg, var(--navy-900, #0d1f3c) 0%, var(--navy-700, #163162) 60%, #1e4d8c 100%);
+  border-radius: var(--border-radius-lg, 8px);
+  padding: 12px 16px;
+  gap: 20px;
+  flex-shrink: 0;
+}
+.acct-card-left { display: flex; flex-direction: column; gap: 3px; min-width: 180px; }
+.acct-badge { font-size: 9px; font-weight: 700; color: #e69c24; letter-spacing: .12em; text-transform: uppercase; }
+.acct-number { font-size: 18px; font-weight: 700; color: #fff; font-family: var(--font-mono, monospace); letter-spacing: .06em; }
+.acct-borrower { font-size: 12px; color: rgba(255,255,255,.7); margin-top: 2px; }
+.acct-card-right { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; align-items: center; }
+.acct-meta { display: flex; flex-direction: column; gap: 2px; }
+.acct-meta-label { font-size: 9px; color: rgba(255,255,255,.5); text-transform: uppercase; letter-spacing: .06em; }
+.acct-meta-value { font-size: 12px; color: #fff; font-weight: 500; }
+.status-pill {
+  font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 99px;
+  background: rgba(255,255,255,.15); color: #fff;
+}
+.status-pill.performing { background: #16a34a22; color: #86efac; border: 1px solid #16a34a66; }
+.status-pill.watchlist  { background: #d9770622; color: #fcd34d; border: 1px solid #d9770666; }
+.status-pill.defaulted  { background: #dc262622; color: #fca5a5; border: 1px solid #dc262666; }
+.status-pill.closed     { background: rgba(255,255,255,.1); color: rgba(255,255,255,.6); }
 
-/* ── Formatters ────────────────────────────────────────── */
-function fmt(val, brackets = true) {
-  if (val === null || val === undefined || val === '' || val === 0) return '—';
-  const abs = Math.abs(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  if (val < 0 && brackets) return `(${abs})`;
-  if (val < 0 && !brackets) return `–${abs}`;
-  return abs;
+/* ── KPI Bar ────────────────────────────────────────── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  flex-shrink: 0;
+}
+.kpi-tile {
+  background: var(--color-background-primary, #fff);
+  border: 0.5px solid var(--color-border-tertiary, #e0e2e7);
+  border-radius: var(--border-radius-md, 6px);
+  padding: 8px 12px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.kpi-tile-label { font-size: 10px; color: var(--color-text-secondary, #666); text-transform: uppercase; letter-spacing: .05em; }
+.kpi-tile-value { font-size: 15px; font-weight: 600; color: var(--color-text-primary, #111); font-family: var(--font-mono, monospace); }
+.kpi-tile-value.orange { color: #b45309; }
+.kpi-tile-value.red    { color: #dc2626; }
+.kpi-tile-value.green  { color: #16a34a; }
+.kpi-tile-value.blue   { color: #1b5199; }
+
+/* ── Tab Bar ────────────────────────────────────────── */
+.ledger-tab-bar {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border-tertiary, #e0e2e7);
+  gap: 0;
+  flex-shrink: 0;
+}
+.ltab {
+  font-size: 12px; font-weight: 500;
+  padding: 7px 16px;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.ltab.active { color: var(--navy-700, #1b5199); border-bottom-color: var(--navy-700, #1b5199); font-weight: 600; }
+.ltab:hover:not(.active) { color: var(--color-text-primary, #111); background: var(--color-background-secondary, #f5f6f8); }
+.ltab-actions { margin-left: auto; display: flex; gap: 6px; padding-right: 4px; }
+.btn-export, .btn-print-rpt {
+  font-size: 11px; padding: 4px 10px;
+  border-radius: var(--border-radius-sm, 4px);
+  cursor: pointer; border: 0.5px solid var(--color-border-secondary, #c8ccd4);
+  background: var(--color-background-primary, #fff);
+  color: var(--color-text-secondary, #666);
+}
+.btn-export:hover, .btn-print-rpt:hover { background: var(--color-background-secondary, #f5f6f8); }
+
+/* ── Tab Panels ─────────────────────────────────────── */
+.ledger-panels { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.lpanel { display: none; flex: 1; overflow: auto; flex-direction: column; }
+.lpanel.active { display: flex; }
+
+/* ── Report header ──────────────────────────────────── */
+.rpt-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 8px 4px 6px;
+  flex-shrink: 0;
+}
+.rpt-title { font-size: 13px; font-weight: 600; color: var(--color-text-primary, #111); }
+.rpt-sub   { font-size: 11px; color: var(--color-text-secondary, #666); margin-top: 2px; }
+.rpt-legend { display: flex; gap: 12px; align-items: center; }
+.leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--color-text-secondary, #666); }
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.leg-dot.green  { background: #16a34a; }
+.leg-dot.red    { background: #dc2626; }
+.leg-dot.orange { background: #d97706; }
+
+/* ── Audit notice ───────────────────────────────────── */
+.audit-note {
+  font-size: 11px; color: #92400e;
+  background: #fffbeb; border: 0.5px solid #fde68a;
+  border-radius: var(--border-radius-sm, 4px);
+  padding: 6px 10px; margin: 0 0 6px;
+  flex-shrink: 0;
 }
 
-function fmtDate(dateStr) {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-');
+/* ── Data Table ─────────────────────────────────────── */
+.tbl-wrap { overflow: auto; flex: 1; }
+.rpt-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 11.5px;
 }
-
-function toISO(d) { return d.toISOString().split('T')[0]; }
-function lastDayOfMonth(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
-function escapeHtml(str) {
-  if (str === null || str === undefined) return '';
-  const div = document.createElement('div');
-  div.textContent = String(str);
-  return div.innerHTML;
+.rpt-table th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--color-background-secondary, #f5f6f8);
+  border-bottom: 1px solid var(--color-border-secondary, #c8ccd4);
+  padding: 6px 8px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--color-text-secondary, #666);
+  white-space: nowrap;
 }
-
-/* ── Cached rows ───────────────────────────────────────── */
-let _rows = [];
-let _scheduleRows = [];
-
-/* ══════════════════════════════════════════════════════════
-   MODE A — Load from DB
-   Search order:
-     1. loanmasterrecords by application_id or client_id
-        → get the canonical application_id
-     2. loan_ledger by application_id (CBS pipeline key)
-     3. fall back to loan_ledger by account_number (legacy)
-     4. fall back to amortization_schedules if no ledger rows
-══════════════════════════════════════════════════════════ */
-async function loadFromDB() {
-  const searchVal = document.getElementById('lrSearchId').value.trim();
-  if (!searchVal) { toast('Enter an Application ID or Client ID to search.', 'warning'); return; }
-
-  setSB('Searching CBS records…');
-  toast('Searching…', '');
-
-  let lmrRecord = null;
-
-  // Step 1: look up loanmasterrecords by application_id OR client_id
-  try {
-    // Try application_id first (exact match)
-    let rows = await sbFetch(
-      `loanmasterrecords?application_id=eq.${encodeURIComponent(searchVal)}&limit=1`
-    );
-    if (!rows || !rows[0]) {
-      // Try client_id — returns most recent loan for that client
-      rows = await sbFetch(
-        `loanmasterrecords?client_id=eq.${encodeURIComponent(searchVal)}&order=application_id.desc&limit=1`
-      );
-    }
-    if (rows && rows[0]) {
-      lmrRecord = rows[0];
-      enrichHeaderFromRecord(lmrRecord);
-    }
-  } catch (e) {
-    console.warn('loanmasterrecords lookup failed:', e.message);
-  }
-
-  const appId      = lmrRecord?.application_id || searchVal;
-  const acctNumber = lmrRecord?.account_number  || searchVal;
-
-  // Step 2: fetch loan_ledger by application_id (CBS pipeline rows)
-  let data, error = null;
-  try {
-    data = await sbFetch(
-      `loan_ledger?application_id=eq.${encodeURIComponent(appId)}&order=id.asc`
-    ) || [];
-  } catch (e) {
-    error = e;
-  }
-
-  // Step 3: fall back to account_number (legacy standalone tool rows)
-  if (!error && (!data || data.length === 0) && acctNumber !== appId) {
-    try {
-      data = await sbFetch(
-        `loan_ledger?account_number=eq.${encodeURIComponent(acctNumber)}&order=id.asc`
-      ) || [];
-    } catch (e) {
-      error = e;
-    }
-  }
-
-  // Step 4: fall back to amortization_schedules if still empty
-  if (!data || data.length === 0) {
-    try {
-      const schedRows = await sbFetch(
-        `amortization_schedules?application_id=eq.${encodeURIComponent(appId)}&order=installment_no.asc`
-      );
-      if (schedRows && schedRows.length > 0) {
-        toast(`No ledger rows yet — showing amortization schedule (${schedRows.length} installments).`, 'warning');
-        _scheduleRows = schedRows.map((r, i) => ({
-          no:        r.installment_no || i + 1,
-          due_date:  r.due_date,
-          opening:   0,  // not stored in amortization_schedules
-          principal: parseFloat(r.principal_due) || 0,
-          interest:  parseFloat(r.interest_due)  || 0,
-          total_due: (parseFloat(r.principal_due) || 0) + (parseFloat(r.interest_due) || 0),
-          closing:   0,
-          status:    r.status || 'UNPAID'
-        }));
-        _rows = [];
-        renderSchedule(_scheduleRows);
-        showReportTab('schedule');
-        setSB(`No ledger rows — showing amortization schedule for ${appId}`);
-        return;
-      }
-    } catch(e) { console.warn('amortization_schedules fallback failed:', e.message); }
-
-    toast(`No ledger data found for "${searchVal}". Disburse the loan first (Module 10).`, 'warning');
-    setSB('No data found — loan may not be disbursed yet.');
-    return;
-  }
-
-  if (error) { toast('DB error: ' + error.message, 'error'); setSB('Load failed.'); return; }
-
-  // Reconstruct row_type from description (stripped before DB insert).
-  // FIX: this previously checked for 'Loan Disbursement', 'Admin /
-  // Processing Fee', 'Late Penalty Fee' — those are the LOCAL SIMULATOR's
-  // synthetic conventions (see buildLedgerRows() below), not what the
-  // real post_loan_disbursement/post_loan_repayment RPCs actually write.
-  // Real disbursement rows say just 'Disbursement'. Real repayment rows
-  // say 'Repayment' (optionally '— <mode>') — there's no separate fee/
-  // penalty ROW at all in the live schema; those are COLUMNS
-  // (charges_penalties) on the same repayment row, not distinct rows.
-  // Getting this wrong meant row_type never actually equaled
-  // 'disbursement' for any real loan, which silently broke the "Total
-  // Principal" exclusion further down (see updateKPI/renderStatement/
-  // renderLedger) — the full disbursed amount was being counted as
-  // "principal paid" on every real loan's report.
-  _rows = data.map(r => ({
-    ...r,
-    row_type: r.description === 'Disbursement' ? 'disbursement' : 'installment'
-  }));
-
-  _scheduleRows = buildScheduleFromRows(_rows);
-
-  updateHeaderDisplay();
-  updateKPI(_rows);
-  renderStatement(_rows);
-  renderLedger(_rows);
-  renderSchedule(_scheduleRows);
-  showReports();
-  setSB(`Loaded ${_rows.length} ledger entries for ${appId}`);
-  toast(`${_rows.length} rows loaded.`, 'success');
+.rpt-table th.r, .rpt-table td.r { text-align: right; }
+.rpt-table td {
+  padding: 5px 8px;
+  border-bottom: 0.5px solid var(--color-border-tertiary, #e0e2e7);
+  color: var(--color-text-primary, #111);
+  white-space: nowrap;
 }
-
-function enrichHeaderFromRecord(rec) {
-  // Populate account card and params panel from loanmasterrecords
-  const borrowerEl = document.getElementById('lrBorrowerName');
-  if (rec.client_name && borrowerEl && !borrowerEl.value)
-    borrowerEl.value = rec.client_name;
-
-  // Show application_id as the reference in account card
-  const acctNoEl = document.getElementById('lrAccountNo');
-  if (acctNoEl) acctNoEl.value = rec.application_id || '';
-
-  if (rec.disbursement_date || rec.application_date)
-    document.getElementById('lrStartDate').value = rec.disbursement_date || rec.application_date;
-  if (rec.interest_rate)
-    document.getElementById('lrRate').value = rec.interest_rate;
-  if (rec.term_months)
-    document.getElementById('lrTerm').value = rec.term_months;
-  if (rec.applied_amount || rec.sanction_amount)
-    document.getElementById('lrAmount').value = rec.applied_amount || rec.sanction_amount;
-  if (rec.application_status)
-    document.getElementById('lrStatus').value =
-      rec.application_status === 'Disbursed' ? 'Active-Performing' :
-      rec.application_status === 'Closed'    ? 'Closed' :
-      rec.application_status === 'WrittenOff'? 'Defaulted' : 'Active-Performing';
+.rpt-table tr:hover td { background: var(--color-background-secondary, #f5f6f8); }
+.rpt-table tr.row-disburse td { background: #eff6ff; }
+.rpt-table tr.row-fee       td { background: #fefce8; }
+.rpt-table tr.row-penalty   td { background: #fff1f2; }
+.rpt-table tfoot td {
+  font-weight: 600;
+  border-top: 1px solid var(--color-border-secondary, #c8ccd4);
+  border-bottom: none;
+  background: var(--color-background-secondary, #f5f6f8);
+  padding: 6px 8px;
 }
-
-/* ══════════════════════════════════════════════════════════
-   MODE B — Generate Projection (local amortization engine)
-══════════════════════════════════════════════════════════ */
-function runProjection() {
-  const accountNo   = document.getElementById('lrAccountNo').value.trim() || 'PROJ-PREVIEW';
-  const borrower    = document.getElementById('lrBorrowerName').value.trim() || 'Unnamed Borrower';
-  const product     = document.getElementById('lrProduct').value;
-  const amount      = parseFloat(document.getElementById('lrAmount').value);
-  const annualRate  = parseFloat(document.getElementById('lrRate').value) / 100;
-  const totalMonths = parseInt(document.getElementById('lrTerm').value);
-  const startDateStr = document.getElementById('lrStartDate').value;
-  const frequency   = document.getElementById('lrFrequency').value;
-  const graceDays   = parseInt(document.getElementById('lrGracePeriod').value) || 5;
-  const flatPenalty = parseFloat(document.getElementById('lrFlatPenalty').value) || 150;
-  const initAccrued = parseFloat(document.getElementById('lrInitialAccrued').value) || 0;
-  const inclFee     = document.getElementById('lrIncludeFee').checked;
-  const simLate     = document.getElementById('lrSimulateLate').checked;
-
-  if (!amount || !totalMonths || !startDateStr) {
-    toast('Fill in Amount, Term, and Disbursement Date first.', 'warning'); return;
-  }
-
-  const startDate = new Date(startDateStr + 'T00:00:00');
-
-  _rows = buildLedgerRows({
-    accountNumber: accountNo, borrowerName: borrower, selectedProduct: product,
-    amount, startDate, annualRate, totalMonths, frequency,
-    gracePeriodDays: graceDays, flatPenaltyFee: flatPenalty,
-    initialAccruedInterest: initAccrued,
-    includeProcessingFee: inclFee, simulateLatePayment: simLate
-  });
-
-  _scheduleRows = buildScheduleFromRows(_rows);
-
-  updateHeaderDisplay();
-  updateKPI(_rows);
-  renderStatement(_rows);
-  renderLedger(_rows);
-  renderSchedule(_scheduleRows);
-  showReports();
-  setSB(`Projection generated — ${_rows.length} entries`);
-  toast('Projection generated.', 'success');
+.ref-code {
+  font-family: var(--font-mono, monospace);
+  font-size: 10.5px;
+  background: var(--color-background-secondary, #f5f6f8);
+  padding: 1px 5px; border-radius: 3px;
 }
+.val-neg  { color: #dc2626; }
+.val-pos  { color: #16a34a; }
+.val-bal  { font-weight: 600; font-family: var(--font-mono, monospace); }
+.val-accrual { color: #b45309; }
 
-/* ── Amortization Engine (ported from script.js) ─────── */
-function buildLedgerRows(p) {
-  const { accountNumber, borrowerName, selectedProduct, amount, startDate,
-          annualRate, totalMonths, frequency, gracePeriodDays, flatPenaltyFee,
-          initialAccruedInterest, includeProcessingFee, simulateLatePayment } = p;
-
-  const isoDisburse = toISO(startDate);
-  const rows = [];
-
-  rows.push({
-    row_type: 'disbursement',
-    account_number: accountNumber, borrower_name: borrowerName,
-    post_date: isoDisburse, value_date: isoDisburse,
-    description: 'Loan Disbursement', ref_batch: 'DSB-B001',
-    principal: amount, interest: 0, charges_penalties: 0,
-    accrued_interest_receivable: initialAccruedInterest,
-    total_paid: 0, accrued_unpaid_interest: null, running_balance: amount
-  });
-
-  const PROCESSING_FEE_AMOUNT = 1000;
-
-  if (includeProcessingFee) {
-    rows.push({
-      row_type: 'fee',
-      account_number: accountNumber, borrower_name: borrowerName,
-      post_date: isoDisburse, value_date: isoDisburse,
-      description: 'Admin / Processing Fee', ref_batch: 'SYS-FEE01',
-      principal: 0, interest: 0, charges_penalties: PROCESSING_FEE_AMOUNT,
-      accrued_interest_receivable: 0, total_paid: 0,
-      accrued_unpaid_interest: null, running_balance: amount
-    });
-  }
-
-  let intervals     = totalMonths;
-  let ratePerPeriod = annualRate / 12;
-  let monthStep     = 1;
-  if (frequency === 'yearly') {
-    intervals = Math.max(1, Math.round(totalMonths / 12));
-    ratePerPeriod = annualRate;
-    monthStep = 12;
-  }
-
-  const emi = ratePerPeriod === 0
-    ? amount / intervals
-    : (amount * ratePerPeriod * Math.pow(1 + ratePerPeriod, intervals))
-      / (Math.pow(1 + ratePerPeriod, intervals) - 1);
-
-  let currentBalance = amount;
-  let calcDate       = new Date(startDate);
-  const firstUnpaid  = initialAccruedInterest - (includeProcessingFee ? PROCESSING_FEE_AMOUNT : 0);
-
-  for (let i = 1; i <= intervals; i++) {
-    calcDate.setMonth(calcDate.getMonth() + monthStep);
-    const periodEnd    = lastDayOfMonth(calcDate);
-    const isoValueDate = toISO(periodEnd);
-
-    let interest  = currentBalance * ratePerPeriod;
-    let principal = emi - interest;
-    currentBalance -= principal;
-    if (i === intervals) { principal += currentBalance; currentBalance = 0; }
-
-    const refLabel  = frequency === 'yearly' ? `YRT-${100+i}` : `RCPT-0${41+i}`;
-    const descLabel = frequency === 'yearly' ? `Yearly Installment ${i}` : `Monthly Installment ${i}`;
-
-    if (i === 1 && simulateLatePayment) {
-      const actualPayDate = new Date(periodEnd);
-      actualPayDate.setDate(actualPayDate.getDate() + 15);
-      const daysOverdue = Math.round((actualPayDate - periodEnd) / 86400000);
-      if (daysOverdue > gracePeriodDays) {
-        const penaltyDate = new Date(periodEnd.getFullYear(), periodEnd.getMonth() + 1, 15);
-        const balAtPenalty = parseFloat(currentBalance.toFixed(2)) + parseFloat(principal.toFixed(2));
-        rows.push({
-          row_type: 'penalty',
-          account_number: accountNumber, borrower_name: borrowerName,
-          post_date: toISO(penaltyDate), value_date: toISO(penaltyDate),
-          description: 'Late Penalty Fee', ref_batch: 'JRNL-102',
-          principal: 0, interest: 0, charges_penalties: flatPenaltyFee,
-          accrued_interest_receivable: 0, total_paid: flatPenaltyFee,
-          accrued_unpaid_interest: null,
-          running_balance: parseFloat(balAtPenalty.toFixed(2))
-        });
-      }
-    }
-
-    rows.push({
-      row_type: 'installment',
-      account_number: accountNumber, borrower_name: borrowerName,
-      post_date: isoValueDate, value_date: isoValueDate,
-      description: descLabel, ref_batch: refLabel,
-      principal: parseFloat((-principal).toFixed(2)),
-      interest: parseFloat((-interest).toFixed(2)),
-      charges_penalties: 0, accrued_interest_receivable: 0,
-      total_paid: parseFloat(emi.toFixed(2)),
-      accrued_unpaid_interest: i === 1 ? parseFloat(firstUnpaid.toFixed(2)) : null,
-      running_balance: parseFloat(Math.max(0, currentBalance).toFixed(2))
-    });
-  }
-  return rows;
+/* ── Empty / Loading States ─────────────────────────── */
+.ledger-empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 8px; color: var(--color-text-secondary, #666);
 }
+.ledger-empty .empty-icon { font-size: 32px; opacity: .4; }
+.ledger-empty .empty-title { font-size: 14px; font-weight: 500; }
+.ledger-empty .empty-sub { font-size: 12px; text-align: center; max-width: 320px; }
 
-/* Build amortization schedule rows from ledger rows */
-function buildScheduleFromRows(rows) {
-  const installments = rows.filter(r => r.row_type === 'installment');
-  let opening = 0;
-  // Opening balance = disbursement row principal
-  const disbRow = rows.find(r => r.row_type === 'disbursement');
-  if (disbRow) opening = disbRow.principal;
-
-  return installments.map((r, i) => {
-    const principal = Math.abs(r.principal);
-    const interest  = Math.abs(r.interest);
-    const total     = principal + interest;
-    const closing   = r.running_balance;
-    const row = {
-      no:       i + 1,
-      due_date: r.value_date,
-      opening:  parseFloat(opening.toFixed(2)),
-      principal: parseFloat(principal.toFixed(2)),
-      interest:  parseFloat(interest.toFixed(2)),
-      total_due: parseFloat(total.toFixed(2)),
-      closing:   parseFloat(closing.toFixed(2)),
-      status:    closing <= 0 ? 'PAID' : 'UNPAID'
-    };
-    opening = closing;
-    return row;
-  });
+/* ── Loan params panel (manual generation) ──────────── */
+.loan-params-panel {
+  display: none;
+  background: var(--color-background-secondary, #f5f6f8);
+  border: 0.5px solid var(--color-border-tertiary, #e0e2e7);
+  border-radius: var(--border-radius-md, 6px);
+  padding: 12px 14px;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
 }
-
-/* ── Update header / account card ───────────────────────── */
-function updateHeaderDisplay() {
-  const acctNo  = document.getElementById('lrAccountNo').value  || '—';
-  const borrow  = document.getElementById('lrBorrowerName').value || '—';
-  const product = document.getElementById('lrProduct').value    || '—';
-  const status  = document.getElementById('lrStatus').value     || 'Active-Performing';
-  const amount  = parseFloat(document.getElementById('lrAmount').value) || 0;
-  const rate    = document.getElementById('lrRate').value        || '—';
-  const term    = document.getElementById('lrTerm').value        || '—';
-  const startD  = document.getElementById('lrStartDate').value   || '';
-  const freq    = document.getElementById('lrFrequency').value   || 'monthly';
-
-  document.getElementById('lrDisplayAcctNo').textContent  = acctNo;
-  document.getElementById('lrDisplayBorrower').textContent = borrow;
-  document.getElementById('lrDisplayProduct').textContent  = product;
-  document.getElementById('lrDisplayDate').textContent     = startD ? fmtDate(startD) : '—';
-  document.getElementById('lrDisplayBalance').textContent  = amount ? fmt(amount) + ' ETB' : '—';
-  document.getElementById('lrDisplayRate').textContent     = rate ? `${rate}% p.a.` : '—';
-  document.getElementById('lrDisplayTerm').textContent     = term ? `${term} mo (${freq})` : '—';
-  document.getElementById('lrRptAcctNo').textContent       = acctNo;
-
-  const pill = document.getElementById('lrDisplayStatus');
-  const statusLabel = status.replace('-', ' – ');
-  pill.textContent = statusLabel;
-  pill.className = 'status-pill';
-  if (status === 'Active-Performing') pill.classList.add('performing');
-  else if (status === 'Active-Watchlist') pill.classList.add('watchlist');
-  else if (status === 'Defaulted')  pill.classList.add('defaulted');
-  else pill.classList.add('closed');
+.loan-params-panel.visible { display: flex; }
+.lpf { display: flex; flex-direction: column; gap: 3px; min-width: 110px; }
+.lpf label { font-size: 10px; font-weight: 500; color: var(--color-text-secondary, #666); text-transform: uppercase; letter-spacing: .04em; }
+.lpf input, .lpf select {
+  height: 28px; padding: 0 7px;
+  border: 0.5px solid var(--color-border-secondary, #c8ccd4);
+  border-radius: var(--border-radius-sm, 4px);
+  font-size: 12px;
+  background: var(--color-background-primary, #fff);
+  color: var(--color-text-primary, #111);
 }
+.lpf.wide input { min-width: 160px; }
 
-/* ── KPI ────────────────────────────────────────────────── */
-function updateKPI(rows) {
-  let principal = 0, interest = 0, penalties = 0, paid = 0, closing = 0;
-  rows.forEach(r => {
-    if (r.row_type === 'disbursement') principal = r.principal;
-    if ((r.interest || 0) < 0) interest += Math.abs(r.interest);
-    if ((r.charges_penalties || 0) > 0) penalties += r.charges_penalties;
-    if ((r.total_paid || 0) > 0) paid += r.total_paid;
-    closing = r.running_balance;
-  });
-  document.getElementById('lrKpiPrincipal').textContent = fmt(principal) + ' ETB';
-  document.getElementById('lrKpiInterest').textContent  = fmt(interest)  + ' ETB';
-  document.getElementById('lrKpiPenalties').textContent = fmt(penalties) + ' ETB';
-  document.getElementById('lrKpiPaid').textContent      = fmt(paid)      + ' ETB';
-  document.getElementById('lrKpiBalance').textContent   = fmt(closing)   + ' ETB';
-  document.getElementById('lrKpiRow').style.display = 'grid';
+@media print {
+  .sidebar, .action-sidebar, .title-bar, .ledger-identity-bar,
+  .ltab-actions, .ledger-tab-bar, .loan-params-panel { display: none !important; }
+  .acct-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+</style>
+</head>
+<body>
 
-/* ── Render: Account Statement ──────────────────────────── */
-function renderStatement(rows) {
-  const tbody = document.getElementById('tbodyStatement');
-  const tfoot = document.getElementById('tfootStatement');
-  tbody.innerHTML = ''; tfoot.innerHTML = '';
-  let totP = 0, totI = 0, totC = 0;
+<!-- Live dashboard shown behind this window as the desktop backdrop -->
+<div class="desktop-backdrop">
+  <iframe src="indexll.html" title="AVMF Dashboard"></iframe>
+</div>
 
-  rows.forEach(r => {
-    const tr = document.createElement('tr');
-    if (r.row_type === 'disbursement') tr.classList.add('row-disburse');
-    if (r.row_type === 'fee')          tr.classList.add('row-fee');
-    if (r.row_type === 'penalty')      tr.classList.add('row-penalty');
-    if (r.row_type !== 'disbursement') totP += (r.principal || 0);
-    totI += (r.interest || 0);
-    totC += (r.charges_penalties || 0);
+<div class="window-container">
 
-    tr.innerHTML = `
-      <td>${fmtDate(r.post_date)}</td>
-      <td>${fmtDate(r.value_date)}</td>
-      <td><span class="ref-code">${escapeHtml(r.ref_batch)}</span></td>
-      <td>${escapeHtml(r.description)}</td>
-      <td class="r ${r.principal > 0 ? 'val-pos' : r.principal < 0 ? 'val-neg' : ''}">${fmt(r.principal)}</td>
-      <td class="r ${r.interest < 0 ? 'val-neg' : ''}">${fmt(r.interest)}</td>
-      <td class="r">${r.charges_penalties > 0 ? fmt(r.charges_penalties) : '—'}</td>
-      <td class="r val-bal">${fmt(r.running_balance, false)}</td>
-    `;
-    tbody.appendChild(tr);
-  });
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <svg class="header-logo-svg" viewBox="0 0 100 100">
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
+        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
+        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
+        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
+        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+      </svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance</span>
+        <span class="title-sub">11 — Loan Ledger &amp; Amortization Report</span>
+      </div>
+    </div>
+    <div class="title-meta">
+      <span id="systemDate" class="title-date"></span>
+      <span class="title-user">👤 Loan Officer</span>
+    </div>
+    <div class="window-controls">
+      <span id="wcMinimize" title="Minimize" onclick="toggleMinimize()">─</span>
+      <span id="wcMaximize" title="Maximize" onclick="toggleMaximize()">▢</span>
+      <span title="Close" class="wc-close" onclick="window.location='indexll.html'">✕</span>
+    </div>
+  </div>
 
-  tfoot.innerHTML = `<tr>
-    <td colspan="4" style="text-align:right;">TOTALS</td>
-    <td class="r">${fmt(totP)}</td>
-    <td class="r">${fmt(totI)}</td>
-    <td class="r">${totC > 0 ? fmt(totC) : '—'}</td>
-    <td class="r">—</td>
-  </tr>`;
-}
+  <div class="workspace">
 
-/* ── Render: Internal Accounting Ledger ─────────────────── */
-function renderLedger(rows) {
-  const tbody = document.getElementById('tbodyLedger');
-  const tfoot = document.getElementById('tfootLedger');
-  tbody.innerHTML = ''; tfoot.innerHTML = '';
-  let totP = 0, totI = 0, totC = 0, totPaid = 0;
+    <!-- ── Left Navigation Sidebar (Category View) ──────── -->
+    <div class="sidebar">
+      <div class="sidebar-header" style="cursor: pointer; background: var(--navy-900);" title="Return to Dashboard" onclick="window.location='indexll.html'">
+        🏠 Main Dashboard
+      </div>
+      <ul class="nav-menu">
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🌐</span><a href="indexll.html" class="nav-label">All Modules</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📋</span><a href="indexll.html" class="nav-label">Credit Operations</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">💰</span><a href="indexll.html" class="nav-label">Financials & Ledger</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🛡️</span><a href="indexll.html" class="nav-label">Risk & Collateral</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🏧</span><a href="indexll.html" class="nav-label">Teller & Cash</a></li>
+        <li class="active"><span class="nav-num" style="background:none;font-size:14px;padding:0;">📊</span><a href="indexll.html" class="nav-label">Reports</a></li>
+      </ul>
+      <div class="sidebar-footer-brand">
+        <svg viewBox="0 0 100 100" width="28" height="28">
+          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
+        </svg>
+        <span>AVMF CBS v2.0</span>
+      </div>
+    </div>
 
-  rows.forEach(r => {
-    const tr = document.createElement('tr');
-    if (r.row_type === 'disbursement') tr.classList.add('row-disburse');
-    if (r.row_type === 'fee')          tr.classList.add('row-fee');
-    if (r.row_type === 'penalty')      tr.classList.add('row-penalty');
-    if (r.row_type !== 'disbursement') totP += (r.principal || 0);
-    totI    += (r.interest || 0);
-    totC    += (r.charges_penalties || 0);
-    totPaid += (r.total_paid || 0);
+    <div class="main-content">
+      <div class="module-view active" id="view-ledger-report">
+        <div class="context-badge-bar">
+          <span class="badge-icon">📊</span>
+          Loan Ledger — Account Statement &amp; Internal Accounting Ledger
+        </div>
 
-    tr.innerHTML = `
-      <td>${fmtDate(r.value_date)}</td>
-      <td>${escapeHtml(r.description)}</td>
-      <td><span class="ref-code">${escapeHtml(r.ref_batch)}</span></td>
-      <td class="r ${r.principal < 0 ? 'val-neg' : r.principal > 0 ? 'val-pos' : ''}">${fmt(r.principal)}</td>
-      <td class="r ${r.interest < 0 ? 'val-neg' : ''}">${fmt(r.interest)}</td>
-      <td class="r">${r.charges_penalties > 0 ? fmt(r.charges_penalties) : '—'}</td>
-      <td class="r val-accrual">${r.accrued_interest_receivable > 0 ? fmt(r.accrued_interest_receivable, false) : '—'}</td>
-      <td class="r val-pos">${r.total_paid > 0 ? fmt(r.total_paid, false) : '—'}</td>
-      <td class="r" style="color:#b45309;">${r.accrued_unpaid_interest != null ? fmt(r.accrued_unpaid_interest, false) : '—'}</td>
-      <td class="r val-bal">${fmt(r.running_balance, false)}</td>
-    `;
-    tbody.appendChild(tr);
-  });
+        <div class="ledger-wrap">
 
-  tfoot.innerHTML = `<tr>
-    <td colspan="3" style="text-align:right;">TOTALS</td>
-    <td class="r">${fmt(totP)}</td>
-    <td class="r">${fmt(totI)}</td>
-    <td class="r">${totC > 0 ? fmt(totC) : '—'}</td>
-    <td class="r">—</td>
-    <td class="r val-pos">${fmt(totPaid, false)}</td>
-    <td class="r">—</td>
-    <td class="r">—</td>
-  </tr>`;
-}
+          <!-- ── Search Bar ──────────────────────────── -->
+          <div class="ledger-identity-bar">
+            <div class="ledger-id-field">
+              <label>Application ID / Client ID</label>
+              <input type="text" id="lrSearchId" placeholder="e.g. APP-00123 or CLI-001"
+                style="width:210px;" title="Enter the Application ID or Client ID from Module 01 / 00"/>
+            </div>
+            <div class="ledger-id-field wide">
+              <label>Borrower Name</label>
+              <input type="text" id="lrBorrowerName" placeholder="Auto-filled from CBS" style="width:190px;"/>
+            </div>
+            <!-- hidden — populated by enrichHeaderFromRecord -->
+            <input type="hidden" id="lrAccountNo" value=""/>
+            <div class="ledger-id-field">
+              <label>Status</label>
+              <select id="lrStatus" style="width:150px;">
+                <option value="Active-Performing">Active – Performing</option>
+                <option value="Active-Watchlist">Active – Watchlist</option>
+                <option value="Defaulted">Defaulted</option>
+                <option value="Closed">Closed</option>
+              </select>
+            </div>
+            <button class="btn-fetch" id="btnFetchLedger" title="Search by Application ID or Client ID in CBS records">🔍 Load from CBS</button>
+            <div class="ledger-id-sep"></div>
+            <button class="btn-generate-local" id="btnToggleParams">⚙ Generate Projection</button>
+          </div>
 
-/* ── Render: Amortization Schedule ─────────────────────── */
-function renderSchedule(schedule) {
-  const tbody = document.getElementById('tbodySchedule');
-  const tfoot = document.getElementById('tfootSchedule');
-  tbody.innerHTML = ''; tfoot.innerHTML = '';
-  let totP = 0, totI = 0, totDue = 0;
+          <!-- ── Manual Projection Params Panel ─────── -->
+          <div class="loan-params-panel" id="paramsPanel">
+            <div class="lpf">
+              <label>Product</label>
+              <select id="lrProduct" style="width:180px;">
+                <option>Agri-business Term Loan</option>
+                <option>Standard Term Loan</option>
+                <option>AVMF Women Entrepreneur Loan</option>
+                <option>Micro-Enterprise Credit</option>
+              </select>
+            </div>
+            <div class="lpf">
+              <label>Loan Amount (ETB)</label>
+              <input type="number" id="lrAmount" value="100000" min="1"/>
+            </div>
+            <div class="lpf">
+              <label>Interest Rate (% p.a.)</label>
+              <input type="number" id="lrRate" value="12" step="0.1"/>
+            </div>
+            <div class="lpf">
+              <label>Term (Months)</label>
+              <input type="number" id="lrTerm" value="12" min="1"/>
+            </div>
+            <div class="lpf">
+              <label>Disbursement Date</label>
+              <input type="date" id="lrStartDate"/>
+            </div>
+            <div class="lpf">
+              <label>Frequency</label>
+              <select id="lrFrequency">
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+            <div class="lpf">
+              <label>Grace Period (Days)</label>
+              <input type="number" id="lrGracePeriod" value="5" min="0"/>
+            </div>
+            <div class="lpf">
+              <label>Flat Penalty (ETB)</label>
+              <input type="number" id="lrFlatPenalty" value="150" step="0.01"/>
+            </div>
+            <div class="lpf">
+              <label>Initial Accrued Int.</label>
+              <input type="number" id="lrInitialAccrued" value="0" step="0.01"/>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;justify-content:flex-end;">
+              <label style="font-size:10px;display:flex;gap:5px;align-items:center;cursor:pointer;">
+                <input type="checkbox" id="lrIncludeFee" checked/> Include Processing Fee (ETB 1,000)
+              </label>
+              <label style="font-size:10px;display:flex;gap:5px;align-items:center;cursor:pointer;">
+                <input type="checkbox" id="lrSimulateLate" checked/> Simulate Late Payment (Inst. 1)
+              </label>
+            </div>
+            <button class="btn-generate-local" id="btnRunProjection" style="align-self:flex-end;height:28px;">
+              ⚡ Generate
+            </button>
+          </div>
 
-  schedule.forEach(r => {
-    const tr = document.createElement('tr');
-    totP   += r.principal;
-    totI   += r.interest;
-    totDue += r.total_due;
+          <!-- ── Account Card ──────────────────────── -->
+          <div class="acct-card" id="lrAcctCard">
+            <div class="acct-card-left">
+              <div class="acct-badge">AVMF LOAN ACCOUNT</div>
+              <div class="acct-number" id="lrDisplayAcctNo">—</div>
+              <div class="acct-borrower" id="lrDisplayBorrower">—</div>
+            </div>
+            <div class="acct-card-right">
+              <div class="acct-meta">
+                <span class="acct-meta-label">Product</span>
+                <span class="acct-meta-value" id="lrDisplayProduct">—</span>
+              </div>
+              <div class="acct-meta">
+                <span class="acct-meta-label">Status</span>
+                <span class="acct-meta-value"><span class="status-pill performing" id="lrDisplayStatus">—</span></span>
+              </div>
+              <div class="acct-meta">
+                <span class="acct-meta-label">Disbursement</span>
+                <span class="acct-meta-value" id="lrDisplayDate">—</span>
+              </div>
+              <div class="acct-meta">
+                <span class="acct-meta-label">Original Balance</span>
+                <span class="acct-meta-value" id="lrDisplayBalance">—</span>
+              </div>
+              <div class="acct-meta">
+                <span class="acct-meta-label">Rate</span>
+                <span class="acct-meta-value" id="lrDisplayRate">—</span>
+              </div>
+              <div class="acct-meta">
+                <span class="acct-meta-label">Term</span>
+                <span class="acct-meta-value" id="lrDisplayTerm">—</span>
+              </div>
+            </div>
+          </div>
 
-    const statusClass = r.status === 'PAID' ? 'val-pos' : r.status === 'PARTIAL' ? '' : 'val-neg';
-    tr.innerHTML = `
-      <td>${r.no}</td>
-      <td>${fmtDate(r.due_date)}</td>
-      <td class="r">${fmt(r.opening, false)}</td>
-      <td class="r val-neg">${fmt(r.principal, false)}</td>
-      <td class="r" style="color:#b45309;">${fmt(r.interest, false)}</td>
-      <td class="r val-bal">${fmt(r.total_due, false)}</td>
-      <td class="r val-bal">${fmt(r.closing, false)}</td>
-      <td><span style="font-size:10px;font-weight:600;" class="${statusClass}">${r.status}</span></td>
-    `;
-    tbody.appendChild(tr);
-  });
+          <!-- ── KPI Bar ────────────────────────────── -->
+          <div class="kpi-row" id="lrKpiRow" style="display:none;">
+            <div class="kpi-tile">
+              <div class="kpi-tile-label">Original Principal</div>
+              <div class="kpi-tile-value" id="lrKpiPrincipal">—</div>
+            </div>
+            <div class="kpi-tile">
+              <div class="kpi-tile-label">Total Interest</div>
+              <div class="kpi-tile-value orange" id="lrKpiInterest">—</div>
+            </div>
+            <div class="kpi-tile">
+              <div class="kpi-tile-label">Total Penalties</div>
+              <div class="kpi-tile-value red" id="lrKpiPenalties">—</div>
+            </div>
+            <div class="kpi-tile">
+              <div class="kpi-tile-label">Total Paid</div>
+              <div class="kpi-tile-value green" id="lrKpiPaid">—</div>
+            </div>
+            <div class="kpi-tile">
+              <div class="kpi-tile-label">Closing Balance</div>
+              <div class="kpi-tile-value blue" id="lrKpiBalance">—</div>
+            </div>
+          </div>
 
-  tfoot.innerHTML = `<tr>
-    <td colspan="3" style="text-align:right;">TOTALS</td>
-    <td class="r">${fmt(totP, false)}</td>
-    <td class="r">${fmt(totI, false)}</td>
-    <td class="r">${fmt(totDue, false)}</td>
-    <td class="r">—</td>
-    <td></td>
-  </tr>`;
-}
+          <!-- ── Tab Bar ────────────────────────────── -->
+          <div class="ledger-tab-bar">
+            <button class="ltab active" data-tab="statement">Account Statement</button>
+            <button class="ltab" data-tab="ledger">Internal Accounting Ledger</button>
+            <button class="ltab" data-tab="schedule">Amortization Schedule</button>
+            <div class="ltab-actions">
+              <button class="btn-export" onclick="exportCSV('statement')">↓ CSV</button>
+              <button class="btn-print-rpt" onclick="window.print()">⎙ Print</button>
+            </div>
+          </div>
 
-/* ── Show reports (hide empty state) ───────────────────── */
-function showReports() {
-  document.getElementById('lrEmpty').style.display = 'none';
-  switchTab('statement');
-}
+          <!-- ── Tab Panels ─────────────────────────── -->
+          <div class="ledger-panels">
 
-function showReportTab(tab) {
-  document.getElementById('lrEmpty').style.display = 'none';
-  switchTab(tab);
-}
+            <!-- Empty state -->
+            <div class="ledger-empty" id="lrEmpty">
+              <div class="empty-icon">📋</div>
+              <div class="empty-title">No Ledger Loaded</div>
+              <div class="empty-sub">Enter an Account No. and click <strong>Load from DB</strong> to fetch existing ledger data, or use <strong>Generate Projection</strong> to build a new amortization schedule.</div>
+            </div>
 
-/* ── Tab switching ──────────────────────────────────────── */
-function switchTab(name) {
-  document.querySelectorAll('.ltab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
-  ['statement','ledger','schedule'].forEach(t => {
-    const el = document.getElementById('lpanel-' + t);
-    if (el) el.style.display = t === name ? 'flex' : 'none';
-  });
-}
+            <!-- Account Statement -->
+            <div class="lpanel active" id="lpanel-statement" style="display:none;">
+              <div class="rpt-header">
+                <div>
+                  <div class="rpt-title">Customer Account Statement</div>
+                  <div class="rpt-sub">Loan Account No: <span id="lrRptAcctNo">—</span></div>
+                </div>
+                <div class="rpt-legend">
+                  <span class="leg"><span class="leg-dot green"></span>Credit / Payment</span>
+                  <span class="leg"><span class="leg-dot red"></span>Penalty / Charge</span>
+                </div>
+              </div>
+              <div class="tbl-wrap">
+                <table class="rpt-table" id="tblStatement">
+                  <thead>
+                    <tr>
+                      <th>Post Date</th><th>Value Date</th><th>Ref / Batch</th>
+                      <th>Description</th>
+                      <th class="r">Principal</th><th class="r">Interest</th>
+                      <th class="r">Charges / Penalties</th>
+                      <th class="r">Running Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodyStatement"></tbody>
+                  <tfoot id="tfootStatement"></tfoot>
+                </table>
+              </div>
+            </div>
 
-document.querySelectorAll('.ltab').forEach(btn => {
-  btn.addEventListener('click', () => { if (btn.dataset.tab) switchTab(btn.dataset.tab); });
-});
+            <!-- Internal Ledger -->
+            <div class="lpanel" id="lpanel-ledger" style="display:none;">
+              <div class="rpt-header">
+                <div>
+                  <div class="rpt-title">Internal Accounting Ledger</div>
+                  <div class="rpt-sub">Reconciliation view — Zero variance required against Trial Balance</div>
+                </div>
+                <div class="rpt-legend">
+                  <span class="leg"><span class="leg-dot orange"></span>Accrual</span>
+                  <span class="leg"><span class="leg-dot green"></span>Credit</span>
+                </div>
+              </div>
+              <div class="audit-note">
+                <strong>⚑ Audit Checkpoint:</strong> Closing balance must match the corresponding line in the Trial Balance.
+                Payments are split: Interest Income account first, then Loans Receivable (principal reduction).
+              </div>
+              <div class="tbl-wrap">
+                <table class="rpt-table" id="tblLedger">
+                  <thead>
+                    <tr>
+                      <th>Value Date</th><th>Description</th><th>Ref #</th>
+                      <th class="r">Principal (Dr)</th><th class="r">Interest (Dr)</th>
+                      <th class="r">Penalty (Dr)</th>
+                      <th class="r">Accrued Int. Receivable</th>
+                      <th class="r">Total Paid (Cr)</th>
+                      <th class="r">Accrued Unpaid Int.</th>
+                      <th class="r">Principal Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodyLedger"></tbody>
+                  <tfoot id="tfootLedger"></tfoot>
+                </table>
+              </div>
+            </div>
 
-/* ── CSV Export ─────────────────────────────────────────── */
-function exportCSV(view) {
-  if (!_rows.length) { toast('Generate or load a ledger first.', 'warning'); return; }
-  const activeTab = document.querySelector('.ltab.active')?.dataset.tab || 'statement';
-  const tab = view || activeTab;
+            <!-- Amortization Schedule -->
+            <div class="lpanel" id="lpanel-schedule" style="display:none;">
+              <div class="rpt-header">
+                <div>
+                  <div class="rpt-title">Amortization Schedule</div>
+                  <div class="rpt-sub">Repayment plan — installment-by-installment breakdown</div>
+                </div>
+              </div>
+              <div class="tbl-wrap">
+                <table class="rpt-table" id="tblSchedule">
+                  <thead>
+                    <tr>
+                      <th>#</th><th>Due Date</th>
+                      <th class="r">Opening Balance</th>
+                      <th class="r">Principal</th>
+                      <th class="r">Interest</th>
+                      <th class="r">Total Due</th>
+                      <th class="r">Closing Balance</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodySchedule"></tbody>
+                  <tfoot id="tfootSchedule"></tfoot>
+                </table>
+              </div>
+            </div>
 
-  let headers, rowsCSV;
-  if (tab === 'schedule') {
-    headers = ['#','Due Date','Opening Balance','Principal','Interest','Total Due','Closing Balance','Status'];
-    rowsCSV = _scheduleRows.map(r =>
-      [r.no, r.due_date, r.opening, r.principal, r.interest, r.total_due, r.closing, r.status].join(',')
-    );
-  } else if (tab === 'ledger') {
-    headers = ['Value Date','Description','Ref#','Principal(Dr)','Interest(Dr)','Penalty(Dr)','Accrued Int Recv','Total Paid(Cr)','Accrued Unpaid Int','Principal Balance'];
-    rowsCSV = _rows.map(r =>
-      [r.value_date, r.description, r.ref_batch, r.principal, r.interest,
-       r.charges_penalties, r.accrued_interest_receivable, r.total_paid,
-       r.accrued_unpaid_interest, r.running_balance].join(',')
-    );
-  } else {
-    headers = ['Post Date','Value Date','Ref/Batch','Description','Principal','Interest','Charges/Penalties','Running Balance'];
-    rowsCSV = _rows.map(r =>
-      [r.post_date, r.value_date, r.ref_batch, r.description,
-       r.principal, r.interest, r.charges_penalties, r.running_balance].join(',')
-    );
-  }
+          </div><!-- /ledger-panels -->
+        </div><!-- /ledger-wrap -->
 
-  const csv  = [headers.join(','), ...rowsCSV].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `AVMF_Ledger_${document.getElementById('lrAccountNo').value || 'report'}_${tab}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast(`${tab} exported as CSV.`, 'success');
-}
+        <div class="sub-footer-token" id="statusBar">Status: Ready</div>
+      </div>
+    </div>
 
-/* ── Params panel toggle ────────────────────────────────── */
-document.getElementById('btnToggleParams')?.addEventListener('click', () => {
-  const panel = document.getElementById('paramsPanel');
-  const visible = panel.classList.toggle('visible');
-  document.getElementById('btnToggleParams').textContent = visible ? '✕ Hide Params' : '⚙ Generate Projection';
-});
+    <div class="action-sidebar">
+      <button id="btnLoad"   class="action-btn" title="Search by Application ID or Client ID">🔍 Load</button>
+      <button id="btnGenerate" class="action-btn">⚡ Generate</button>
+      <button id="btnClose"  class="action-btn">✕ Close</button>
+      <div class="sidebar-spacer"></div>
+      <button id="btnExportStatement" class="action-btn">📄 Export CSV</button>
+      <button id="btnPrint"  class="action-btn">🖨 Print</button>
+      <div class="sidebar-footer">AVMF CBS v2.0</div>
+    </div>
 
-/* ── Status bar helper ──────────────────────────────────── */
-function setSB(msg) {
-  const sb = document.getElementById('statusBar');
-  if (sb) sb.textContent = msg;
-}
+  </div>
+</div>
 
-/* ── Button wiring ──────────────────────────────────────── */
-document.getElementById('btnFetchLedger')?.addEventListener('click', loadFromDB);
-document.getElementById('btnRunProjection')?.addEventListener('click', runProjection);
-document.getElementById('btnLoad')?.addEventListener('click', loadFromDB);
-document.getElementById('btnGenerate')?.addEventListener('click', () => {
-  document.getElementById('paramsPanel').classList.add('visible');
-  document.getElementById('btnToggleParams').textContent = '✕ Hide Params';
-});
-document.getElementById('btnClose')?.addEventListener('click', () => {
-  _rows = []; _scheduleRows = [];
-  document.getElementById('lrEmpty').style.display = 'flex';
-  ['statement','ledger','schedule'].forEach(t => {
-    const el = document.getElementById('lpanel-' + t);
-    if (el) el.style.display = 'none';
-  });
-  document.getElementById('lrKpiRow').style.display = 'none';
-  setSB('Status: Ready');
-  toast('Ledger cleared.');
-});
-document.getElementById('btnExportStatement')?.addEventListener('click', () => exportCSV('statement'));
-document.getElementById('btnPrint')?.addEventListener('click', () => window.print());
-document.getElementById('lrSearchId')?.addEventListener('keydown', e => { if (e.key === 'Enter') loadFromDB(); });
+<div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
 
-/* ── Init ───────────────────────────────────────────────── */
-updateHeaderDisplay();
+<!-- Docked chip shown when window is minimized -->
+<div id="dockSliver" class="dock-sliver" onclick="toggleMinimize()">
+  <span class="dock-icon">📊</span>
+  <span class="dock-label">AVMF — Loan Ledger Report</span>
+</div>
 
-// ── Window Controls: Minimize / Maximize ────────────────────
-const windowContainer = document.querySelector('.window-container');
-const wcMinimizeBtn    = document.getElementById('wcMinimize');
-const wcMaximizeBtn    = document.getElementById('wcMaximize');
-const dockSliver        = document.getElementById('dockSliver');
-
-function toggleMinimize() {
-  if (!windowContainer || !dockSliver) return;
-  // Maximize and minimize are mutually exclusive
-  windowContainer.classList.remove('is-maximized');
-  if (wcMaximizeBtn) wcMaximizeBtn.textContent = '▢';
-
-  windowContainer.classList.toggle('is-minimized');
-  const minimized = windowContainer.classList.contains('is-minimized');
-  dockSliver.classList.toggle('show', minimized);
-  if (wcMinimizeBtn) wcMinimizeBtn.title = minimized ? 'Restore' : 'Minimize';
-}
-
-function toggleMaximize() {
-  if (!windowContainer) return;
-  // Maximize and minimize are mutually exclusive
-  if (windowContainer.classList.contains('is-minimized')) {
-    windowContainer.classList.remove('is-minimized');
-    if (dockSliver) dockSliver.classList.remove('show');
-    if (wcMinimizeBtn) wcMinimizeBtn.title = 'Minimize';
-  }
-  windowContainer.classList.toggle('is-maximized');
-  const maximized = windowContainer.classList.contains('is-maximized');
-  if (wcMaximizeBtn) {
-    wcMaximizeBtn.textContent = maximized ? '❐' : '▢';
-    wcMaximizeBtn.title = maximized ? 'Restore Down' : 'Maximize';
-  }
-}
+<script src="ledger-report.js"></script>
+</body>
+</html>
