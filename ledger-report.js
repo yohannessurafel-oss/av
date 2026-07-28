@@ -73,6 +73,12 @@ function fmtDate(dateStr) {
 
 function toISO(d) { return d.toISOString().split('T')[0]; }
 function lastDayOfMonth(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
 
 /* ── Cached rows ───────────────────────────────────────── */
 let _rows = [];
@@ -469,8 +475,8 @@ function renderStatement(rows) {
     tr.innerHTML = `
       <td>${fmtDate(r.post_date)}</td>
       <td>${fmtDate(r.value_date)}</td>
-      <td><span class="ref-code">${r.ref_batch}</span></td>
-      <td>${r.description}</td>
+      <td><span class="ref-code">${escapeHtml(r.ref_batch)}</span></td>
+      <td>${escapeHtml(r.description)}</td>
       <td class="r ${r.principal > 0 ? 'val-pos' : r.principal < 0 ? 'val-neg' : ''}">${fmt(r.principal)}</td>
       <td class="r ${r.interest < 0 ? 'val-neg' : ''}">${fmt(r.interest)}</td>
       <td class="r">${r.charges_penalties > 0 ? fmt(r.charges_penalties) : '—'}</td>
@@ -507,8 +513,8 @@ function renderLedger(rows) {
 
     tr.innerHTML = `
       <td>${fmtDate(r.value_date)}</td>
-      <td>${r.description}</td>
-      <td><span class="ref-code">${r.ref_batch}</span></td>
+      <td>${escapeHtml(r.description)}</td>
+      <td><span class="ref-code">${escapeHtml(r.ref_batch)}</span></td>
       <td class="r ${r.principal < 0 ? 'val-neg' : r.principal > 0 ? 'val-pos' : ''}">${fmt(r.principal)}</td>
       <td class="r ${r.interest < 0 ? 'val-neg' : ''}">${fmt(r.interest)}</td>
       <td class="r">${r.charges_penalties > 0 ? fmt(r.charges_penalties) : '—'}</td>
