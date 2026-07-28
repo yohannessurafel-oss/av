@@ -1,31 +1,58 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 15 Loan Repayment / Collection
-   loan-repayment-collection.js  v1.0
+   loan-repayment-collection.js  v1.1
+
+   FIXES OVER v1.0 (see inline comments for full explanation):
+   1. allocatePayment()/updateHierarchyPreview() previously only ever
+      looked at the SINGLE next unpaid installment's interest_due, and
+      dumped everything else remaining into "Principal" — including
+      interest owed on any FURTHER overdue installments. Whenever more
+      than one installment was overdue, the confirmation dialog and the
+      printed customer receipt showed a materially wrong interest/
+      principal split compared to what post_loan_repayment() actually
+      posts to loan_ledger and the GL (which allocates oldest-first,
+      interest-then-principal, across EVERY unpaid installment). Fixed
+      by mirroring that same oldest-first walk client-side using the
+      full schedule already fetched for the live display panel.
+   2. postPayment() read `result.unallocated_overpayment` — the v3 RPC's
+      field name for an overpayment that was left UNPOSTED (a real GL
+      imbalance bug, fixed separately in post_loan_repayment_v4.sql).
+      v4 renames this to `overpayment_suspense` since the amount is now
+      actually posted to a GL suspense account instead of just reported.
+      This file now reads the new name, with a fallback to the old name
+      so it still works unmodified against a not-yet-upgraded v3 database.
 
    Tables written:
-     → loan_ledger             (one repayment row per payment posted)
-     → amortization_schedules  (installment status → PAID/PARTIAL)
-     → loanmasterrecords       (application_status → Matured, only when
-                                 the loan hits zero balance through normal
-                                 amortization — NOT early payoff/write-off,
-                                 which stays Module 09's job)
+     → loan_ledger (one repayment row per payment posted)
+     → amortization_schedules (installment status → PAID/PARTIAL)
+     → loanmasterrecords (application_status → Matured, only when
+                           the loan hits zero balance through normal
+                           amortization — NOT early payoff/write-off,
+                           which stays Module 09's job)
    Tables read:
      → loanmasterrecords, loan_ledger, amortization_schedules
 
-   Requires loan-status-guard.js loaded BEFORE this file.
+   Requires loan-status-guard.js loaded BEFORE this file. (Note: this
+   module currently does its OWN inline application_status check in
+   loadLoan() rather than calling LoanStatusGuard.canTransition() — it
+   still safely blocks non-Disbursed loans, but for consistency with
+   disbursement.js / credit-sanction-console.js it should eventually
+   call the shared guard too. Not changed here since it isn't a bug,
+   just an inconsistency — flagging it so it doesn't get missed.)
 
    REPAYMENT HIERARCHY (matches loan_ledger_sample.pdf, Section 2 —
    "System Logic & Key Features"):
-     1. Taxes / Insurance   (not yet modeled in schema — always 0 for now)
+     1. Taxes / Insurance (not yet modeled in schema — always 0 for now)
      2. Penalties / Late Fees
-     3. Accrued Interest
-     4. Principal Balance
+     3. Accrued Interest (oldest unpaid installment first)
+     4. Principal Balance (oldest unpaid installment first)
    Anything left over after the full outstanding balance is cleared is
    reported as an unapplied credit rather than silently discarded.
 ═══════════════════════════════════════════════════════════ */
+
 'use strict';
 
-const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
+const SUPABASE_URL = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
 async function sbFetch(path, opts = {}) {
@@ -111,39 +138,35 @@ function escapeHtml(str) {
 }
 function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
 
-/* ── Penalty policy — now configurable PER PRODUCT via
+/* ── Penalty policy — configurable PER PRODUCT via
    lendingproductparametermatrix (penalty_rate_daily, grace_period_days),
    fetched fresh for each loaded loan instead of a single hardcoded global
    constant. These fallbacks match the sample contract terms only as a
    safety net if a product row is somehow missing its own values. ── */
-const FALLBACK_GRACE_PERIOD_DAYS = 5;
+const FALLBACK_GRACE_PERIOD_DAYS  = 5;
 const FALLBACK_DAILY_PENALTY_RATE = 0.00025;
 let _graceperiodDays  = FALLBACK_GRACE_PERIOD_DAYS;
 let _dailyPenaltyRate = FALLBACK_DAILY_PENALTY_RATE;
 
 /* ── State ────────────────────────────────────────────────── */
-let _record        = null;   // loanmasterrecords row
-let _lastLedgerRow  = null;   // most recent loan_ledger row (running balance source)
-let _nextInstallment = null; // next UNPAID row from amortization_schedules
-let _computedPenalty = 0;
-let _daysOverdue    = 0;
+let _record          = null;  // loanmasterrecords row
+let _lastLedgerRow    = null; // most recent loan_ledger row (running balance source)
+let _nextInstallment  = null; // next UNPAID row from amortization_schedules (for display only)
+let _unpaidSchedule   = [];   // NEW — ALL unpaid installments, oldest first, for accurate preview
+let _computedPenalty  = 0;
+let _daysOverdue      = 0;
 
 /* ══════════════════════════════════════════════════════════
    LOAD LOAN
 ══════════════════════════════════════════════════════════ */
-/* ── Group Context — NEW: shows whether this loan is part of a group
-   batch, and which member it is. Purely informational — every group
-   member gets its own normal loanmasterrecords row, so nothing else
-   in this module needs group_id for its actual logic. ── */
+
+/* ── Group Context — shows whether this loan is part of a group batch,
+   and which member it is. Purely informational. ── */
 async function loadGroupContext(rec) {
   const banner = document.getElementById('groupContextBanner');
   const text   = document.getElementById('groupContextText');
   if (!banner || !text) return;
-
-  if (!rec.group_id) {
-    banner.style.display = 'none';
-    return;
-  }
+  if (!rec.group_id) { banner.style.display = 'none'; return; }
 
   try {
     const [members, groupRows] = await Promise.all([
@@ -151,9 +174,8 @@ async function loadGroupContext(rec) {
       sbFetch(`portfoliogrouphierarchy?group_registry_id=eq.${encodeURIComponent(rec.group_id)}&select=group_name_alias&limit=1`)
     ]);
     const total = Array.isArray(members) ? members.length : 1;
-    const idx   = Array.isArray(members) ? members.findIndex(m => m.application_id === rec.application_id) + 1 : 1;
+    const idx = Array.isArray(members) ? members.findIndex(m => m.application_id === rec.application_id) + 1 : 1;
     const groupName = (groupRows && groupRows[0] && groupRows[0].group_name_alias) ? ` — ${groupRows[0].group_name_alias}` : '';
-
     text.textContent = `${rec.group_id}${groupName} — Member ${idx > 0 ? idx : '?'} of ${total}`;
     banner.style.display = '';
   } catch (e) {
@@ -193,8 +215,8 @@ async function loadLoan() {
         `lendingproductparametermatrix?product_code_id=eq.${encodeURIComponent(_record.product_id)}&select=penalty_rate_daily,grace_period_days,interest_calculation_method&limit=1`
       );
       const prod = productRows && productRows[0];
-      _graceperiodDays  = (prod && prod.grace_period_days  != null) ? prod.grace_period_days  : FALLBACK_GRACE_PERIOD_DAYS;
-      _dailyPenaltyRate = (prod && prod.penalty_rate_daily != null) ? prod.penalty_rate_daily : FALLBACK_DAILY_PENALTY_RATE;
+      _graceperiodDays  = (prod && prod.grace_period_days   != null) ? prod.grace_period_days   : FALLBACK_GRACE_PERIOD_DAYS;
+      _dailyPenaltyRate = (prod && prod.penalty_rate_daily  != null) ? prod.penalty_rate_daily  : FALLBACK_DAILY_PENALTY_RATE;
     } catch (e) {
       console.warn('Could not load product penalty policy, using defaults:', e.message);
       _graceperiodDays  = FALLBACK_GRACE_PERIOD_DAYS;
@@ -205,6 +227,7 @@ async function loadLoan() {
       `loan_ledger?application_id=eq.${encodeURIComponent(appId)}&order=id.desc&limit=1`
     );
     _lastLedgerRow = (ledgerRows && ledgerRows[0]) || null;
+
     if (!_lastLedgerRow) {
       toast('No ledger rows found — this loan may not have been disbursed through Module 10 yet.', 'warning');
       setSB('No ledger data — disburse the loan first.');
@@ -212,18 +235,23 @@ async function loadLoan() {
       return;
     }
 
-    const schedRows = await sbFetch(
-      `amortization_schedules?application_id=eq.${encodeURIComponent(appId)}&status=neq.PAID&order=due_date.asc&limit=1`
-    );
-    _nextInstallment = (schedRows && schedRows[0]) || null;
-
     // Full schedule for the live display panel — ALL rows, any status,
-    // ordered by installment number (not just the next unpaid one above).
+    // ordered by installment number.
     const fullSchedule = await sbFetch(
       `amortization_schedules?application_id=eq.${encodeURIComponent(appId)}&order=installment_no.asc`
     );
-    renderLiveSchedule(fullSchedule || []);
 
+    // NEW — every UNPAID/PARTIAL installment, oldest first. This is the
+    // exact same set post_loan_repayment() walks server-side, so building
+    // the client-side preview from this (instead of just the single next
+    // installment) is what makes updateHierarchyPreview() actually match
+    // what gets posted.
+    _unpaidSchedule = (fullSchedule || [])
+      .filter(r => r.status !== 'PAID')
+      .sort((a, b) => (a.installment_no || 0) - (b.installment_no || 0));
+    _nextInstallment = _unpaidSchedule[0] || null;
+
+    renderLiveSchedule(fullSchedule || []);
     computePenaltyPreview();
     renderSummary();
     document.getElementById('fRefBatch').value = `RCPT-${appId}-${Date.now().toString().slice(-6)}`;
@@ -231,6 +259,7 @@ async function loadLoan() {
     updateHierarchyPreview();
     setSB(`Loaded ${appId} — outstanding balance ${fmt(_lastLedgerRow.running_balance)}`);
     toast('Loan loaded.', 'success');
+
   } catch (err) {
     toast('Load failed: ' + err.message, 'error');
     setSB('Load failed.');
@@ -243,11 +272,7 @@ function renderLiveSchedule(rows) {
   const tbody = document.getElementById('tbodyScheduleLive');
   const note  = document.getElementById('scheduleLiveNote');
   if (!panel || !tbody) return;
-
-  if (!rows.length) {
-    panel.style.display = 'none';
-    return;
-  }
+  if (!rows.length) { panel.style.display = 'none'; return; }
   panel.style.display = 'block';
 
   // Flag duplicate installment_no values directly in the UI — this is a
@@ -261,15 +286,15 @@ function renderLiveSchedule(rows) {
   tbody.innerHTML = rows.map(r => {
     const isDup = duplicateNos.includes(r.installment_no);
     return `
-      <tr${isDup ? ' style="background:#fee2e2;"' : ''}>
-        <td>${escapeHtml(r.installment_no)}${isDup ? ' ⚠️' : ''}</td>
-        <td>${escapeHtml(fmtDate(r.due_date))}</td>
-        <td class="r">${fmt(r.principal_due)}</td>
-        <td class="r">${fmt(r.principal_paid)}</td>
-        <td class="r">${fmt(r.interest_due)}</td>
-        <td class="r">${fmt(r.interest_paid)}</td>
-        <td>${escapeHtml(r.status)}</td>
-      </tr>`;
+    <tr${isDup ? ' style="background:#fee2e2;"' : ''}>
+      <td>${escapeHtml(r.installment_no)}${isDup ? ' ⚠️' : ''}</td>
+      <td>${escapeHtml(fmtDate(r.due_date))}</td>
+      <td class="r">${fmt(r.principal_due)}</td>
+      <td class="r">${fmt(r.principal_paid)}</td>
+      <td class="r">${fmt(r.interest_due)}</td>
+      <td class="r">${fmt(r.interest_paid)}</td>
+      <td>${escapeHtml(r.status)}</td>
+    </tr>`;
   }).join('');
 
   if (duplicateNos.length > 0) {
@@ -304,17 +329,17 @@ function computePenaltyPreview() {
 /* ── Render summary card ─────────────────────────────────── */
 function renderSummary() {
   document.getElementById('rpcSummaryCard').style.display = 'flex';
-  document.getElementById('sAppId').textContent = _record.application_id;
+  document.getElementById('sAppId').textContent   = _record.application_id;
   document.getElementById('sBorrower').textContent = _record.client_name || _lastLedgerRow.borrower_name || '—';
-  document.getElementById('sBalance').textContent = fmt(_lastLedgerRow.running_balance);
+  document.getElementById('sBalance').textContent  = fmt(_lastLedgerRow.running_balance);
 
   if (_nextInstallment) {
-    document.getElementById('sDueDate').textContent = fmtDate(_nextInstallment.due_date);
-    document.getElementById('sInterestDue').textContent = fmt(_nextInstallment.interest_due);
+    document.getElementById('sDueDate').textContent      = fmtDate(_nextInstallment.due_date);
+    document.getElementById('sInterestDue').textContent  = fmt(_nextInstallment.interest_due);
     document.getElementById('sPrincipalDue').textContent = fmt(_nextInstallment.principal_due);
   } else {
-    document.getElementById('sDueDate').textContent = 'No unpaid installments';
-    document.getElementById('sInterestDue').textContent = '—';
+    document.getElementById('sDueDate').textContent      = 'No unpaid installments';
+    document.getElementById('sInterestDue').textContent  = '—';
     document.getElementById('sPrincipalDue').textContent = '—';
   }
 
@@ -339,6 +364,7 @@ function showPanels() {
   document.getElementById('rpcBreakdownPanel').style.display = 'block';
   document.getElementById('btnPost').disabled = false;
 }
+
 function resetPanels() {
   document.getElementById('rpcSummaryCard').style.display = 'none';
   document.getElementById('rpcEmpty').style.display = 'flex';
@@ -346,30 +372,78 @@ function resetPanels() {
   document.getElementById('rpcBreakdownPanel').style.display = 'none';
   document.getElementById('rpcScheduleLivePanel').style.display = 'none';
   document.getElementById('btnPost').disabled = true;
-  _record = null; _lastLedgerRow = null; _nextInstallment = null;
+  _record = null; _lastLedgerRow = null; _nextInstallment = null; _unpaidSchedule = [];
 }
 
 /* ══════════════════════════════════════════════════════════
    REPAYMENT HIERARCHY — allocate a payment amount
+
+   FIX: previously this only ever consumed _nextInstallment.interest_due
+   for the "Accrued Interest" step, then dumped ALL remaining funds into
+   "Principal" regardless of how much of that was actually still-unpaid
+   INTEREST on a second, third, etc. overdue installment. The real
+   post_loan_repayment() RPC walks every unpaid installment oldest-first,
+   paying that installment's interest before its principal, then moves to
+   the next installment — so whenever more than one installment was
+   overdue, this preview understated interest and overstated principal
+   versus what actually got posted to loan_ledger / gl_transaction_journal.
+
+   Now this walks the SAME _unpaidSchedule list (oldest first, interest
+   before principal per installment) that was fetched in loadLoan(), so
+   the confirmation dialog, the printed receipt, and the actual RPC
+   posting agree with each other.
+
    Order: Taxes/Insurance (0, unmodeled) → Penalties → Interest → Principal
 ══════════════════════════════════════════════════════════ */
 function allocatePayment(amount) {
   let remaining = Math.max(0, amount || 0);
-
   const waivePenalty = document.getElementById('fWaivePenalty').checked;
   const penaltyDue   = waivePenalty ? 0 : _computedPenalty;
-  const interestDue  = _nextInstallment ? parseFloat(_nextInstallment.interest_due) || 0 : 0;
-  const principalDue = parseFloat(_lastLedgerRow?.running_balance) || 0;
+  const taxesApplied = 0; // not modeled in current schema
 
-  const taxesApplied    = 0; // not modeled in current schema
-  const penaltyApplied  = Math.min(remaining, penaltyDue);   remaining -= penaltyApplied;
-  const interestApplied = Math.min(remaining, interestDue);  remaining -= interestApplied;
-  const principalApplied = Math.min(remaining, principalDue); remaining -= principalApplied;
-  const excess = remaining; // unapplied / advance credit
+  const penaltyApplied = Math.min(remaining, penaltyDue);
+  remaining -= penaltyApplied;
+
+  // Walk every unpaid installment oldest-first — interest before
+  // principal on each one — exactly like post_loan_repayment() does.
+  let interestApplied  = 0;
+  let principalApplied = 0;
+  let interestDueTotal  = 0;
+  let principalDueTotal = 0;
+
+  for (const inst of _unpaidSchedule) {
+    const instInterestOutstanding  = Math.max(0, (parseFloat(inst.interest_due)  || 0) - (parseFloat(inst.interest_paid)  || 0));
+    const instPrincipalOutstanding = Math.max(0, (parseFloat(inst.principal_due) || 0) - (parseFloat(inst.principal_paid) || 0));
+    interestDueTotal  += instInterestOutstanding;
+    principalDueTotal += instPrincipalOutstanding;
+
+    if (remaining <= 0) continue; // still need the totals above for display, so don't break early
+
+    const payInterest = Math.min(remaining, instInterestOutstanding);
+    remaining -= payInterest;
+    interestApplied += payInterest;
+
+    const payPrincipal = Math.min(remaining, instPrincipalOutstanding);
+    remaining -= payPrincipal;
+    principalApplied += payPrincipal;
+  }
+
+  // Genuine early-payoff/prepayment: extra beyond every installment's own
+  // principal, applied against the loan's total remaining principal
+  // balance (matches the RPC's early-payoff step).
+  const totalOutstandingPrincipal = parseFloat(_lastLedgerRow?.running_balance) || 0;
+  if (remaining > 0) {
+    const prepay = Math.min(remaining, Math.max(0, totalOutstandingPrincipal - principalApplied));
+    principalApplied += prepay;
+    remaining -= prepay;
+  }
+
+  const excess = remaining; // unapplied / advance credit — posted to OVERPAY_SUSPENSE by the v4 RPC
 
   return {
     taxesApplied, penaltyApplied, interestApplied, principalApplied, excess,
-    penaltyDue, interestDue, principalDue, waivePenalty
+    penaltyDue, interestDue: interestDueTotal, principalDue: totalOutstandingPrincipal,
+    waivePenalty
   };
 }
 
@@ -390,7 +464,7 @@ function updateHierarchyPreview() {
   html += row(3, 'Accrued Interest', alloc.interestApplied);
   html += row(4, 'Principal Balance', alloc.principalApplied);
   if (alloc.excess > 0) {
-    html += `<tr class="hier-excess"><td>Unapplied Credit (overpayment)</td><td class="r">${fmt(alloc.excess)}</td></tr>`;
+    html += `<tr class="hier-excess"><td>Unapplied Credit (overpayment — held in suspense)</td><td class="r">${fmt(alloc.excess)}</td></tr>`;
   }
   tbody.innerHTML = html;
 
@@ -407,10 +481,10 @@ document.getElementById('fWaivePenalty').addEventListener('change', updateHierar
 async function postPayment() {
   if (!_record || !_lastLedgerRow) { toast('Load a loan first.', 'warning'); return; }
 
-  const amount   = parseFloat(document.getElementById('fAmount').value);
-  const payDate  = document.getElementById('fPayDate').value;
-  const payMode  = document.getElementById('fPayMode').value;
-  const refBatch = document.getElementById('fRefBatch').value.trim();
+  const amount    = parseFloat(document.getElementById('fAmount').value);
+  const payDate   = document.getElementById('fPayDate').value;
+  const payMode   = document.getElementById('fPayMode').value;
+  const refBatch  = document.getElementById('fRefBatch').value.trim();
 
   if (!amount || amount <= 0) { toast('Enter a valid payment amount.', 'error'); return; }
   if (!payDate)  { toast('Enter a payment date.', 'error'); return; }
@@ -447,14 +521,23 @@ async function postPayment() {
     if (result.loan_matured) {
       maturedMsg = ' Loan fully repaid — status set to Matured.';
     }
+
+    // FIX: v4 of post_loan_repayment renames 'unallocated_overpayment' to
+    // 'overpayment_suspense' (the amount is now actually posted to a GL
+    // suspense account, not just left unposted and reported). Read the
+    // new field name first; fall back to the old one so this still works
+    // unmodified against a database still running the v3 function.
+    const overpayAmount = (result.overpayment_suspense != null)
+      ? result.overpayment_suspense
+      : result.unallocated_overpayment;
+
     let overpayMsg = '';
-    if (result.unallocated_overpayment > 0) {
-      overpayMsg = ` ⚠️ ${fmt(result.unallocated_overpayment)} could not be allocated (exceeds total remaining principal) — review manually.`;
+    if (overpayAmount > 0) {
+      overpayMsg = ` ⚠️ ${fmt(overpayAmount)} exceeded the total remaining balance — held in the overpayment suspense account. Review with the client (refund or apply to next loan/deposit).`;
     }
 
     toast(`Payment posted.${maturedMsg}${overpayMsg}`, overpayMsg ? 'warning' : 'success', 6500);
     setSB(`Posted ${fmt(amount)} against ${appId}. New balance: ${fmt(result.new_balance)}.${maturedMsg}`);
-
     document.getElementById('fAmount').value = '';
     await loadLoan();
 
@@ -498,10 +581,8 @@ const dockSliver        = document.getElementById('dockSliver');
 
 function toggleMinimize() {
   if (!windowContainer || !dockSliver) return;
-  // Maximize and minimize are mutually exclusive
   windowContainer.classList.remove('is-maximized');
   if (wcMaximizeBtn) wcMaximizeBtn.textContent = '▢';
-
   windowContainer.classList.toggle('is-minimized');
   const minimized = windowContainer.classList.contains('is-minimized');
   dockSliver.classList.toggle('show', minimized);
@@ -510,7 +591,6 @@ function toggleMinimize() {
 
 function toggleMaximize() {
   if (!windowContainer) return;
-  // Maximize and minimize are mutually exclusive
   if (windowContainer.classList.contains('is-minimized')) {
     windowContainer.classList.remove('is-minimized');
     if (dockSliver) dockSliver.classList.remove('show');
