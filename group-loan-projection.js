@@ -372,6 +372,29 @@ function renderGrid() {
   updateBatchCounter();
 }
 
+/* Fields the create_group_loan_batch RPC casts straight to ::integer.
+   A decimal (e.g. "12.5") or any other non-integer value passes HTML5's
+   type="number" validation but still fails Postgres's integer cast at
+   save time — and since the whole batch is one transaction, that would
+   fail every OTHER member's row too, not just this one. Catch it here
+   instead, with a message that says which field and which member. */
+function validateIntegerFields(row) {
+  const checks = [
+    { key: 'repayment_term', label: 'Repayment Term' },
+    { key: 'loan_level',     label: 'Loan Level' },
+    { key: 'loan_cycle',     label: 'Loan Cycle' },
+  ];
+  for (const { key, label } of checks) {
+    const raw = row[key];
+    if (raw === '' || raw === null || raw === undefined) continue; // optional fields — NULLIF handles blank
+    const n = Number(raw);
+    if (!Number.isInteger(n)) {
+      return `${label} must be a whole number (got "${raw}") — decimals aren't accepted here.`;
+    }
+  }
+  return null;
+}
+
 /* ── Action Row Buttons ─────────────────────────────────── */
 
 /* ➕ Add Member to Batch — push current form as a new row */
@@ -380,6 +403,11 @@ document.getElementById('btnGroupUpdate')?.addEventListener('click', () => {
   if (!row.client_id) {
     toast('Enter a Client ID before adding to the batch.', 'warning');
     document.getElementById('groupClientId')?.focus();
+    return;
+  }
+  const validationError = validateIntegerFields(row);
+  if (validationError) {
+    toast(validationError, 'error', 5000);
     return;
   }
   _gridRows.push(row);
@@ -394,7 +422,13 @@ document.getElementById('btnGroupAlter')?.addEventListener('click', () => {
     toast('Click a row in the grid first to select it, then use Update Selected Row.', 'warning');
     return;
   }
-  _gridRows[_selectedIdx] = getCurrentFormRow();
+  const updatedRow = getCurrentFormRow();
+  const validationError = validateIntegerFields(updatedRow);
+  if (validationError) {
+    toast(validationError, 'error', 5000);
+    return;
+  }
+  _gridRows[_selectedIdx] = updatedRow;
   renderGrid();
   toast(`Row ${_selectedIdx + 1} updated.`);
 });
