@@ -96,6 +96,9 @@
   }
   .summary-tile .tile-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: .5px; }
   .summary-tile .tile-value { font-size: 16px; font-weight: 700; color: var(--accent, #0d3460); font-family: monospace; }
+  .summary-tile.tb-balanced    .tile-value { color: #1a7a3c; }
+  .summary-tile.tb-unbalanced  { background: #fdecea; border-color: #e57373; }
+  .summary-tile.tb-unbalanced  .tile-value { color: #b71c1c; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -188,6 +191,16 @@
           <div class="summary-tile">
             <div class="tile-label">Journal Entries</div>
             <div class="tile-value" id="tileJournalCount">—</div>
+          </div>
+          <!-- NEW: Trial balance check — sums ALL debit/credit postings in
+               gl_transaction_journal (not just the 200-row page the Journal
+               tab shows) and flags any mismatch immediately. Every correct
+               double-entry posting keeps these equal; if they ever diverge,
+               something posted an unbalanced entry (see the overpayment
+               bug fixed in post_loan_repayment_v4.sql). -->
+          <div class="summary-tile" id="tileTrialBalanceWrap">
+            <div class="tile-label">Trial Balance</div>
+            <div class="tile-value" id="tileTrialBalance">—</div>
           </div>
         </div>
 
