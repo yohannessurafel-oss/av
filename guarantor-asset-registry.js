@@ -1,11 +1,20 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 07 Guarantor Asset Registry
-   guarantor-asset-registry.js  v2.4 — GUARANTOR ID NOW VERIFIED CLIENT
+   guarantor-asset-registry.js  v2.5 — BLOCKS ATTACHMENT TO CLOSED LOANS
    Table: guarantorriskregistry
    FK links: loanapplications (application_id)
              loanmasterrecords (account_id)
              ClientMasterRecords (client_id)
-             ClientMasterRecords (guarantor_id) — NEW, hard-enforced
+             ClientMasterRecords (guarantor_id) — hard-enforced
+
+   WHAT CHANGED FROM v2.4
+   Nothing stopped a guarantor from being attached to a loan that was
+   already Rejected, Closed, WrittenOff, or Matured — those states are
+   final, so a new guarantee against them doesn't mean anything.
+   saveRecord() now looks up the target loan's application_status in
+   loanmasterrecords and blocks with a clear message if it's in one of
+   those terminal states, same "clean toast before a confusing outcome"
+   pattern used for the guarantor_id FK check below.
 
    WHAT CHANGED FROM v2.3
    guarantor_id previously had no FK and no save-time validation — an
@@ -356,6 +365,32 @@ async function saveRecord() {
     }
   } catch (e) {
     toast('Could not verify guarantor before saving: ' + e.message, 'error');
+    return;
+  }
+
+  // NEW: block attaching a guarantor to a loan that's already in a
+  // terminal state — a guarantee against a Closed/WrittenOff/Rejected/
+  // Matured loan doesn't mean anything, and previously nothing stopped it.
+  if (sb) sb.textContent = 'Checking loan status…';
+  try {
+    const appCheck = await sbFetch(
+      `loanmasterrecords?application_id=eq.${encodeURIComponent(rec.application_id)}&select=application_status&limit=1`
+    );
+    const status = appCheck && appCheck[0]?.application_status;
+    if (!status) {
+      toast(`Application "${rec.application_id}" not found in loanmasterrecords.`, 'error');
+      document.getElementById('guarantorApplicationId')?.focus();
+      if (sb) sb.textContent = 'Blocked — application not found.';
+      return;
+    }
+    if (['Rejected', 'Closed', 'WrittenOff', 'Matured'].includes(status)) {
+      toast(`Cannot attach a guarantor — application ${rec.application_id} is already ${status}.`, 'error');
+      document.getElementById('guarantorApplicationId')?.focus();
+      if (sb) sb.textContent = `Blocked — loan status is ${status}.`;
+      return;
+    }
+  } catch (e) {
+    toast('Could not verify application status before saving: ' + e.message, 'error');
     return;
   }
 
