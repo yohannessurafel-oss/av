@@ -254,6 +254,13 @@
   <span class="dock-label">AVMF — Loan Disbursement</span>
 </div>
 
+<!-- FIX: loan-status-guard.js was never loaded on this page, so
+     window.LoanStatusGuard was always undefined here and disbursement.js's
+     "only a Sanctioned loan can be disbursed" check was silently skipped
+     (it fell into the console.warn "disbursing WITHOUT a sanction-status
+     check" branch on every save). Must load BEFORE disbursement.js, same
+     order as credit-sanction-console.html. -->
+<script src="loan-status-guard.js"></script>
 <script src="disbursement.js"></script>
 </body>
 </html>
