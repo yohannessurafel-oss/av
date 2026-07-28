@@ -245,6 +245,11 @@ function setMode(mode) {
   currentMode = mode;
   const isEdit = mode === 'edit' || mode === 'add';
   getActiveFormInputs().forEach(el => {
+    if (el.id === 'fApplicationId') {
+      // Always read-only — the value is auto-generated when Add is
+      // clicked, never typed by the user.
+      el.disabled = true; return;
+    }
     if (el.dataset.alwaysEnabled !== undefined || el.id === 'loanBranchId' || el.id === 'fProductId') {
       el.disabled = false; return;
     }
@@ -738,9 +743,26 @@ document.getElementById('btnGlobalAdd').addEventListener('click', () => {
   branchSel.value = savedBranchId;
   const nameEl = document.getElementById('loanBranchName');
   if (nameEl) nameEl.value = savedBranchName;
+
+  // Auto-generate the Application ID rather than requiring manual entry —
+  // format: APP-{branch}-{YYMMDDHHMMSS}-{4 random chars}, same pattern
+  // already used for group loan application IDs elsewhere in this system.
+  const appIdEl = document.getElementById('fApplicationId');
+  if (appIdEl) {
+    const now = new Date();
+    const stamp = now.getFullYear().toString().slice(2)
+      + String(now.getMonth() + 1).padStart(2, '0')
+      + String(now.getDate()).padStart(2, '0')
+      + String(now.getHours()).padStart(2, '0')
+      + String(now.getMinutes()).padStart(2, '0')
+      + String(now.getSeconds()).padStart(2, '0');
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    appIdEl.value = `APP-${savedBranchId}-${stamp}-${rand}`;
+  }
+
   setMode('add');
   document.getElementById('fClientId')?.focus();
-  toast('Branch selected. Enter Client ID, Product ID and loan details, then Save.');
+  toast('Branch selected. Application ID generated — enter Client ID, Product ID and loan details, then Save.');
 });
 
 document.getElementById('btnGlobalEdit').addEventListener('click', () => {
@@ -815,4 +837,3 @@ function toggleMaximize() {
     wcMaximizeBtn.title = maximized ? 'Restore Down' : 'Maximize';
   }
 }
-
