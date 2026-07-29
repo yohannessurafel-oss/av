@@ -94,6 +94,9 @@
 
   .table-row-clickable { cursor: pointer; }
   .table-row-clickable:hover { background: #f0f4fa !important; }
+  .staleness-banner { padding: 8px 16px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; }
+.staleness-banner.fresh { background: #e6f4ea; color: #1e7e34; border: 1px solid #c3e6cb; }
+.staleness-banner.stale { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
 </style>
 </head>
 <body>
@@ -255,6 +258,7 @@
 <!-- ── Detail / Edit Panel ──────────────────────────────── -->
 <div class="detail-panel" id="detailPanel">
   <div class="detail-panel-title">
+    <select id="detailPARBucket" disabled title="Computed automatically">
     <span>Update Collection Record</span>
     <span id="btnCloseDetail" style="cursor:pointer;font-size:14px;">✕</span>
   </div>
