@@ -1,22 +1,20 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 02 Group / Center Loan Application
-   group-loan-projection.js  v2.2
-   Fixes:
-     - groupFrequency input field added (was reading wrong field)
-     - groupPenaltyRate + groupTotalSavings inputs added
-     - renderGrid() sets data-row-idx so Alter works correctly
-     - loadRowToForm() restores all fields including frequency
-     - Totals row in grid footer (Loan Amount sum)
-     - btnGroupRemove: remove selected row from batch
-     - Action buttons renamed with clear labels + tooltips
-     - batchRowCount counter kept in sync
-     - Currency ID → select (ETB default)
-     - Grid height increased in HTML (180px)
+   group-loan-projection.js  v2.3 — PATCHED
+
+   PATCHES APPLIED:
+   • Client-side collective limit preview + real-time batch total
+   • Pre-save validation with specific per-row error messages
+   • Double-post guard on saveBatch()
+   • Confirmation modal before creating batch
+   • Auto-clear grid after successful save
+   • Frequency reset uses product default instead of hardcoded 'Monthly'
+   • _selectedIdx reset after save
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
 
-const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
+const SUPABASE_URL = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
 const TABLE_CLIENTS = 'ClientMasterRecords';
@@ -26,10 +24,10 @@ async function sbFetch(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
     headers: {
-      'apikey':        SUPABASE_ANON_KEY,
+      'apikey': SUPABASE_ANON_KEY,
       'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      'Content-Type':  'application/json',
-      'Prefer':        opts.prefer || 'return=representation',
+      'Content-Type': 'application/json',
+      'Prefer': opts.prefer || 'return=representation',
       ...(opts.headers || {})
     }
   });
@@ -49,9 +47,9 @@ async function sbRpc(fnName, params) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fnName}`, {
     method: 'POST',
     headers: {
-      'apikey':        SUPABASE_ANON_KEY,
+      'apikey': SUPABASE_ANON_KEY,
       'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      'Content-Type':  'application/json'
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify(params)
   });
@@ -62,12 +60,10 @@ async function sbRpc(fnName, params) {
   return data;
 }
 
-/* Populate the #groupRegistryId dropdown with existing groups, showing
-   each group's name alongside its collective credit limit so the loan
-   officer can see capacity before picking one. */
+/* Populate the #groupRegistryId dropdown with existing groups */
 async function loadGroupOptions() {
   const sel = document.getElementById('groupRegistryId');
-  if (!sel) return; // HTML hasn't added this field yet — see note below saveBatch()
+  if (!sel) return;
   try {
     const rows = await sbFetch(
       'portfoliogrouphierarchy?select=group_registry_id,group_name_alias,collective_credit_limit&order=group_name_alias.asc'
@@ -121,7 +117,7 @@ function populateBranchSelect(preserveValue) {
 
 async function loadBranches() {
   const sel = document.getElementById('groupBranchId');
-  if (sel) { sel.innerHTML = '<option value="">Loading branches…</option>'; sel.disabled = true; }
+  if (sel) { sel.innerHTML = '<option>Loading branches…</option>'; sel.disabled = true; }
   try {
     const rows = await sbFetch('branchregistry?select=branch_id,branch_name&order=branch_id');
     _branchCache = Array.isArray(rows) ? rows : [];
@@ -141,13 +137,14 @@ document.getElementById('groupBranchId')?.addEventListener('change', function ()
 
 /* ── Product Dropdown ──────────────────────────────────── */
 let _productCache = [];
+let _selectedProductDefault = { frequency: 'Monthly', term: 12, rate: 18 };
 
 async function loadProducts() {
   const sel = document.getElementById('groupProductId');
   if (!sel) return;
   try {
     const rows = await sbFetch(
-      'lendingproductparametermatrix?select=product_code_id,product_name_title,base_interest_rate,default_term_months&order=product_code_id'
+      'lendingproductparametermatrix?select=product_code_id,product_name_title,base_interest_rate,default_term_months,frequency&order=product_code_id'
     );
     _productCache = Array.isArray(rows) ? rows : [];
     const keep = sel.value;
@@ -168,6 +165,13 @@ async function loadProducts() {
 document.getElementById('groupProductId')?.addEventListener('change', function () {
   const chosen = _productCache.find(p => p.product_code_id === this.value);
   if (!chosen) return;
+
+  _selectedProductDefault = {
+    frequency: chosen.frequency || 'Monthly',
+    term: chosen.default_term_months || 12,
+    rate: chosen.base_interest_rate || 18
+  };
+
   const rateEl = document.getElementById('groupInterestRate');
   if (chosen.base_interest_rate && rateEl && !rateEl.value) {
     rateEl.value = chosen.base_interest_rate;
@@ -175,6 +179,10 @@ document.getElementById('groupProductId')?.addEventListener('change', function (
   const termEl = document.getElementById('groupTerm');
   if (chosen.default_term_months && termEl && !termEl.value) {
     termEl.value = chosen.default_term_months;
+  }
+  const freqEl = document.getElementById('groupFrequency');
+  if (chosen.frequency && freqEl && !freqEl.value) {
+    freqEl.value = chosen.frequency;
   }
 });
 
@@ -189,9 +197,9 @@ document.getElementById('groupCenterId')?.addEventListener('blur', async functio
     if (rows && rows[0]) {
       const center = rows[0];
       const schemeEl = document.getElementById('groupSchemeId');
-      const advEl    = document.getElementById('groupAdvanceType');
-      if (schemeEl && !schemeEl.value && center.scheme_id)   schemeEl.value = center.scheme_id;
-      if (advEl    && !advEl.value    && center.advance_type) advEl.value = center.advance_type;
+      const advEl = document.getElementById('groupAdvanceType');
+      if (schemeEl && !schemeEl.value && center.scheme_id) schemeEl.value = center.scheme_id;
+      if (advEl && !advEl.value && center.advance_type) advEl.value = center.advance_type;
       this.classList.remove('input-invalid');
     } else {
       this.classList.add('input-invalid');
@@ -203,13 +211,6 @@ document.getElementById('groupCenterId')?.addEventListener('blur', async functio
 });
 
 /* ── Client Lookup ──────────────────────────────────────── */
-// Queries ONLY ClientMasterRecords, matching every other module in the
-// system (client-directory, client-maintenance, loan-account-maintenance,
-// loan-appraisal-management, credit-sanction-console all do the same).
-// This previously had a silent fallback to a separate 'clients' table that
-// no other module references — removed, since a fallback across two
-// different sources of truth can silently return stale/wrong data with no
-// indication of which table actually answered.
 async function lookupClient(clientId) {
   const val = (clientId || '').trim();
   if (!val) return null;
@@ -258,29 +259,28 @@ document.getElementById('btnLookupClient')?.addEventListener('click', resolveCli
 document.getElementById('groupClientId')?.addEventListener('keydown', e => { if (e.key === 'Enter') resolveClientId(); });
 
 /* ══════════════════════════════════════════════════════════
-   BATCH GRID MANAGEMENT
-   _gridRows = array of row objects, one per member
-   _selectedIdx = index of the currently highlighted row (or -1)
+ BATCH GRID MANAGEMENT
 ══════════════════════════════════════════════════════════ */
-let _gridRows     = [];
-let _selectedIdx  = -1;
+let _gridRows = [];
+let _selectedIdx = -1;
+let _batchSaveInFlight = false;
 
 /* Snapshot the current member-entry form fields into a row object */
 function getCurrentFormRow() {
   const g = id => document.getElementById(id)?.value || '';
   return {
-    client_id:      g('groupClientId'),
-    client_name:    g('groupClientName'),
-    loan_cycle:     g('groupLoanCycle'),
-    loan_level:     g('groupLoanLevel'),
-    loan_amount:    g('groupLoanAmount'),
-    term:           g('groupTerm'),
-    loan_period:    g('groupLoanPeriod'),
+    client_id: g('groupClientId'),
+    client_name: g('groupClientName'),
+    loan_cycle: g('groupLoanCycle'),
+    loan_level: g('groupLoanLevel'),
+    loan_amount: g('groupLoanAmount'),
+    term: g('groupTerm'),
+    loan_period: g('groupLoanPeriod'),
     repayment_term: g('groupRepaymentTerm'),
-    frequency:      g('groupFrequency'),        // ← was wrongly reading groupRepaymentTerm
-    interest_rate:  g('groupInterestRate'),
-    penalty_rate:   g('groupPenaltyRate'),      // ← new field
-    total_savings:  g('groupTotalSavings'),     // ← new field
+    frequency: g('groupFrequency'),
+    interest_rate: g('groupInterestRate'),
+    penalty_rate: g('groupPenaltyRate'),
+    total_savings: g('groupTotalSavings'),
   };
 }
 
@@ -289,20 +289,19 @@ function loadRowToForm(idx) {
   const row = _gridRows[idx];
   if (!row) return;
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
-  set('groupClientId',      row.client_id);
-  set('groupClientName',    row.client_name);
-  set('groupLoanCycle',     row.loan_cycle);
-  set('groupLoanLevel',     row.loan_level);
-  set('groupLoanAmount',    row.loan_amount);
-  set('groupTerm',          row.term);
-  set('groupLoanPeriod',    row.loan_period);
+  set('groupClientId', row.client_id);
+  set('groupClientName', row.client_name);
+  set('groupLoanCycle', row.loan_cycle);
+  set('groupLoanLevel', row.loan_level);
+  set('groupLoanAmount', row.loan_amount);
+  set('groupTerm', row.term);
+  set('groupLoanPeriod', row.loan_period);
   set('groupRepaymentTerm', row.repayment_term);
-  set('groupFrequency',     row.frequency);     // ← was missing
-  set('groupInterestRate',  row.interest_rate);
-  set('groupPenaltyRate',   row.penalty_rate);  // ← new
-  set('groupTotalSavings',  row.total_savings); // ← new
+  set('groupFrequency', row.frequency);
+  set('groupInterestRate', row.interest_rate);
+  set('groupPenaltyRate', row.penalty_rate);
+  set('groupTotalSavings', row.total_savings);
 
-  /* Highlight the selected row */
   _selectedIdx = idx;
   highlightRow(idx);
 }
@@ -318,15 +317,42 @@ function updateBatchCounter() {
   if (el) el.textContent = `${_gridRows.length} member(s)`;
 }
 
+/* ── PATCH: Real-time batch total and limit check ──────── */
+function updateBatchTotal() {
+  const total = _gridRows.reduce((sum, row) => sum + (parseFloat(row.loan_amount) || 0), 0);
+  const totalEl = document.getElementById('batchTotalDisplay');
+  if (totalEl) totalEl.textContent = `Batch Total: ${total.toLocaleString('en-ET', {minimumFractionDigits: 2})} ETB`;
+
+  /* Check against group limit */
+  const groupId = document.getElementById('groupRegistryId')?.value;
+  const limitEl = document.getElementById('batchLimitDisplay');
+  if (groupId && limitEl) {
+    /* Fetch limit from the selected option text */
+    const sel = document.getElementById('groupRegistryId');
+    const opt = sel?.selectedOptions?.[0];
+    if (opt) {
+      const match = opt.textContent.match(/limit: ([\d,]+)/);
+      const limit = match ? parseFloat(match[1].replace(/,/g, '')) : 0;
+      const remaining = limit - total;
+      limitEl.textContent = `Remaining: ${remaining.toLocaleString('en-ET', {minimumFractionDigits: 2})} ETB / ${limit.toLocaleString('en-ET', {minimumFractionDigits: 2})} ETB limit`;
+      limitEl.className = remaining < 0 ? 'limit-display over-limit' : 'limit-display';
+      if (remaining < 0) {
+        toast('⚠ Batch total exceeds group collective limit!', 'warning', 5000);
+      }
+    }
+  }
+}
+
 function renderGrid() {
   const tbody = document.getElementById('groupLoanGridBody');
   const tfoot = document.getElementById('groupLoanGridFoot');
   if (!tbody) return;
 
   if (_gridRows.length === 0) {
-    tbody.innerHTML = '<tr id="groupLoanGridEmptyRow"><td colspan="13" class="text-center gray-text italic">No records to display. Use "Add Member to Batch" above.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="text-center gray-text italic">No records to display. Use "Add Member to Batch" above.</td></tr>';
     if (tfoot) tfoot.style.display = 'none';
     updateBatchCounter();
+    updateBatchTotal();
     return;
   }
 
@@ -339,54 +365,47 @@ function renderGrid() {
 
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
-    tr.dataset.rowIdx = idx;   // ← critical fix: Alter needs this
+    tr.dataset.rowIdx = idx;
 
     tr.innerHTML = `
-      <td>${row.client_id  || ''}</td>
+      <td>${row.client_id || ''}</td>
       <td>${row.client_name || ''}</td>
-      <td>${row.loan_cycle  || ''}</td>
-      <td>${row.loan_level  || ''}</td>
-      <td class="text-right">${amt > 0 ? amt.toLocaleString('en-ET', {minimumFractionDigits:2}) : ''}</td>
-      <td>${row.term         || ''}</td>
-      <td>${row.loan_period  || ''}</td>
+      <td>${row.loan_cycle || ''}</td>
+      <td>${row.loan_level || ''}</td>
+      <td class="text-right">${amt > 0 ? amt.toLocaleString('en-ET', {minimumFractionDigits: 2}) : ''}</td>
+      <td>${row.term || ''}</td>
+      <td>${row.loan_period || ''}</td>
       <td>${row.repayment_term || ''}</td>
-      <td>${row.frequency    || ''}</td>
-      <td class="text-right">${row.interest_rate || ''}</td>
-      <td class="text-right">${row.penalty_rate  || ''}</td>
-      <td class="text-right">${row.total_savings || ''}</td>
+      <td>${row.frequency || ''}</td>
+      <td>${row.interest_rate || ''}</td>
+      <td>${row.penalty_rate || ''}</td>
+      <td>${row.total_savings || ''}</td>
     `;
 
     tr.addEventListener('click', () => loadRowToForm(idx));
     tbody.appendChild(tr);
   });
 
-  /* Totals row in tfoot */
   if (tfoot) {
     tfoot.style.display = '';
     const totalEl = document.getElementById('gridTotalAmount');
-    if (totalEl) totalEl.textContent = totalAmount.toLocaleString('en-ET', {minimumFractionDigits:2});
+    if (totalEl) totalEl.textContent = totalAmount.toLocaleString('en-ET', {minimumFractionDigits: 2});
   }
 
-  /* Restore highlight if a row was selected */
   if (_selectedIdx >= 0) highlightRow(_selectedIdx);
   updateBatchCounter();
+  updateBatchTotal();
 }
 
-/* Fields the create_group_loan_batch RPC casts straight to ::integer.
-   A decimal (e.g. "12.5") or any other non-integer value passes HTML5's
-   type="number" validation but still fails Postgres's integer cast at
-   save time — and since the whole batch is one transaction, that would
-   fail every OTHER member's row too, not just this one. Catch it here
-   instead, with a message that says which field and which member. */
 function validateIntegerFields(row) {
   const checks = [
     { key: 'repayment_term', label: 'Repayment Term' },
-    { key: 'loan_level',     label: 'Loan Level' },
-    { key: 'loan_cycle',     label: 'Loan Cycle' },
+    { key: 'loan_level', label: 'Loan Level' },
+    { key: 'loan_cycle', label: 'Loan Cycle' },
   ];
   for (const { key, label } of checks) {
     const raw = row[key];
-    if (raw === '' || raw === null || raw === undefined) continue; // optional fields — NULLIF handles blank
+    if (raw === '' || raw === null || raw === undefined) continue;
     const n = Number(raw);
     if (!Number.isInteger(n)) {
       return `${label} must be a whole number (got "${raw}") — decimals aren't accepted here.`;
@@ -397,7 +416,6 @@ function validateIntegerFields(row) {
 
 /* ── Action Row Buttons ─────────────────────────────────── */
 
-/* ➕ Add Member to Batch — push current form as a new row */
 document.getElementById('btnGroupUpdate')?.addEventListener('click', () => {
   const row = getCurrentFormRow();
   if (!row.client_id) {
@@ -416,7 +434,6 @@ document.getElementById('btnGroupUpdate')?.addEventListener('click', () => {
   toast(`Member ${row.client_id} added — ${_gridRows.length} member(s) in batch.`);
 });
 
-/* ✏️ Update Selected Row — overwrite the highlighted row with current form */
 document.getElementById('btnGroupAlter')?.addEventListener('click', () => {
   if (_selectedIdx < 0 || _selectedIdx >= _gridRows.length) {
     toast('Click a row in the grid first to select it, then use Update Selected Row.', 'warning');
@@ -433,7 +450,6 @@ document.getElementById('btnGroupAlter')?.addEventListener('click', () => {
   toast(`Row ${_selectedIdx + 1} updated.`);
 });
 
-/* 🗑 Remove Selected Row */
 document.getElementById('btnGroupRemove')?.addEventListener('click', () => {
   if (_selectedIdx < 0 || _selectedIdx >= _gridRows.length) {
     toast('Click a row in the grid first to select it, then use Remove Selected Row.', 'warning');
@@ -445,7 +461,6 @@ document.getElementById('btnGroupRemove')?.addEventListener('click', () => {
   toast(`Member ${removed[0]?.client_id || ''} removed from batch.`);
 });
 
-/* 🧹 Clear Member Fields — reset only the per-member inputs */
 document.getElementById('btnGroupClear')?.addEventListener('click', () => {
   [
     'groupClientId', 'groupClientName', 'groupRepaymentAccId',
@@ -453,8 +468,11 @@ document.getElementById('btnGroupClear')?.addEventListener('click', () => {
     'groupTerm', 'groupLoanPeriod', 'groupRepaymentTerm',
     'groupInterestRate', 'groupPenaltyRate', 'groupTotalSavings',
   ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+
+  /* PATCH: Reset frequency to product default instead of hardcoded 'Monthly' */
   const freqEl = document.getElementById('groupFrequency');
-  if (freqEl) freqEl.value = 'Monthly'; // reset to default
+  if (freqEl) freqEl.value = _selectedProductDefault.frequency;
+
   _selectedIdx = -1;
   highlightRow(-1);
   toast('Member fields cleared — ready for next entry.');
@@ -476,163 +494,191 @@ function setMode(mode) {
     });
   }
 
-  /* Inline action buttons only enabled in edit/add mode */
   ['btnGroupUpdate','btnGroupAlter','btnGroupRemove','btnGroupClear'].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) btn.disabled = !isEdit;
   });
 
-  const btnSave   = document.getElementById('btnGlobalSave');
+  const btnSave = document.getElementById('btnGlobalSave');
   const btnCancel = document.getElementById('btnGlobalCancel');
-  const btnAdd    = document.getElementById('btnGlobalAdd');
-  const btnEdit   = document.getElementById('btnGlobalEdit');
-  const btnClose  = document.getElementById('btnGlobalClose');
+  const btnAdd = document.getElementById('btnGlobalAdd');
+  const btnEdit = document.getElementById('btnGlobalEdit');
+  const btnClose = document.getElementById('btnGlobalClose');
   const btnDelete = document.getElementById('btnGlobalDelete');
-  if (btnSave)   btnSave.disabled   = !isEdit;
+  if (btnSave) btnSave.disabled = !isEdit;
   if (btnCancel) btnCancel.disabled = !isEdit;
-  if (btnAdd)    btnAdd.disabled    = isEdit;
-  if (btnEdit)   btnEdit.disabled   = isEdit;
+  if (btnAdd) btnAdd.disabled = isEdit;
+  if (btnEdit) btnEdit.disabled = isEdit;
   if (btnDelete) btnDelete.disabled = !isEdit;
-  if (btnClose)  btnClose.disabled  = isEdit;
+  if (btnClose) btnClose.disabled = isEdit;
 
   const sb = document.getElementById('statusBar');
   if (sb) sb.textContent = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)} — Ready`;
 }
 
-/* ── Save Batch ─────────────────────────────────────────── */
+/* ── Save Batch ──────────────────────────────────────────── */
 async function saveBatch() {
   if (_gridRows.length === 0) {
     toast('Add at least one member row before saving.', 'warning');
     return;
   }
 
-  const g = id => document.getElementById(id)?.value || '';
-  const branchId       = g('groupBranchId');
-  const disbursDate    = g('groupDisbursementDate');
-  const modeOfDisb     = g('groupModeOfDisbursement');
-  const fileNumber     = g('groupFileNumber');
-  const fundId         = g('groupFundId');
-  const loanPurpose    = g('groupLoanPurpose');
-  const productId      = g('groupProductId');
-  const currencyId     = g('groupCurrencyId') || 'ETB';
-  const creditOfficer  = g('groupCreditOfficer');
-  const centerId       = g('groupCenterId');
-  const lineOfBiz      = g('groupLineOfBusiness');
-  const groupClass     = g('groupGroupClass');
-  const gracePeriod    = g('groupGracePeriod');
-  const repaymentAccId = g('groupRepaymentAccId');
-
-  // Group registry — either pick an existing group, or create a new one
-  // with a stated collective credit limit. These are new fields; see the
-  // note below the function for the HTML inputs this expects.
-  const existingGroupId = g('groupRegistryId');
-  const newGroupName    = g('groupNewName');
-  const newGroupLimit   = g('groupNewLimit');
-  const subGroupId      = g('groupSubGroupId');
-
-  if (!branchId)  { toast('Branch is required.', 'warning'); document.getElementById('groupBranchId')?.focus(); return; }
-  if (!productId) { toast('Product is required.', 'warning'); document.getElementById('groupProductId')?.focus(); return; }
-  if (!repaymentAccId) { toast('Repayment Acc ID is required.', 'warning'); document.getElementById('groupRepaymentAccId')?.focus(); return; }
-  if (!existingGroupId && !newGroupName) {
-    toast('Select an existing group, or enter a name to create a new one.', 'warning');
-    return;
-  }
-
-  const sb = document.getElementById('statusBar');
-  if (sb) sb.textContent = 'Checking group limit and saving batch…';
-
-  const members = [];
-  let skipped = 0;
-  for (const row of _gridRows) {
-    if (!row.client_id || !row.loan_amount || !row.term || !row.interest_rate) {
-      console.warn('Skipping incomplete row:', row);
-      skipped++;
-      continue;
-    }
-    members.push({
-      client_id:      row.client_id,
-      client_name:    row.client_name,
-      loan_amount:    parseFloat(row.loan_amount),
-      term:           parseInt(row.term),
-      repayment_term: row.repayment_term || null,
-      loan_cycle:     row.loan_cycle || 1,
-      loan_level:     row.loan_level || 1,
-      frequency:      row.frequency || 'Monthly',
-      interest_rate:  parseFloat(row.interest_rate),
-      penalty_rate:   row.penalty_rate || null
-    });
-  }
-
-  if (members.length === 0) {
-    toast('No complete member rows to save.', 'error');
-    return;
-  }
+  /* ── PATCH: Double-post guard ── */
+  if (_batchSaveInFlight) { console.warn('Batch save already in progress.'); return; }
+  _batchSaveInFlight = true;
+  const saveBtn = document.getElementById('btnGlobalSave');
+  if (saveBtn) saveBtn.disabled = true;
 
   try {
-    // Single atomic transaction: resolves/creates the group, checks the
-    // WHOLE batch against the group's collective_credit_limit BEFORE
-    // writing anything, then inserts every member's loanapplications +
-    // loanmasterrecords pair together. Either the entire group saves, or
-    // none of it does — no more partial batches with orphaned rows.
+    const g = id => document.getElementById(id)?.value || '';
+    const branchId = g('groupBranchId');
+    const disbursDate = g('groupDisbursementDate');
+    const modeOfDisb = g('groupModeOfDisbursement');
+    const fileNumber = g('groupFileNumber');
+    const fundId = g('groupFundId');
+    const loanPurpose = g('groupLoanPurpose');
+    const productId = g('groupProductId');
+    const currencyId = g('groupCurrencyId') || 'ETB';
+    const creditOfficer = g('groupCreditOfficer');
+    const centerId = g('groupCenterId');
+    const lineOfBiz = g('groupLineOfBusiness');
+    const groupClass = g('groupGroupClass');
+    const gracePeriod = g('groupGracePeriod');
+    const repaymentAccId = g('groupRepaymentAccId');
+    const existingGroupId = g('groupRegistryId');
+    const newGroupName = g('groupNewName');
+    const newGroupLimit = g('groupNewLimit');
+    const subGroupId = g('groupSubGroupId');
+
+    if (!branchId) { toast('Branch is required.', 'warning'); document.getElementById('groupBranchId')?.focus(); return; }
+    if (!productId) { toast('Product is required.', 'warning'); document.getElementById('groupProductId')?.focus(); return; }
+    if (!repaymentAccId) { toast('Repayment Acc ID is required.', 'warning'); document.getElementById('groupRepaymentAccId')?.focus(); return; }
+    if (!existingGroupId && !newGroupName) {
+      toast('Select an existing group, or enter a name to create a new one.', 'warning');
+      return;
+    }
+
+    /* ── PATCH: Pre-validate all rows with specific errors ── */
+    const members = [];
+    const errors = [];
+    for (let i = 0; i < _gridRows.length; i++) {
+      const row = _gridRows[i];
+      if (!row.client_id) { errors.push(`Row ${i + 1}: Missing Client ID`); continue; }
+      if (!row.loan_amount || parseFloat(row.loan_amount) <= 0) { errors.push(`Row ${i + 1} (${row.client_id}): Loan amount must be > 0`); continue; }
+      if (!row.term || parseInt(row.term) <= 0) { errors.push(`Row ${i + 1} (${row.client_id}): Term must be > 0`); continue; }
+      if (!row.interest_rate || parseFloat(row.interest_rate) <= 0) { errors.push(`Row ${i + 1} (${row.client_id}): Interest rate must be > 0`); continue; }
+
+      const intErr = validateIntegerFields(row);
+      if (intErr) { errors.push(`Row ${i + 1} (${row.client_id}): ${intErr}`); continue; }
+
+      members.push({
+        client_id: row.client_id,
+        client_name: row.client_name,
+        loan_amount: parseFloat(row.loan_amount),
+        term: parseInt(row.term),
+        repayment_term: row.repayment_term || null,
+        loan_cycle: row.loan_cycle || 1,
+        loan_level: row.loan_level || 1,
+        frequency: row.frequency || _selectedProductDefault.frequency,
+        interest_rate: parseFloat(row.interest_rate),
+        penalty_rate: row.penalty_rate || null
+      });
+    }
+
+    if (errors.length > 0) {
+      toast(`Validation failed:\n${errors.slice(0, 3).join('\n')}${errors.length > 3 ? '\n...and ' + (errors.length - 3) + ' more' : ''}`, 'error', 8000);
+      return;
+    }
+
+    if (members.length === 0) {
+      toast('No valid member rows to save.', 'error');
+      return;
+    }
+
+    /* ── PATCH: Client-side limit check ── */
+    const batchTotal = members.reduce((s, m) => s + m.loan_amount, 0);
+    if (existingGroupId) {
+      const sel = document.getElementById('groupRegistryId');
+      const opt = sel?.selectedOptions?.[0];
+      if (opt) {
+        const match = opt.textContent.match(/limit: ([\d,]+)/);
+        const limit = match ? parseFloat(match[1].replace(/,/g, '')) : 0;
+        if (batchTotal > limit) {
+          if (!confirm(`⚠ WARNING: Batch total (${batchTotal.toLocaleString()} ETB) exceeds group limit (${limit.toLocaleString()} ETB).\n\nThe server will reject this. Continue anyway?`)) {
+            toast('Save cancelled.', 'info');
+            return;
+          }
+        }
+      }
+    }
+
+    /* ── PATCH: Confirmation modal ── */
+    if (!confirm(
+      `Create group loan batch?\n\n` +
+      `Members: ${members.length}\n` +
+      `Total Amount: ${batchTotal.toLocaleString('en-ET', {minimumFractionDigits: 2})} ETB\n` +
+      `Group: ${existingGroupId || newGroupName}\n` +
+      `Product: ${productId}\n\n` +
+      `This will create ${members.length} loan application records.`
+    )) {
+      toast('Batch creation cancelled.', 'info');
+      return;
+    }
+
+    const sb = document.getElementById('statusBar');
+    if (sb) sb.textContent = 'Checking group limit and saving batch…';
+
     const result = await sbRpc('create_group_loan_batch', {
-      p_branch_id:                  branchId,
-      p_product_id:                 productId,
-      p_repayment_account_id:       repaymentAccId,
-      p_members:                    members,
-      p_group_registry_id:          existingGroupId || null,
-      p_new_group_name:             existingGroupId ? null : newGroupName,
+      p_branch_id: branchId,
+      p_product_id: productId,
+      p_repayment_account_id: repaymentAccId,
+      p_members: members,
+      p_group_registry_id: existingGroupId || null,
+      p_new_group_name: existingGroupId ? null : newGroupName,
       p_new_group_collective_limit: existingGroupId ? null : (parseFloat(newGroupLimit) || null),
-      p_center_id:                  centerId || null,
-      p_fund_id:                    fundId || null,
-      p_loan_purpose:               loanPurpose || null,
-      p_line_of_business:           lineOfBiz || null,
-      p_credit_officer_id:          creditOfficer || null,
-      p_file_number:                fileNumber || null,
-      p_currency_id:                currencyId,
-      p_group_class:                groupClass || null,
-      p_mode_of_disbursement:       modeOfDisb || 'Transfer',
-      p_disbursement_date:          disbursDate || null,
-      p_grace_period:               gracePeriod || null,
-      p_sub_group_id:               subGroupId || null
+      p_center_id: centerId || null,
+      p_fund_id: fundId || null,
+      p_loan_purpose: loanPurpose || null,
+      p_line_of_business: lineOfBiz || null,
+      p_credit_officer_id: creditOfficer || null,
+      p_file_number: fileNumber || null,
+      p_currency_id: currencyId,
+      p_group_class: groupClass || null,
+      p_mode_of_disbursement: modeOfDisb || 'Transfer',
+      p_disbursement_date: disbursDate || null,
+      p_grace_period: gracePeriod || null,
+      p_sub_group_id: subGroupId || null
     });
 
     toast(
       `Saved ${result.members_saved} member loan(s) under group ${result.group_registry_id}. ` +
-      `Group exposure now ${result.new_total_exposure.toLocaleString()} / ${result.collective_limit.toLocaleString()} ETB limit.` +
-      (skipped > 0 ? ` (${skipped} incomplete row(s) skipped.)` : ''),
+      `Group exposure now ${result.new_total_exposure.toLocaleString()} / ${result.collective_limit.toLocaleString()} ETB limit.`,
       'success', 7000
     );
     if (sb) sb.textContent = `Saved ${result.members_saved} / ${_gridRows.length} rows under ${result.group_registry_id}.`;
+
+    /* ── PATCH: Clear grid after successful save ── */
+    _gridRows = [];
+    _selectedIdx = -1;
+    renderGrid();
     setMode('view');
 
   } catch (e) {
-    // The RPC rejects the ENTIRE batch if it would exceed the group's
-    // collective limit, or if any member row is invalid — nothing gets
-    // written in that case, so there's nothing to clean up.
     toast('Batch save failed: ' + e.message, 'error', 8000);
+    const sb = document.getElementById('statusBar');
     if (sb) sb.textContent = 'Batch save failed — nothing was written.';
+  } finally {
+    _batchSaveInFlight = false;
+    if (saveBtn) saveBtn.disabled = false;
   }
 }
-
-/* ============================================================================
-   NEW HTML INPUTS THIS FUNCTION EXPECTS (add these to group-loan-projection.html):
-     #groupRegistryId  — <select> populated from portfoliogrouphierarchy,
-                          letting the user pick an EXISTING group
-     #groupNewName     — <input> for creating a NEW group (used only if
-                          groupRegistryId is left blank)
-     #groupNewLimit    — <input type="number"> the new group's collective
-                          credit limit (required only when creating new)
-     #groupSubGroupId  — <input> optional sub-group code
-   Consider calling a loadGroupOptions() function on page load to populate
-   #groupRegistryId from: portfoliogrouphierarchy?select=group_registry_id,group_name_alias,collective_credit_limit
-   ============================================================================ */
 
 /* ── Global Toolbar ─────────────────────────────────────── */
 document.getElementById('btnGlobalView')?.addEventListener('click', () => {
   toast('View mode — click a grid row to load a member record.');
 });
 document.getElementById('btnGlobalAdd')?.addEventListener('click', () => {
-  _gridRows    = [];
+  _gridRows = [];
   _selectedIdx = -1;
   renderGrid();
   setMode('add');
@@ -649,7 +695,7 @@ document.getElementById('btnGlobalCancel')?.addEventListener('click', () => {
   toast('Changes discarded.');
 });
 document.getElementById('btnGlobalClose')?.addEventListener('click', () => {
-  _gridRows    = [];
+  _gridRows = [];
   _selectedIdx = -1;
   renderGrid();
   setMode('view');
@@ -669,16 +715,14 @@ init();
 
 // ── Window Controls: Minimize / Maximize ────────────────────
 const windowContainer = document.querySelector('.window-container');
-const wcMinimizeBtn    = document.getElementById('wcMinimize');
-const wcMaximizeBtn    = document.getElementById('wcMaximize');
-const dockSliver        = document.getElementById('dockSliver');
+const wcMinimizeBtn = document.getElementById('wcMinimize');
+const wcMaximizeBtn = document.getElementById('wcMaximize');
+const dockSliver = document.getElementById('dockSliver');
 
 function toggleMinimize() {
   if (!windowContainer || !dockSliver) return;
-  // Maximize and minimize are mutually exclusive
   windowContainer.classList.remove('is-maximized');
   if (wcMaximizeBtn) wcMaximizeBtn.textContent = '▢';
-
   windowContainer.classList.toggle('is-minimized');
   const minimized = windowContainer.classList.contains('is-minimized');
   dockSliver.classList.toggle('show', minimized);
@@ -687,7 +731,6 @@ function toggleMinimize() {
 
 function toggleMaximize() {
   if (!windowContainer) return;
-  // Maximize and minimize are mutually exclusive
   if (windowContainer.classList.contains('is-minimized')) {
     windowContainer.classList.remove('is-minimized');
     if (dockSliver) dockSliver.classList.remove('show');
