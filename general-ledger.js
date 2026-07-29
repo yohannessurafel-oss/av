@@ -1,7 +1,14 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 12 General Ledger Engine
-   general-ledger.js  v3.1 — RESOLVED SUMMARY TILES FILTER BUG
+   general-ledger.js  v3.2 — SERVER-SIDE TRIAL BALANCE
    Tables: chart_of_accounts, gl_transaction_journal, loan_ledger
+
+   WHAT CHANGED FROM v3.1
+   loadTrialBalance() previously pulled debit_amount and
+   credit_amount for EVERY row in gl_transaction_journal and
+   summed them in the browser. On a large journal this wastes
+   bandwidth and will eventually crash the tab. Now it calls
+   the get_trial_balance() RPC which returns two numbers.
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -24,6 +31,24 @@ async function sbFetch(path) {
   }
   const text = await res.text();
   return text ? JSON.parse(text) : [];
+}
+
+/* ── RPC Helper (new) ───────────────────────────────────── */
+async function sbRpc(fnName, params) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fnName}`, {
+    method: 'POST',
+    headers: {
+      'apikey':        SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type':  'application/json'
+    },
+    body: JSON.stringify(params)
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error((data && data.message) || `HTTP ${res.status}`);
+  }
+  return data;
 }
 
 /* ── Toast ─────────────────────────────────────────────── */
@@ -92,26 +117,20 @@ async function loadLedger() {
 }
 
 /* ── Trial Balance check ─────────────────────────────────
-   NEW: sums debit_amount and credit_amount across the FULL
-   gl_transaction_journal table (the Journal tab only ever fetches the
-   latest 200 rows for display, which isn't safe to use for this check).
-   Only pulls the two numeric columns needed, to keep this light even on
-   a large journal. Any correct double-entry posting keeps these equal —
-   if they ever diverge, something in the app posted an unbalanced
-   entry (this is exactly how the overpayment bug in post_loan_repayment
-   v3 would have shown up, before the v4 fix). ─────────────────────── */
+   v3.2: Now calls get_trial_balance() RPC instead of
+   pulling the full gl_transaction_journal into memory.
+   The RPC returns COALESCE(SUM(debit_amount),0) and
+   COALESCE(SUM(credit_amount),0) directly from Postgres.
+   This stays instant even with millions of rows. ───────── */
 async function loadTrialBalance() {
   const wrap = document.getElementById('tileTrialBalanceWrap');
   const el   = document.getElementById('tileTrialBalance');
   if (!el || !wrap) return;
 
   try {
-    const rows = await sbFetch('gl_transaction_journal?select=debit_amount,credit_amount');
-    let totalDebit = 0, totalCredit = 0;
-    (rows || []).forEach(r => {
-      totalDebit  += parseFloat(r.debit_amount)  || 0;
-      totalCredit += parseFloat(r.credit_amount) || 0;
-    });
+    const result = await sbRpc('get_trial_balance', {});
+    const totalDebit  = parseFloat(result?.total_debit)  || 0;
+    const totalCredit = parseFloat(result?.total_credit) || 0;
 
     const diff = Math.round((totalDebit - totalCredit) * 100) / 100;
     wrap.classList.remove('tb-balanced', 'tb-unbalanced');
@@ -268,7 +287,6 @@ const dockSliver        = document.getElementById('dockSliver');
 
 function toggleMinimize() {
   if (!windowContainer || !dockSliver) return;
-  // Maximize and minimize are mutually exclusive
   windowContainer.classList.remove('is-maximized');
   if (wcMaximizeBtn) wcMaximizeBtn.textContent = '▢';
 
@@ -280,7 +298,6 @@ function toggleMinimize() {
 
 function toggleMaximize() {
   if (!windowContainer) return;
-  // Maximize and minimize are mutually exclusive
   if (windowContainer.classList.contains('is-minimized')) {
     windowContainer.classList.remove('is-minimized');
     if (dockSliver) dockSliver.classList.remove('show');
