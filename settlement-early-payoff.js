@@ -1,7 +1,13 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 09 Settlement / Early Payoff
    settlement-early-payoff.js  v1.3 — PATCHED
-   Now calls post_loan_settlement RPC for atomic GL + ledger + status.
+
+   PATCHES APPLIED:
+   • Calls post_loan_settlement RPC for atomic GL + ledger + status
+   • Double-post guard on Process Settlement
+   • Collision-resistant ref batch generation
+   • loanapplications sync handled server-side in RPC
+   • creditaccountpayoffregistry write handled server-side in RPC
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -140,11 +146,11 @@ function populateForm(rec) {
   v('payoffPreclosureStatus', rec.application_status === 'Closed' ? 'Already Settled' : 'Eligible');
 }
 
-/* ── Render functions (unchanged) ───────────────────────── */
+/* ── Render: Amortization Schedule ──────────────────────── */
 function renderSchedule(rows) {
   const tbody = document.querySelector('#installmentScheduleTable tbody');
   if (!tbody) return;
-  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6">No schedule found.</td></tr>'; return; }
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7">No schedule found.</td></tr>'; return; }
   tbody.innerHTML = rows.map(r => `
     <tr><td>${r.installment_no}</td><td>${r.due_date}</td>
     <td>${fmt(r.principal_due)}</td><td>${fmt(r.interest_due)}</td>
@@ -153,6 +159,7 @@ function renderSchedule(rows) {
   `).join('');
 }
 
+/* ── Render: Loan Statement (ledger) ────────────────────── */
 function renderStatement(rows) {
   const tbody = document.querySelector('#loanStatementTable tbody');
   if (!tbody) return;
@@ -165,6 +172,7 @@ function renderStatement(rows) {
   `).join('');
 }
 
+/* ── Render: Loan History ───────────────────────────────── */
 function renderHistory(loan) {
   const tbody = document.querySelector('#loanHistoryTable tbody');
   if (!tbody) return;
@@ -177,7 +185,7 @@ function renderHistory(loan) {
   `;
 }
 
-/* ── Compute Pay-off ────────────────────────────────────── */
+/* ── Compute Pay-off Components ─────────────────────────── */
 function computePayoff() {
   if (!_loanRecord) return;
 
@@ -222,8 +230,8 @@ function computePayoff() {
   if (tbody) {
     tbody.innerHTML = `
       <tr><td>Outstanding Principal</td><td>${fmt(unpaidPrincipal)}</td></tr>
-      <tr><td>Overdue Interest (billed)</td><td>${fmt(unpaidInterest - accruedPartialInterest)}</td></tr>
-      <tr><td>Accrued Interest — current period (${daysSincePeriodStart}d)</td><td>${fmt(accruedPartialInterest)}</td></tr>
+      <tr><td>Overdue Interest (billed installments)</td><td>${fmt(unpaidInterest - accruedPartialInterest)}</td></tr>
+      <tr><td>Accrued Interest — current period (${daysSincePeriodStart}d @ actual/365)</td><td>${fmt(accruedPartialInterest)}</td></tr>
       <tr><td>Early Settlement Penalty (${(_earlySettlementPenaltyRate * 100).toFixed(2)}%)</td><td>${fmt(penalty)}</td></tr>
       <tr><td>Less: Approved Waiver</td><td>−${fmt(waiver)}</td></tr>
       <tr style="font-weight:bold;"><td>Net Settlement Amount</td><td>${fmt(netSettlement)}</td></tr>
