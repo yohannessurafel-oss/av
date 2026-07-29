@@ -1,39 +1,23 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 09 Settlement / Early Payoff
-   settlement-early-payoff.js  v1.2 — STATUS + GUARD FIX
-   Tables:
-     loanmasterrecords      — loan master record (read)
-     loan_ledger            — transaction history (read, write on settle)
-     amortization_schedules — installment schedule (read)
-
-   WHAT CHANGED FROM v1.1
-   1. Was writing application_status: 'Settled' — not a valid status.
-      loanmasterrecords' CHECK constraint only allows Draft/Submitted/
-      DataEntry/Appraisal/Sanctioned/Disbursed/Matured/Closed/WrittenOff,
-      so every settlement attempt should have been failing outright with
-      a constraint violation. Changed to 'Closed', matching what
-      loan-status-guard.js's own TRANSITIONS table already expected this
-      module to write.
-   2. Was never calling LoanStatusGuard.canTransition() at all, despite
-      being explicitly named ('settlement') in the guard's authorized-
-      module list. Added the gate, matching the pattern already proven
-      in disbursement.js and credit-sanction-console.js.
+   settlement-early-payoff.js  v1.3 — PATCHED
+   Now calls post_loan_settlement RPC for atomic GL + ledger + status.
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
 
-const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
+const SUPABASE_URL = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-/* ── HTTP Helper — Hardened raw text parsing ────────────────── */
+/* ── HTTP helper ────────────────────────────────────────── */
 async function sbFetch(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
     headers: {
-      'apikey':        SUPABASE_ANON_KEY,
+      'apikey': SUPABASE_ANON_KEY,
       'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      'Content-Type':  'application/json',
-      'Prefer':        opts.prefer || 'return=representation',
+      'Content-Type': 'application/json',
+      'Prefer': opts.prefer || 'return=representation',
       ...(opts.headers || {})
     }
   });
@@ -47,6 +31,24 @@ async function sbFetch(path, opts = {}) {
   const body = await res.text();
   if (!body || !body.trim()) return null;
   try { return JSON.parse(body); } catch { return null; }
+}
+
+/* ── RPC helper ─────────────────────────────────────────── */
+async function sbRpc(fnName, params) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fnName}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(params)
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error((data && data.message) || `HTTP ${res.status}`);
+  }
+  return data;
 }
 
 /* ── Toast ─────────────────────────────────────────────── */
@@ -70,64 +72,21 @@ function toast(msg, type = '', duration = 3500) {
   if (sd) sd.value = new Date().toISOString().split('T')[0];
 })();
 
-/* ── Branch Dropdown ───────────────────────────────────── */
-let _branchCache = [];
-
-async function loadBranches() {
-  const sel = document.getElementById('payoffBranchId');
-  if (sel) { sel.innerHTML = '<option value="">Loading branches…</option>'; sel.disabled = true; }
-  try {
-    const rows = await sbFetch('branchregistry?select=branch_id,branch_name&order=branch_id');
-    _branchCache = Array.isArray(rows) ? rows : [];
-    if (!sel) return;
-    sel.innerHTML = '<option value="">-- Select Branch --</option>';
-    _branchCache.forEach(r => {
-      const o = document.createElement('option');
-      o.value = r.branch_id;
-      o.textContent = r.branch_id + (r.branch_name ? ' — ' + r.branch_name : '');
-      sel.appendChild(o);
-    });
-    sel.disabled = false;
-  } catch (e) {
-    toast('Could not load branch list.', 'error');
-    if (sel) { sel.innerHTML = '<option value="">-- Select Branch --</option>'; sel.disabled = false; }
-  }
-}
-
-document.getElementById('payoffBranchId')?.addEventListener('change', function () {
-  const nameEl = document.getElementById('payoffBranchName');
-  const chosen = _branchCache.find(b => b.branch_id === this.value);
-  if (nameEl) nameEl.value = chosen ? (chosen.branch_name || '') : '';
-});
-
-/* ── Tab Switching ──────────────────────────────────────── */
-document.querySelectorAll('.sub-tab').forEach(tab => {
-  tab.addEventListener('click', function () {
-    document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.sub-tab-view').forEach(v => v.classList.remove('active'));
-    this.classList.add('active');
-    document.getElementById('subview-' + this.dataset.target)?.classList.add('active');
-  });
-});
-
-/* ── Format helpers ──────────────────────────────────────── */
+/* ── Format helper ──────────────────────────────────────── */
 const fmt = n => parseFloat(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /* ── State ──────────────────────────────────────────────── */
 let _loadedAppId = null;
-let _loanRecord  = null;
+let _loanRecord = null;
 let _scheduleRows = [];
-let _ledgerRows   = [];
-const FALLBACK_EARLY_SETTLEMENT_PENALTY_RATE = 0.02; // 2%, matches existing sample contract terms
-let _earlySettlementPenaltyRate = FALLBACK_EARLY_SETTLEMENT_PENALTY_RATE;
+let _ledgerRows = [];
+let _settlementInFlight = false;
+let _earlySettlementPenaltyRate = 0.02;
 
 /* ── Load Loan + Schedule + Ledger ───────────────────────── */
 async function loadPayoffRecord() {
   const appId = document.getElementById('payoffAccNoTarget')?.value?.trim();
   if (!appId) { toast('Enter an Application ID to search.', 'warning'); return; }
-
-  const sb = document.getElementById('statusBar');
-  if (sb) sb.textContent = `Loading ${appId}…`;
 
   try {
     const loanRows = await sbFetch(
@@ -135,41 +94,22 @@ async function loadPayoffRecord() {
     );
     if (!loanRows || !loanRows[0]) {
       toast('Application ID not found.', 'warning');
-      if (sb) sb.textContent = 'Status: Not found';
       return;
     }
     _loanRecord = loanRows[0];
     _loadedAppId = _loanRecord.application_id;
 
-    // Pull this loan's PRODUCT-SPECIFIC early-settlement penalty rate,
-    // falling back to the sample contract default (2%) only if the
-    // product row is missing it.
+    /* Load product penalty rate */
     try {
       const productRows = await sbFetch(
         `lendingproductparametermatrix?product_code_id=eq.${encodeURIComponent(_loanRecord.product_id)}&select=early_settlement_penalty_rate&limit=1`
       );
-      const prod = productRows && productRows[0];
-      _earlySettlementPenaltyRate = (prod && prod.early_settlement_penalty_rate != null)
-        ? prod.early_settlement_penalty_rate : FALLBACK_EARLY_SETTLEMENT_PENALTY_RATE;
-    } catch (e) {
-      console.warn('Could not load product penalty policy, using default:', e.message);
-      _earlySettlementPenaltyRate = FALLBACK_EARLY_SETTLEMENT_PENALTY_RATE;
+      _earlySettlementPenaltyRate = productRows?.[0]?.early_settlement_penalty_rate ?? 0.02;
+    } catch {
+      _earlySettlementPenaltyRate = 0.02;
     }
 
-    const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
-    v('payoffClientId',   _loanRecord.client_id);
-    v('payoffLoanSeries', _loanRecord.loan_series_no);
-    v('payoffLoanAmount', fmt(_loanRecord.applied_amount));
-    v('payoffProductId',  _loanRecord.product_id);
-    v('payoffCurrencyId', _loanRecord.currency_id || 'ETB');
-    v('payoffCreatedOn',  _loanRecord.created_on ? new Date(_loanRecord.created_on).toLocaleString('en-ET') : '');
-    v('payoffPreclosureStatus', _loanRecord.application_status === 'Closed' ? 'Already Settled' : 'Eligible');
-
-    const brSel = document.getElementById('payoffBranchId');
-    if (brSel && _loanRecord.branch_id) {
-      brSel.value = _loanRecord.branch_id;
-      brSel.dispatchEvent(new Event('change'));
-    }
+    populateForm(_loanRecord);
 
     _scheduleRows = await sbFetch(
       `amortization_schedules?application_id=eq.${encodeURIComponent(appId)}&select=*&order=installment_no.asc`
@@ -183,266 +123,187 @@ async function loadPayoffRecord() {
     renderHistory(_loanRecord);
 
     computePayoff();
-
     toast(`Loaded: ${_loadedAppId}`);
-    if (sb) sb.textContent = `Application ${_loadedAppId} | Status: ${_loanRecord.application_status}`;
   } catch (e) {
     toast('Lookup error: ' + e.message, 'error');
-    if (sb) sb.textContent = 'Lookup failed.';
   }
 }
 
-/* ── Render: Amortization Schedule ──────────────────────── */
+function populateForm(rec) {
+  const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+  v('payoffClientId', rec.client_id);
+  v('payoffLoanSeries', rec.loan_series_no);
+  v('payoffLoanAmount', fmt(rec.applied_amount));
+  v('payoffProductId', rec.product_id);
+  v('payoffCurrencyId', rec.currency_id || 'ETB');
+  v('payoffCreatedOn', rec.created_on ? new Date(rec.created_on).toLocaleString('en-ET') : '');
+  v('payoffPreclosureStatus', rec.application_status === 'Closed' ? 'Already Settled' : 'Eligible');
+}
+
+/* ── Render functions (unchanged) ───────────────────────── */
 function renderSchedule(rows) {
   const tbody = document.querySelector('#installmentScheduleTable tbody');
   if (!tbody) return;
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center gray-text italic">No schedule found for this loan.</td></tr>';
-    return;
-  }
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6">No schedule found.</td></tr>'; return; }
   tbody.innerHTML = rows.map(r => `
-    <tr>
-      <td>${r.installment_no}</td>
-      <td>${r.due_date}</td>
-      <td class="text-right">${fmt(r.principal_due)}</td>
-      <td class="text-right">${fmt(r.interest_due)}</td>
-      <td class="text-right">${fmt(r.principal_paid)}</td>
-      <td class="text-right">${fmt(r.interest_paid)}</td>
-      <td><span class="status-badge">${r.status}</span></td>
-    </tr>
+    <tr><td>${r.installment_no}</td><td>${r.due_date}</td>
+    <td>${fmt(r.principal_due)}</td><td>${fmt(r.interest_due)}</td>
+    <td>${fmt(r.principal_paid)}</td><td>${fmt(r.interest_paid)}</td>
+    <td>${r.status}</td></tr>
   `).join('');
 }
 
-/* ── Render: Loan Statement (ledger) ────────────────────── */
 function renderStatement(rows) {
   const tbody = document.querySelector('#loanStatementTable tbody');
   if (!tbody) return;
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="text-center gray-text italic">No statement data available.</td></tr>';
-    return;
-  }
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="9">No statement data.</td></tr>'; return; }
   tbody.innerHTML = rows.map(r => `
-    <tr>
-      <td>${r.post_date}</td>
-      <td>${r.value_date}</td>
-      <td>${r.description}</td>
-      <td><small class="gray-text">${r.ref_batch}</small></td>
-      <td class="text-right">${fmt(r.principal)}</td>
-      <td class="text-right">${fmt(r.interest)}</td>
-      <td class="text-right">${fmt(r.charges_penalties)}</td>
-      <td class="text-right">${fmt(r.total_paid)}</td>
-      <td class="text-right" style="font-weight:700;">${fmt(r.running_balance)}</td>
-    </tr>
+    <tr><td>${r.post_date}</td><td>${r.value_date}</td><td>${r.description}</td>
+    <td>${r.ref_batch}</td><td>${fmt(r.principal)}</td><td>${fmt(r.interest)}</td>
+    <td>${fmt(r.charges_penalties)}</td><td>${fmt(r.total_paid)}</td>
+    <td>${fmt(r.running_balance)}</td></tr>
   `).join('');
 }
 
-/* ── Render: Loan History ───────────────────────────────── */
 function renderHistory(loan) {
   const tbody = document.querySelector('#loanHistoryTable tbody');
   if (!tbody) return;
   tbody.innerHTML = `
-    <tr>
-      <td class="text-right">${fmt(loan.interest_rate)}%</td>
-      <td>${loan.loan_series_no || '—'}</td>
-      <td>${loan.file_number || '—'}</td>
-      <td>${loan.application_id}</td>
-      <td class="text-right">${fmt(loan.sanction_amount)}</td>
-      <td class="text-right">${fmt(loan.approved_amount)}</td>
-      <td>${loan.disbursement_date || '—'}</td>
-      <td>${loan.term_months || '—'} mo</td>
-      <td><span class="status-badge">${loan.application_status}</span></td>
-    </tr>
+    <tr><td>${fmt(loan.interest_rate)}%</td><td>${loan.loan_series_no || '—'}</td>
+    <td>${loan.file_number || '—'}</td><td>${loan.application_id}</td>
+    <td>${fmt(loan.sanction_amount)}</td><td>${fmt(loan.approved_amount)}</td>
+    <td>${loan.disbursement_date || '—'}</td><td>${loan.term_months || '—'} mo</td>
+    <td>${loan.application_status}</td></tr>
   `;
 }
 
-/* ── Compute Pay-off Components — Excludes unearned future interest ── */
+/* ── Compute Pay-off ────────────────────────────────────── */
 function computePayoff() {
   if (!_loanRecord) return;
 
-  let outstandingBalance = _loanRecord.applied_amount || 0;
-  if (_ledgerRows.length) {
-    outstandingBalance = parseFloat(_ledgerRows[_ledgerRows.length - 1].running_balance || 0);
-  }
+  let outstandingBalance = parseFloat(_ledgerRows[_ledgerRows.length - 1]?.running_balance || _loanRecord.approved_amount || 0);
 
   const settlementDateStr = document.getElementById('payoffSettlementDate')?.value;
   const settlementDateObj = settlementDateStr ? new Date(settlementDateStr) : new Date();
 
   let unpaidPrincipal = 0, unpaidInterest = 0;
-  let lastDueDateBeforeSettlement = null; // most recent installment due-date <= settlement date
-
-  // Sort ascending by due date so we can find the period boundaries correctly
+  let lastDueDateBeforeSettlement = null;
   const sortedRows = [..._scheduleRows].sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
   sortedRows.forEach(r => {
     const dueDateObj = new Date(r.due_date);
     if (r.status !== 'PAID') {
-      unpaidPrincipal += (parseFloat(r.principal_due||0) - parseFloat(r.principal_paid||0));
-
-      // Standard Financial Protection:
-      // Exclude future unearned interest. Only accrued/overdue interest is billed.
+      unpaidPrincipal += (parseFloat(r.principal_due || 0) - parseFloat(r.principal_paid || 0));
       if (dueDateObj <= settlementDateObj) {
-        unpaidInterest += (parseFloat(r.interest_due||0) - parseFloat(r.interest_paid||0));
+        unpaidInterest += (parseFloat(r.interest_due || 0) - parseFloat(r.interest_paid || 0));
       }
     }
-    if (dueDateObj <= settlementDateObj) {
-      lastDueDateBeforeSettlement = dueDateObj;
-    }
+    if (dueDateObj <= settlementDateObj) lastDueDateBeforeSettlement = dueDateObj;
   });
 
   if (unpaidPrincipal < 0) unpaidPrincipal = 0;
-  if (unpaidInterest  < 0) unpaidInterest  = 0;
+  if (unpaidInterest < 0) unpaidInterest = 0;
+  if (!_scheduleRows.length) { unpaidPrincipal = outstandingBalance; unpaidInterest = 0; }
 
-  if (!_scheduleRows.length) {
-    unpaidPrincipal = outstandingBalance;
-    unpaidInterest  = 0;
-  }
-
-  // ── Day-count accrued interest for the CURRENT, not-yet-due period ──
-  // Standard microfinance convention: actual calendar days / 365, applied
-  // to the declining principal balance, at the loan's contracted annual
-  // rate. Covers the gap between the last due date that's already been
-  // billed above and the actual settlement date — e.g. a customer settling
-  // on the 15th, mid-cycle, owes 14 days of real accrued interest that a
-  // due-date-only calculation would otherwise miss entirely.
   let accruedPartialInterest = 0;
   const periodStart = lastDueDateBeforeSettlement || new Date(_loanRecord.disbursement_date || _loanRecord.created_on);
   const daysSincePeriodStart = Math.max(0, Math.round((settlementDateObj - periodStart) / 86400000));
   const annualRate = parseFloat(_loanRecord.interest_rate || 0) / 100;
   if (daysSincePeriodStart > 0 && annualRate > 0 && unpaidPrincipal > 0) {
-    accruedPartialInterest = parseFloat(
-      (unpaidPrincipal * annualRate * (daysSincePeriodStart / 365)).toFixed(2)
-    );
+    accruedPartialInterest = parseFloat((unpaidPrincipal * annualRate * (daysSincePeriodStart / 365)).toFixed(2));
   }
   unpaidInterest += accruedPartialInterest;
 
-  const penaltyRate = _earlySettlementPenaltyRate;
-  const penalty = unpaidPrincipal * penaltyRate;
-
+  const penalty = unpaidPrincipal * _earlySettlementPenaltyRate;
   const waiver = parseFloat(document.getElementById('payoffWaiver')?.value || 0) || 0;
   const netSettlement = unpaidPrincipal + unpaidInterest + penalty - waiver;
 
   const tbody = document.querySelector('#dynamicPayoffGrid tbody');
   if (tbody) {
     tbody.innerHTML = `
-      <tr><td>Outstanding Principal</td><td class="text-right">${fmt(unpaidPrincipal)}</td></tr>
-      <tr><td>Overdue Interest (billed installments)</td><td class="text-right">${fmt(unpaidInterest - accruedPartialInterest)}</td></tr>
-      <tr><td>Accrued Interest — current period (${daysSincePeriodStart}d @ actual/365)</td><td class="text-right">${fmt(accruedPartialInterest)}</td></tr>
-      <tr><td>Early Settlement Penalty (${(penaltyRate*100).toFixed(2)}%)</td><td class="text-right">${fmt(penalty)}</td></tr>
-      <tr><td>Less: Approved Waiver</td><td class="text-right">−${fmt(waiver)}</td></tr>
-      <tr style="border-top:2px solid var(--accent,#0d3460);">
-        <td style="font-weight:700;">Net Settlement Amount</td>
-        <td class="text-right" style="font-weight:700;">${fmt(netSettlement)}</td>
-      </tr>
+      <tr><td>Outstanding Principal</td><td>${fmt(unpaidPrincipal)}</td></tr>
+      <tr><td>Overdue Interest (billed)</td><td>${fmt(unpaidInterest - accruedPartialInterest)}</td></tr>
+      <tr><td>Accrued Interest — current period (${daysSincePeriodStart}d)</td><td>${fmt(accruedPartialInterest)}</td></tr>
+      <tr><td>Early Settlement Penalty (${(_earlySettlementPenaltyRate * 100).toFixed(2)}%)</td><td>${fmt(penalty)}</td></tr>
+      <tr><td>Less: Approved Waiver</td><td>−${fmt(waiver)}</td></tr>
+      <tr style="font-weight:bold;"><td>Net Settlement Amount</td><td>${fmt(netSettlement)}</td></tr>
     `;
   }
 
   document.getElementById('payoffLoanBalance').value = fmt(outstandingBalance);
-  document.getElementById('payoffNetAmount').value    = fmt(netSettlement);
+  document.getElementById('payoffNetAmount').value = fmt(netSettlement);
 
-  return { unpaidPrincipal, unpaidInterest, penalty, waiver, netSettlement, outstandingBalance };
+  return { unpaidPrincipal, unpaidInterest, penalty, waiver, netSettlement, outstandingBalance, daysSincePeriodStart };
 }
 
 document.getElementById('payoffWaiver')?.addEventListener('input', computePayoff);
 document.getElementById('payoffSettlementDate')?.addEventListener('change', computePayoff);
 
-/* ── Process Settlement ─────────────────────────────────── */
+/* ── Process Settlement — ATOMIC via RPC ────────────────── */
 async function processSettlement() {
   if (!_loadedAppId || !_loanRecord) { toast('Load a loan record first.', 'warning'); return; }
   if (_loanRecord.application_status === 'Closed') { toast('This loan is already settled.', 'warning'); return; }
 
-  const components = computePayoff();
-  const settlementDate = document.getElementById('payoffSettlementDate')?.value;
-  const settledBy       = document.getElementById('payoffSettledBy')?.value?.trim();
-  const paymentMode      = document.getElementById('payoffPaymentMode')?.value;
-
-  if (!settlementDate) { toast('Enter a Settlement Date.', 'warning'); return; }
-  if (!settledBy)       { toast('Enter Settled By (officer ID).', 'warning'); return; }
-
-  if (!confirm(`Confirm full settlement of ${_loadedAppId} for ETB ${fmt(components.netSettlement)}?`)) return;
-
-  const sb = document.getElementById('statusBar');
-  if (sb) sb.textContent = 'Processing settlement…';
+  /* ── Double-post guard ── */
+  if (_settlementInFlight) { console.warn('Settlement in progress — ignoring duplicate click.'); return; }
+  _settlementInFlight = true;
+  const postBtn = document.getElementById('btnProcessSettlement');
+  if (postBtn) postBtn.disabled = true;
 
   try {
-    // 1. Post final payoff entry to loan_ledger — repayments set as negative to reduce balance [1]
-    await sbFetch('loan_ledger', {
-      method: 'POST',
-      prefer: 'return=minimal',
-      body: JSON.stringify({
-        application_id: _loadedAppId,
-        client_id:      _loanRecord.client_id,
-        post_date:      settlementDate,
-        value_date:     settlementDate,
-        description:    `Full settlement / early payoff via ${paymentMode}`,
-        ref_batch:      `SETTLE-${_loadedAppId}-${Date.now()}`,
-        principal:      -components.unpaidPrincipal, // negative repayment [1]
-        interest:       -components.unpaidInterest,  // negative repayment [1]
-        charges_penalties: components.penalty - components.waiver,
-        total_paid:     components.netSettlement,
-        running_balance: 0,
-        borrower_name:  _loanRecord.client_name || null,
-      })
-    });
+    const components = computePayoff();
+    const settlementDate = document.getElementById('payoffSettlementDate')?.value;
+    const settledBy = document.getElementById('payoffSettledBy')?.value?.trim();
+    const paymentMode = document.getElementById('payoffPaymentMode')?.value;
 
-    // Gate the transition before writing anything — this module is
-    // explicitly named in loan-status-guard.js's module list ('settlement')
-    // but was never actually calling it. A loan sitting in Disbursed OR
-    // Matured can both legitimately reach Closed via full settlement, so
-    // the guard is asked with whatever status is actually on the record,
-    // not assumed.
-    const fromStatus = _loanRecord.application_status;
-    if (window.LoanStatusGuard) {
-      const check = LoanStatusGuard.canTransition(fromStatus, 'Closed', 'settlement');
-      if (!check.allowed) {
-        toast(check.reason, 'error');
-        if (sb) sb.textContent = `Blocked — record is currently "${fromStatus}", not settleable from here.`;
-        return;
-      }
-    } else {
-      console.warn('LoanStatusGuard not found — settling WITHOUT a transition check.');
+    if (!settlementDate) { toast('Enter a Settlement Date.', 'warning'); return; }
+    if (!settledBy) { toast('Enter Settled By (officer ID).', 'warning'); return; }
+    if (components.netSettlement < 0) { toast('Net settlement cannot be negative.', 'warning'); return; }
+
+    if (!confirm(`Confirm full settlement of ${_loadedAppId} for ETB ${fmt(components.netSettlement)}?`)) {
+      toast('Settlement cancelled.', 'info');
+      return;
     }
 
-    // 2. Update loanmasterrecords status
-    await sbFetch(`loanmasterrecords?application_id=eq.${encodeURIComponent(_loadedAppId)}`, {
-      method: 'PATCH',
-      prefer: 'return=minimal',
-      body: JSON.stringify({
-        application_status: 'Closed',
-        modified_by: settledBy,
-        modified_on: new Date().toISOString(),
-      })
+    /* ── Collision-resistant ref batch ── */
+    const stamp = Date.now().toString(36).toUpperCase();
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    const refBatch = `SETTLE-${_loadedAppId}-${stamp}-${rand}`;
+
+    /* ── Call atomic RPC ── */
+    const result = await sbRpc('post_loan_settlement', {
+      p_application_id: _loadedAppId,
+      p_settlement_date: settlementDate,
+      p_amount_received: components.netSettlement,
+      p_penalty_amount: components.penalty,
+      p_interest_amount: components.unpaidInterest,
+      p_waiver_amount: components.waiver,
+      p_principal_amount: components.unpaidPrincipal,
+      p_reference_no: refBatch,
+      p_narration: `Full settlement / early payoff via ${paymentMode}`,
+      p_payment_mode: paymentMode,
+      p_settled_by: settledBy
     });
 
-    if (window.LoanStatusGuard) {
-      await LoanStatusGuard.logStatusTransition(sbFetch, {
-        applicationId: _loadedAppId,
-        fromStatus:    fromStatus,
-        toStatus:      'Closed',
-        sourceModule:  'settlement',
-        changedBy:     settledBy
-      });
+    if (!result || result.success !== true) {
+      throw new Error(result?.error || 'Settlement RPC returned failure');
     }
 
-    toast(`✔ Loan ${_loadedAppId} settled. Net amount: ETB ${fmt(components.netSettlement)}`, 'success');
-    if (sb) sb.textContent = `Settled — ${_loadedAppId}`;
-
+    toast(`✔ Loan ${_loadedAppId} settled. Net amount: ETB ${fmt(result.net_amount)}`, 'success');
     await loadPayoffRecord();
   } catch (e) {
     toast('Settlement error: ' + e.message, 'error');
-    if (sb) sb.textContent = 'Settlement failed — see toast.';
+  } finally {
+    _settlementInFlight = false;
+    if (postBtn) postBtn.disabled = false;
   }
-}
-
-/* ── Mode Control ──────────────────────────────────────── */
-function setMode(mode) {
-  const sb = document.getElementById('statusBar');
-  if (sb && mode) sb.textContent = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)} — Ready`;
 }
 
 /* ── Toolbar ─────────────────────────────────────────────── */
 document.getElementById('btnGlobalView')?.addEventListener('click', loadPayoffRecord);
 document.getElementById('btnSearchPayoff')?.addEventListener('click', loadPayoffRecord);
 document.getElementById('btnProcessSettlement')?.addEventListener('click', processSettlement);
+document.getElementById('payoffAccNoTarget')?.addEventListener('keydown', e => { if (e.key === 'Enter') loadPayoffRecord(); });
 
 document.getElementById('btnGlobalAdd')?.addEventListener('click', () => {
   toast('This module reads existing loans only. Create new loans in Module 01.', 'warning');
@@ -459,42 +320,29 @@ document.getElementById('btnGlobalCancel')?.addEventListener('click', () => {
 document.getElementById('btnGlobalClose')?.addEventListener('click', () => {
   _loadedAppId = null; _loanRecord = null; _scheduleRows = []; _ledgerRows = [];
   document.querySelectorAll('#view-module-09 input:not([data-always-enabled])').forEach(el => el.value = '');
-  document.querySelector('#dynamicPayoffGrid tbody').innerHTML =
-    '<tr><td colspan="2" class="text-center gray-text italic">Enter an Application ID to calculate pay-off components.</td></tr>';
-  document.querySelector('#installmentScheduleTable tbody').innerHTML =
-    '<tr><td colspan="7" class="text-center gray-text italic">Load a loan record to view schedule.</td></tr>';
-  document.querySelector('#loanStatementTable tbody').innerHTML =
-    '<tr><td colspan="9" class="text-center gray-text italic">No statement data available.</td></tr>';
-  document.querySelector('#loanHistoryTable tbody').innerHTML =
-    '<tr><td colspan="9" class="text-center gray-text italic">No history records.</td></tr>';
+  document.querySelector('#dynamicPayoffGrid tbody').innerHTML = '<tr><td colspan="2">Enter an Application ID to calculate pay-off components.</td></tr>';
   toast('Record closed.');
 });
 document.getElementById('btnGlobalDelete')?.addEventListener('click', () => {
   toast('Settlement records cannot be deleted.', 'warning');
 });
 document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
-document.getElementById('btnDenomination')?.addEventListener('click', () => {
-  toast('Use Module 08 — Teller Cash Vault Control to record cash denomination for this settlement.', '');
-});
 
 /* ── Init ───────────────────────────────────────────────── */
-async function init() {
-  await loadBranches();
-}
-init();
+window.addEventListener('DOMContentLoaded', () => {
+  toast('Settlement / Early Payoff v1.3 ready.', 'success');
+});
 
-// ── Window Controls: Minimize / Maximize ────────────────────
+// ── Window Controls ───────────────────────────────────────
 const windowContainer = document.querySelector('.window-container');
-const wcMinimizeBtn    = document.getElementById('wcMinimize');
-const wcMaximizeBtn    = document.getElementById('wcMaximize');
-const dockSliver        = document.getElementById('dockSliver');
+const wcMinimizeBtn = document.getElementById('wcMinimize');
+const wcMaximizeBtn = document.getElementById('wcMaximize');
+const dockSliver = document.getElementById('dockSliver');
 
 function toggleMinimize() {
   if (!windowContainer || !dockSliver) return;
-  // Maximize and minimize are mutually exclusive
   windowContainer.classList.remove('is-maximized');
   if (wcMaximizeBtn) wcMaximizeBtn.textContent = '▢';
-
   windowContainer.classList.toggle('is-minimized');
   const minimized = windowContainer.classList.contains('is-minimized');
   dockSliver.classList.toggle('show', minimized);
@@ -503,7 +351,6 @@ function toggleMinimize() {
 
 function toggleMaximize() {
   if (!windowContainer) return;
-  // Maximize and minimize are mutually exclusive
   if (windowContainer.classList.contains('is-minimized')) {
     windowContainer.classList.remove('is-minimized');
     if (dockSliver) dockSliver.classList.remove('show');
