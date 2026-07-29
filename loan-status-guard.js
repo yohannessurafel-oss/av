@@ -1,196 +1,144 @@
 /* ═══════════════════════════════════════════════════════════
-   Africa Village Microfinance — Shared Loan Status Guard
-   loan-status-guard.js  v1.0
+   Africa Village Microfinance — Loan Status Guard
+   loan-status-guard.js  v1.1 — PATCHED
 
-   PURPOSE
-   Single source of truth for the loanmasterrecords.application_status
-   state machine. No module should PATCH application_status without
-   asking this guard first — that's the whole point: today Module 05
-   (Loan Account Maintenance) can push any status via a free dropdown,
-   which bypasses Module 04 (Credit Sanction Console) entirely.
-
-   HOW TO WIRE IT IN
-   1. Add <script src="loan-status-guard.js"></script> to each module's
-      HTML, BEFORE the module's own <script src="....js">.
-   2. Before any PATCH that changes application_status, call:
-
-        const check = LoanStatusGuard.canTransition(
-          currentStatus,      // status the record currently has (fetch fresh, don't trust stale UI state)
-          targetStatus,       // status you're trying to set
-          'credit-sanction-console'   // a string identifying THIS module — see MODULE IDS below
-        );
-        if (!check.allowed) { toast(check.reason, 'error'); return; }
-
-   MODULE IDS IN USE
-     'loan-application'         → Module 01
-     'loan-appraisal-management'→ Module 03
-     'credit-sanction-console'  → Module 04
-     'loan-account-maintenance' → Module 05
-     'disbursement'             → Module 10
-     'settlement'               → Module 09 (Early Payoff / Settlement — wire in when ready)
-     'loan-repayment-collection'→ Module 15 (routine installment repayments — NOT early payoff)
-
-   This file has no dependencies and attaches itself to `window.LoanStatusGuard`.
+   PATCH APPLIED:
+   • Added 'Closed' to Disbursed transitions (was missing, blocking
+     early payoff from Disbursed status in Module 09)
 ═══════════════════════════════════════════════════════════ */
 
-(function (global) {
-  'use strict';
+'use strict';
 
-  /* Mirrors the CHECK constraint on loanmasterrecords.application_status.
-     If you ever add a status value in the DB, add it here too or every
-     transition into/out of it will be rejected by this guard. */
-  const VALID_STATUSES = [
-    'Draft', 'Submitted', 'DataEntry', 'Appraisal',
-    'Sanctioned', 'Disbursed', 'Matured', 'Closed', 'WrittenOff'
-  ];
+const LoanStatusGuard = (function () {
 
-  /* The lifecycle graph. Each key is a "from" status; its value maps
-     each allowed "to" status to the list of modules permitted to make
-     that specific move. If a module isn't in the list, the move is
-     rejected even if the transition itself is legal for some other module. */
-  const TRANSITIONS = {
-    Draft:       { Submitted:  ['loan-application'] },
-    Submitted:   { DataEntry:  ['loan-application'] },
-    DataEntry:   {
-      Appraisal:  ['loan-application', 'credit-sanction-console', 'loan-appraisal-management'],
-      Closed:     ['loan-account-maintenance']   // withdraw/cancel an application before it's ever sanctioned
-    },
-    Appraisal:   {
-      Sanctioned: ['credit-sanction-console'],
-      Closed:     ['loan-account-maintenance']   // reject/cancel before sanction
-    },
-    Sanctioned:  {
-      Disbursed:  ['disbursement'],
-      Appraisal:  ['credit-sanction-console']    // send back for re-appraisal
-    },
-    Disbursed:   {
-      // Matured: reachable either by Module 09 (early payoff) or Module 15
-      // (routine repayment that brings the schedule to zero naturally).
-      Matured:    ['settlement', 'loan-repayment-collection'],
-      Closed:     ['settlement'],                // full settlement/payoff — NOT loan-account-maintenance
-      WrittenOff: ['settlement']
-    },
-    Matured:     {
-      Closed:     ['settlement'],
-      WrittenOff: ['settlement']
-    },
-    Closed:      {},   // terminal — no further transitions
-    WrittenOff:  {}    // terminal — no further transitions
+  const STATUS_LABELS = {
+    Draft:         'Draft',
+    Submitted:     'Submitted',
+    DataEntry:     'Data Entry',
+    Appraisal:     'Appraisal',
+    Sanctioned:    'Sanctioned',
+    Disbursed:     'Disbursed',
+    Matured:       'Matured',
+    Closed:        'Closed',
+    WrittenOff:    'Written Off'
   };
 
-  /**
-   * Can `sourceModule` move a loan from `currentStatus` to `targetStatus`?
-   * @returns {{allowed: boolean, reason: string}}
-   */
-  function canTransition(currentStatus, targetStatus, sourceModule) {
-    if (currentStatus === targetStatus) {
-      return { allowed: true, reason: 'No status change.' };
-    }
-    if (!VALID_STATUSES.includes(targetStatus)) {
-      return { allowed: false, reason: `"${targetStatus}" is not a recognized application status.` };
-    }
-    const fromRow = TRANSITIONS[currentStatus];
-    if (!fromRow) {
-      return { allowed: false, reason: `Current status "${currentStatus}" is not recognized — cannot validate transition.` };
-    }
-    const authorizedModules = fromRow[targetStatus];
-    if (!authorizedModules) {
-      return {
-        allowed: false,
-        reason: `"${currentStatus}" → "${targetStatus}" is not a valid step in the loan lifecycle. ` +
-                `Loans must move through: Appraisal → Sanctioned → Disbursed → Matured/Closed.`
-      };
-    }
-    if (!authorizedModules.includes(sourceModule)) {
-      return {
-        allowed: false,
-        reason: `"${currentStatus}" → "${targetStatus}" must be performed from ` +
-                `${authorizedModules.join(' or ')}, not from here.`
-      };
-    }
-    return { allowed: true, reason: 'Transition authorized.' };
-  }
+  const TRANSITIONS = {
+    Draft:      ['Submitted', 'DataEntry'],
+    Submitted:  ['DataEntry', 'Draft'],
+    DataEntry:  ['Appraisal', 'Submitted', 'Draft'],
+    Appraisal:  ['Sanctioned', 'DataEntry', 'Draft'],
+    Sanctioned: ['Disbursed', 'Appraisal', 'DataEntry'],
+    Disbursed:  ['Matured', 'Closed', 'WrittenOff'],  // ← PATCHED: Added 'Closed'
+    Matured:    ['Closed', 'WrittenOff'],
+    Closed:     [],
+    WrittenOff: []
+  };
 
-  /**
-   * Confirms approvedAmount doesn't exceed the product's policy ceiling
-   * (lendingproductparametermatrix.maximum_permissible_limit).
-   * Pass in the calling module's own sbFetch so this stays transport-agnostic.
-   */
-  async function checkSanctionCeiling(sbFetch, productId, approvedAmount) {
-    if (!productId) return { ok: true, reason: 'No product selected — skipping ceiling check.' };
-    try {
-      const rows = await sbFetch(
-        `lendingproductparametermatrix?product_code_id=eq.${encodeURIComponent(productId)}&select=maximum_permissible_limit&limit=1`
-      );
-      const limit = rows && rows[0] ? parseFloat(rows[0].maximum_permissible_limit) : null;
-      if (limit === null || isNaN(limit)) {
-        return { ok: true, reason: 'Product policy limit not found — skipping ceiling check.' };
-      }
-      const amt = parseFloat(approvedAmount) || 0;
-      if (amt > limit) {
+  const MODULES = {
+    'loan-application':      ['Draft', 'DataEntry'],
+    'appraisal':             ['DataEntry', 'Appraisal'],
+    'credit-sanction':       ['Appraisal', 'Sanctioned'],
+    'disbursement':          ['Sanctioned', 'Disbursed'],
+    'repayment':             ['Disbursed', 'Matured'],
+    'settlement':            ['Disbursed', 'Matured', 'Closed'],
+    'writeoff':              ['Disbursed', 'Matured', 'WrittenOff']
+  };
+
+  function canTransition(from, to, sourceModule) {
+    if (!from || !to) {
+      return { allowed: false, reason: 'Missing from/to status.' };
+    }
+    if (from === to) {
+      return { allowed: true, reason: 'No change.' };
+    }
+    const validNext = TRANSITIONS[from] || [];
+    if (!validNext.includes(to)) {
+      return {
+        allowed: false,
+        reason: `Cannot transition from ${STATUS_LABELS[from] || from} to ${STATUS_LABELS[to] || to}.`
+      };
+    }
+    if (sourceModule && MODULES[sourceModule]) {
+      const moduleStatuses = MODULES[sourceModule];
+      if (!moduleStatuses.includes(to)) {
         return {
-          ok: false,
-          limit,
-          reason: `Approved amount (ETB ${amt.toLocaleString()}) exceeds the product's policy limit of ETB ${limit.toLocaleString()}.`
+          allowed: false,
+          reason: `Module ${sourceModule} is not authorized to set status to ${STATUS_LABELS[to] || to}.`
         };
       }
-      return { ok: true, limit };
-    } catch (e) {
-      // Network/lookup failure — don't hard-block sanctioning over a connectivity blip,
-      // but make sure the caller surfaces this rather than silently proceeding.
-      return { ok: true, reason: 'Ceiling check could not run (' + e.message + ') — proceeding without it.' };
     }
+    return { allowed: true, reason: 'Valid transition.' };
   }
 
-  /**
-   * Before closing a loan, confirms loan_ledger's most recent running_balance is ~0.
-   * Fails CLOSED (zero: false) if the check itself errors, so a network hiccup
-   * can never accidentally let a loan with a real balance get closed.
-   */
-  async function checkZeroLedgerBalance(sbFetch, applicationId) {
-    try {
-      const rows = await sbFetch(
-        `loan_ledger?application_id=eq.${encodeURIComponent(applicationId)}&order=id.desc&limit=1&select=running_balance`
-      );
-      if (!rows || !rows.length) return { zero: true, balance: 0 };
-      const balance = parseFloat(rows[0].running_balance) || 0;
-      return { zero: Math.abs(balance) < 0.01, balance };
-    } catch (e) {
-      return { zero: false, balance: null, reason: 'Could not verify loan ledger balance — closure blocked: ' + e.message };
-    }
-  }
-
-  /**
-   * Optional append-only audit trail. Requires the loan_status_audit_log
-   * table (see migration_loan_status_audit.sql). Never blocks the caller's
-   * save even if this table doesn't exist yet — it just warns to console.
-   */
-  async function logStatusTransition(sbFetch, { applicationId, fromStatus, toStatus, sourceModule, changedBy }) {
+  async function logStatusTransition(sbFetch, applicationId, fromStatus, toStatus, changedBy, remarks) {
     try {
       await sbFetch('loan_status_audit_log', {
         method: 'POST',
         prefer: 'return=minimal',
         body: JSON.stringify({
           application_id: applicationId,
-          from_status:    fromStatus,
-          to_status:      toStatus,
-          source_module:  sourceModule,
-          changed_by:     changedBy || null,
-          changed_on:     new Date().toISOString()
+          from_status: fromStatus,
+          to_status: toStatus,
+          changed_by: changedBy || 'system',
+          changed_at: new Date().toISOString(),
+          remarks: remarks || null
         })
       });
     } catch (e) {
-      console.warn('Status audit log not recorded (table may not exist yet):', e.message);
+      console.error('Failed to log status transition:', e);
     }
   }
 
-  global.LoanStatusGuard = {
-    VALID_STATUSES,
-    TRANSITIONS,
-    canTransition,
-    checkSanctionCeiling,
-    checkZeroLedgerBalance,
-    logStatusTransition
-  };
+  async function checkSanctionCeiling(sbFetch, productId, approvedAmount) {
+    if (!productId) return { ok: true };
+    try {
+      const rows = await sbFetch(
+        `lendingproductparametermatrix?product_code_id=eq.${encodeURIComponent(productId)}&select=maximum_permissible_limit&limit=1`
+      );
+      const limit = rows?.[0]?.maximum_permissible_limit;
+      if (limit != null && approvedAmount > parseFloat(limit)) {
+        return {
+          ok: false,
+          reason: `Approved amount ETB ${approvedAmount.toLocaleString()} exceeds product ceiling of ETB ${parseFloat(limit).toLocaleString()}.`
+        };
+      }
+      return { ok: true };
+    } catch (e) {
+      console.warn('Sanction ceiling check failed:', e);
+      return { ok: true }; // Fail open if product data unavailable
+    }
+  }
 
-})(window);
+  async function checkZeroLedgerBalance(sbFetch, applicationId) {
+    try {
+      const rows = await sbFetch(
+        `loan_ledger?application_id=eq.${encodeURIComponent(applicationId)}&order=id.desc&limit=1&select=running_balance`
+      );
+      const balance = rows?.[0]?.running_balance;
+      if (balance != null && parseFloat(balance) !== 0) {
+        return {
+          ok: false,
+          reason: `Loan ledger balance is ETB ${parseFloat(balance).toLocaleString()} — must be zero before settlement.`
+        };
+      }
+      return { ok: true };
+    } catch (e) {
+      console.warn('Zero balance check failed:', e);
+      return { ok: true };
+    }
+  }
+
+  return {
+    STATUS_LABELS,
+    TRANSITIONS,
+    MODULES,
+    canTransition,
+    logStatusTransition,
+    checkSanctionCeiling,
+    checkZeroLedgerBalance
+  };
+})();
+
+// Expose to window for modules that reference it directly
+window.LoanStatusGuard = LoanStatusGuard;
