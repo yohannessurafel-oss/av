@@ -128,7 +128,8 @@
             <div class="form-row"><label class="shifted-label">Tax Rate (%)</label><input type="number" id="fTaxRate" class="text-right width-full" step="0.01"/></div>
             <div class="form-row">
               <label class="shifted-label">Disbursement Date</label>
-              <select id="fDisbursementDate" class="width-full"><option value="">-- Select Date --</option></select>
+             <!-- CORRECT: date input -->
+<input type="date" id="fDisbursementDate" class="width-full"/>
             </div>
             <div class="form-row"><label class="shifted-label">Application Status</label>
               <input type="text" id="fApplicationStatus" value="DataEntry" readonly class="width-full status-badge"/>
