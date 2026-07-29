@@ -1,15 +1,9 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 02 Group / Center Loan Application
-   group-loan-projection.js  v2.3 — PATCHED
+   group-loan-projection.js  v2.3.1 — FIXED
 
-   PATCHES APPLIED:
-   • Client-side collective limit preview + real-time batch total
-   • Pre-save validation with specific per-row error messages
-   • Double-post guard on saveBatch()
-   • Confirmation modal before creating batch
-   • Auto-clear grid after successful save
-   • Frequency reset uses product default instead of hardcoded 'Monthly'
-   • _selectedIdx reset after save
+   FIX: Removed 'frequency' from product query — column doesn't exist
+   in lendingproductparametermatrix. Frequency remains user-selectable.
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -68,7 +62,7 @@ async function loadGroupOptions() {
     const rows = await sbFetch(
       'portfoliogrouphierarchy?select=group_registry_id,group_name_alias,collective_credit_limit&order=group_name_alias.asc'
     );
-    sel.innerHTML = '<option value="">— Create a new group —</option>' +
+    sel.innerHTML = '<option value="">-- Select existing group, or create new below --</option>' +
       (rows || []).map(g =>
         `<option value="${g.group_registry_id}">${g.group_name_alias} (limit: ${Number(g.collective_credit_limit).toLocaleString()} ETB)</option>`
       ).join('');
@@ -137,14 +131,14 @@ document.getElementById('groupBranchId')?.addEventListener('change', function ()
 
 /* ── Product Dropdown ──────────────────────────────────── */
 let _productCache = [];
-let _selectedProductDefault = { frequency: 'Monthly', term: 12, rate: 18 };
 
 async function loadProducts() {
   const sel = document.getElementById('groupProductId');
   if (!sel) return;
   try {
+    /* FIX v2.3.1: Removed 'frequency' from select — column doesn't exist */
     const rows = await sbFetch(
-      'lendingproductparametermatrix?select=product_code_id,product_name_title,base_interest_rate,default_term_months,frequency&order=product_code_id'
+      'lendingproductparametermatrix?select=product_code_id,product_name_title,base_interest_rate,default_term_months&order=product_code_id'
     );
     _productCache = Array.isArray(rows) ? rows : [];
     const keep = sel.value;
@@ -166,12 +160,6 @@ document.getElementById('groupProductId')?.addEventListener('change', function (
   const chosen = _productCache.find(p => p.product_code_id === this.value);
   if (!chosen) return;
 
-  _selectedProductDefault = {
-    frequency: chosen.frequency || 'Monthly',
-    term: chosen.default_term_months || 12,
-    rate: chosen.base_interest_rate || 18
-  };
-
   const rateEl = document.getElementById('groupInterestRate');
   if (chosen.base_interest_rate && rateEl && !rateEl.value) {
     rateEl.value = chosen.base_interest_rate;
@@ -179,10 +167,6 @@ document.getElementById('groupProductId')?.addEventListener('change', function (
   const termEl = document.getElementById('groupTerm');
   if (chosen.default_term_months && termEl && !termEl.value) {
     termEl.value = chosen.default_term_months;
-  }
-  const freqEl = document.getElementById('groupFrequency');
-  if (chosen.frequency && freqEl && !freqEl.value) {
-    freqEl.value = chosen.frequency;
   }
 });
 
@@ -317,7 +301,7 @@ function updateBatchCounter() {
   if (el) el.textContent = `${_gridRows.length} member(s)`;
 }
 
-/* ── PATCH: Real-time batch total and limit check ──────── */
+/* Real-time batch total and limit check */
 function updateBatchTotal() {
   const total = _gridRows.reduce((sum, row) => sum + (parseFloat(row.loan_amount) || 0), 0);
   const totalEl = document.getElementById('batchTotalDisplay');
@@ -327,7 +311,6 @@ function updateBatchTotal() {
   const groupId = document.getElementById('groupRegistryId')?.value;
   const limitEl = document.getElementById('batchLimitDisplay');
   if (groupId && limitEl) {
-    /* Fetch limit from the selected option text */
     const sel = document.getElementById('groupRegistryId');
     const opt = sel?.selectedOptions?.[0];
     if (opt) {
@@ -340,6 +323,9 @@ function updateBatchTotal() {
         toast('⚠ Batch total exceeds group collective limit!', 'warning', 5000);
       }
     }
+  } else if (limitEl) {
+    limitEl.textContent = 'Remaining: — ETB (no group selected)';
+    limitEl.className = 'limit-display';
   }
 }
 
@@ -469,9 +455,8 @@ document.getElementById('btnGroupClear')?.addEventListener('click', () => {
     'groupInterestRate', 'groupPenaltyRate', 'groupTotalSavings',
   ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 
-  /* PATCH: Reset frequency to product default instead of hardcoded 'Monthly' */
   const freqEl = document.getElementById('groupFrequency');
-  if (freqEl) freqEl.value = _selectedProductDefault.frequency;
+  if (freqEl) freqEl.value = 'Monthly';
 
   _selectedIdx = -1;
   highlightRow(-1);
@@ -523,7 +508,7 @@ async function saveBatch() {
     return;
   }
 
-  /* ── PATCH: Double-post guard ── */
+  /* Double-post guard */
   if (_batchSaveInFlight) { console.warn('Batch save already in progress.'); return; }
   _batchSaveInFlight = true;
   const saveBtn = document.getElementById('btnGlobalSave');
@@ -558,7 +543,7 @@ async function saveBatch() {
       return;
     }
 
-    /* ── PATCH: Pre-validate all rows with specific errors ── */
+    /* Pre-validate all rows with specific errors */
     const members = [];
     const errors = [];
     for (let i = 0; i < _gridRows.length; i++) {
@@ -579,7 +564,7 @@ async function saveBatch() {
         repayment_term: row.repayment_term || null,
         loan_cycle: row.loan_cycle || 1,
         loan_level: row.loan_level || 1,
-        frequency: row.frequency || _selectedProductDefault.frequency,
+        frequency: row.frequency || 'Monthly',
         interest_rate: parseFloat(row.interest_rate),
         penalty_rate: row.penalty_rate || null
       });
@@ -595,7 +580,7 @@ async function saveBatch() {
       return;
     }
 
-    /* ── PATCH: Client-side limit check ── */
+    /* Client-side limit check */
     const batchTotal = members.reduce((s, m) => s + m.loan_amount, 0);
     if (existingGroupId) {
       const sel = document.getElementById('groupRegistryId');
@@ -612,7 +597,7 @@ async function saveBatch() {
       }
     }
 
-    /* ── PATCH: Confirmation modal ── */
+    /* Confirmation modal */
     if (!confirm(
       `Create group loan batch?\n\n` +
       `Members: ${members.length}\n` +
@@ -657,7 +642,7 @@ async function saveBatch() {
     );
     if (sb) sb.textContent = `Saved ${result.members_saved} / ${_gridRows.length} rows under ${result.group_registry_id}.`;
 
-    /* ── PATCH: Clear grid after successful save ── */
+    /* Clear grid after successful save */
     _gridRows = [];
     _selectedIdx = -1;
     renderGrid();
