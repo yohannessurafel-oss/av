@@ -3,6 +3,13 @@
    Loaded by BOTH indexll.html (the dashboard) and system-file-directory.html
    (the live file-inventory view), so the two can never drift apart the way
    a duplicated array would.
+
+   Fixed in this version: "Client Master Registry" and "Client Directory
+   (Views)" were both numbered '00' — a genuine duplicate. Client Directory
+   is now '15'. The Loan Status Guard Test Harness's num ('—') is now 'DEV'
+   for consistency. Also restored two modules that existed in an earlier
+   version of the dashboard but were missing from the live redesign:
+   '10b' (Loan Repayment/Collection) and '16' (System File Directory).
    ============================================================================ */
 
 const MODULES = [
