@@ -140,6 +140,13 @@ desc: 'Live inventory — counts and verifies every module\'s HTML/JS files actu
 status: 'live'
 },
 {
+num: '17', name: 'NBE Reports',
+icon: '📊', cat: 'reports',
+path: 'nbe-reports.html',
+desc: 'National Bank of Ethiopia regulatory reports — Trial Balance live, 13 more planned',
+status: 'live'
+},
+{
 num: 'DEV', name: 'Loan Status Guard — Test Harness',
 icon: '🧪', cat: 'dev',
 path: 'loan-status-guard-test.html',
