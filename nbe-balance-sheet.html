@@ -177,22 +177,29 @@ async function generateBalanceSheet() {
       throw new Error("Supabase SDK missing or environment keys not set in SUPABASE_URL / SUPABASE_ANON_KEY.");
     }
 
- 
+    // 1. Fetch GL Chart of Accounts
+    const { data: accounts, error: accErr } = await supabaseClient
+      .from('chart_of_accounts')
+      .select('account_number, account_name, account_type, normal_balance')
+      .or('account_type.eq.Asset,account_type.eq.Liability,account_type.eq.Equity')
+      .order('account_number', { ascending: true });
 
-    // Query Prior Transactions (Beginning Balance)
+    if (accErr) throw accErr;
+
+    // 2. Fetch Prior Transactions (Beginning Balance) - selecting all columns to safely resolve key names
     let begQuery = supabaseClient
       .from('gl_transaction_journal')
-      .select('account_number, debit_amount, credit_amount')
+      .select('*')
       .lt('transaction_date', startDate);
 
     if (branchVal !== 'ALL') begQuery = begQuery.eq('branch_code', branchVal);
     const { data: begTxns, error: begErr } = await begQuery;
     if (begErr) throw begErr;
 
-    // Query Period Transactions
+    // 3. Fetch Period Transactions
     let periodQuery = supabaseClient
       .from('gl_transaction_journal')
-      .select('account_number, debit_amount, credit_amount')
+      .select('*')
       .gte('transaction_date', startDate)
       .lte('transaction_date', endDate);
 
@@ -200,7 +207,10 @@ async function generateBalanceSheet() {
     const { data: periodTxns, error: perErr } = await periodQuery;
     if (perErr) throw perErr;
 
-    // Aggregate Balances per Account
+    // Helper to safely extract account key regardless of column naming in journal
+    const getAccountKey = (t) => t.account_number || t.account_code || t.gl_account_number || t.account_id;
+
+    // 4. Aggregate Balances per Account
     const accMap = {};
     accounts.forEach(acc => {
       accMap[acc.account_number] = {
@@ -216,17 +226,19 @@ async function generateBalanceSheet() {
     });
 
     begTxns.forEach(t => {
-      if (accMap[t.account_number]) {
-        const side = accMap[t.account_number].side;
-        const net = (t.debit_amount || 0) - (t.credit_amount || 0);
-        accMap[t.account_number].beg += side === 'D' ? net : -net;
+      const key = getAccountKey(t);
+      if (accMap[key]) {
+        const side = accMap[key].side;
+        const net = (t.debit_amount || t.debit || 0) - (t.credit_amount || t.credit || 0);
+        accMap[key].beg += side === 'D' ? net : -net;
       }
     });
 
     periodTxns.forEach(t => {
-      if (accMap[t.account_number]) {
-        accMap[t.account_number].debits += (t.debit_amount || 0);
-        accMap[t.account_number].credits += (t.credit_amount || 0);
+      const key = getAccountKey(t);
+      if (accMap[key]) {
+        accMap[key].debits += (t.debit_amount || t.debit || 0);
+        accMap[key].credits += (t.credit_amount || t.credit || 0);
       }
     });
 
