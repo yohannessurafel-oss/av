@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AVMF — NBE Reports</title>
+<link rel="stylesheet" href="style2.css"/>
+<style>
+.nbe-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  padding: 16px;
+}
+.nbe-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-light, #c5daf0);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: all .15s;
+}
+.nbe-card:hover:not(.disabled) {
+  border-color: var(--navy-600, #2560a0);
+  box-shadow: 0 3px 10px rgba(0,0,0,.1);
+  transform: translateY(-1px);
+}
+.nbe-card.disabled { opacity: .55; cursor: not-allowed; }
+.nbe-card-icon {
+  font-size: 20px;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--navy-50, #eef4fb);
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.nbe-card-body { flex: 1; }
+.nbe-card-title { font-size: 13px; font-weight: 700; color: var(--text-dark, #0d2a4a); margin-bottom: 3px; }
+.nbe-card-desc { font-size: 11px; color: var(--text-muted, #667788); line-height: 1.4; }
+.nbe-card-badge {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 3px; margin-left: 6px;
+  background: #fff3e0; color: #b45309;
+}
+.nbe-card-chevron { align-self: center; color: var(--text-muted, #667788); font-size: 16px; }
+</style>
+</head>
+<body>
+
+<div class="window-container">
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <svg class="header-logo-svg" viewBox="0 0 100 100">
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
+        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
+        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
+        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
+        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+      </svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance</span>
+        <span class="title-sub">NBE Regulatory Reports</span>
+      </div>
+    </div>
+    <div class="title-meta">
+      <span id="systemDate" class="title-date"></span>
+    </div>
+    <div class="window-controls">
+      <span title="Close" class="wc-close" onclick="window.location='indexll.html'">✕</span>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <div class="sidebar">
+      <div class="sidebar-header" style="cursor:pointer; background: var(--navy-900);" onclick="window.location='indexll.html'">
+        🏠 Main Dashboard
+      </div>
+      <div class="sidebar-footer-brand">
+        <svg viewBox="0 0 100 100" width="28" height="28">
+          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
+        </svg>
+        <span>AVMF CBS v2.0</span>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="module-view active">
+        <div class="context-badge-bar">
+          <span class="badge-icon">📊</span>
+          NBE Reports — National Bank of Ethiopia regulatory reporting
+        </div>
+
+        <div class="nbe-grid" id="nbeGrid"></div>
+        <div class="sub-footer-token" id="statusBar" style="margin:0 16px;">14 reports registered — 1 live, 13 not yet built</div>
+      </div>
+    </div>
+
+    <div class="action-sidebar">
+      <div class="sidebar-footer">AVMF CBS v2.0</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const NBE_REPORTS = [
+  { title: 'Loan Disbursement By Sector',  icon: '💰', desc: 'Total amount disbursed to customers grouped by sector.', path: null },
+  { title: 'Loan Disbursement By Product', icon: '💰', desc: 'Total amount disbursed to customers grouped by product.', path: null },
+  { title: 'Loan Distribution By Gender',  icon: '📊', desc: 'Loan distribution by gender — borrowing patterns and access to credit.', path: null },
+  { title: 'Loan Distribution For Person With Disability', icon: '♿', desc: 'Loan distribution for individuals with disabilities.', path: null },
+  { title: 'Loan Aging and Provision Report', icon: '📅', desc: 'Categorization of loans based on time outstanding.', path: null },
+  { title: 'Loan Loss Provision Report',   icon: '📅', desc: 'Loan loss provisioning based on aging categories.', path: null },
+  { title: 'Loan Loss Provision By Product', icon: '📅', desc: 'Loan loss provisioning broken down by product.', path: null },
+  { title: 'Top Borrowing Groups',         icon: '👥', desc: 'Groups/entities with the highest total borrowing.', path: null },
+  { title: 'Top Borrowing Individuals',    icon: '👤', desc: 'Individuals with the highest total borrowing.', path: null },
+  { title: 'Trial Balance',                icon: '🏦', desc: 'Balances of all GL accounts, computed live from the journal — debits and credits proven to balance.', path: 'nbe-trial-balance.html' },
+  { title: 'Balance Sheet',                icon: '🏢', desc: 'Snapshot of financial position at a specific point in time.', path: null },
+  { title: 'Income Statement',             icon: '📈', desc: 'Revenues, expenses, and profit over a specific period.', path: null },
+  { title: 'Cash Liquidity',               icon: '💵', desc: 'Liquidity position and cash flow management.', path: null },
+];
+
+document.getElementById('nbeGrid').innerHTML = NBE_REPORTS.map(r => `
+  <div class="nbe-card ${r.path ? '' : 'disabled'}" ${r.path ? `onclick="window.location='${r.path}'"` : ''}>
+    <div class="nbe-card-icon">${r.icon}</div>
+    <div class="nbe-card-body">
+      <div class="nbe-card-title">${r.title}${r.path ? '' : '<span class="nbe-card-badge">Not Built</span>'}</div>
+      <div class="nbe-card-desc">${r.desc}</div>
+    </div>
+    <div class="nbe-card-chevron">${r.path ? '›' : '—'}</div>
+  </div>
+`).join('');
+
+document.getElementById('systemDate').textContent = new Date().toLocaleDateString('en-ET', {
+  weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+});
+</script>
+</body>
+</html>
