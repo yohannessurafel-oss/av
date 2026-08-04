@@ -69,6 +69,7 @@
 .nbe-table tr.row-total { background: #e6f0fa; font-weight: 700; border-top: 2px solid #0d2a4a; }
 .nbe-table tr.row-grand-total { background: #0d2a4a; color: #fff; font-weight: 700; }
 .nbe-table tr.row-grand-total td { border-color: #0d2a4a; }
+.loader-cell { text-align: center; padding: 20px; font-weight: 600; color: #555; }
 </style>
 </head>
 <body>
@@ -105,14 +106,14 @@
               <option value="KALITY">Kality Branch</option>
             </select>
           </div>
-          <button class="btn-action" onclick="fetchBalanceSheetData()">Generate Report</button>
+          <button class="btn-action" onclick="generateBalanceSheet()">Generate Live Report</button>
         </div>
 
         <div style="text-align: center; margin-bottom: 12px;">
           <h3 style="margin:0; text-transform:uppercase;">Africa Village Microfinance S.C.</h3>
           <h4 style="margin:2px 0;" id="branchTitle">All Branches</h4>
           <h5 style="margin:2px 0; font-weight: normal;">Balance Sheet Report</h5>
-          <span style="font-size: 11px; font-weight: bold;" id="periodTitle">As of the month August of the year 2026</span>
+          <span style="font-size: 11px; font-weight: bold;" id="periodTitle">Loading period...</span>
         </div>
 
         <table class="nbe-table">
@@ -128,7 +129,7 @@
             </tr>
           </thead>
           <tbody id="balanceSheetBody">
-            <tr><td colspan="7" class="text-center">Click "Generate Report" to load balance sheet data...</td></tr>
+            <tr><td colspan="7" class="loader-cell">Fetching database records...</td></tr>
           </tbody>
         </table>
       </div>
@@ -137,74 +138,152 @@
 </div>
 
 <script>
-// Mock data structure matching the exact NBE report format from your official statement
-const MOCK_NBE_BS_DATA = [
-  { name: 'ASSET', side: 'D', code: '1000000', beg: 26294581.69, debits: 14696228.14, credits: 13262634.64, end: 23964566.19, type: 'HEADER' },
-  { name: 'CASH AT BANK', side: 'D', code: '1110000', beg: 3270933.94, debits: 5011645.76, credits: 5239466.19, end: 3043113.51, type: 'SUBHEADER' },
-  { name: 'CBE', side: 'D', code: '1110002', beg: 1695926.69, debits: 3729266.78, credits: 4870391.74, end: 554801.73, type: 'ACCOUNT' },
-  { name: 'CASH IN BANK CBE 1-CURRENT ACCOUNT', side: 'D', code: '11102001', beg: 170838.73, debits: 277579.89, credits: 303012.00, end: 145406.62, type: 'ACCOUNT' },
-  { name: 'CASH IN BANK CBE SAVING', side: 'D', code: '11102002', beg: 1515087.96, debits: 3451686.89, credits: 4567379.74, end: 399395.11, type: 'ACCOUNT' },
-  { name: 'COOP', side: 'D', code: '1110003', beg: 97539.91, debits: 163311.37, credits: 59000.00, end: 201851.28, type: 'ACCOUNT' },
-  { name: 'OROMIYA INT.', side: 'D', code: '1110008', beg: 630922.27, debits: 441940.60, credits: 0.00, end: 1072862.87, type: 'ACCOUNT' },
-  { name: 'AWASH BANK', side: 'D', code: '1110012', beg: 348670.63, debits: 54236.38, credits: 103.64, end: 402803.37, type: 'ACCOUNT' },
-  { name: 'RECEIVABLE LOAN', side: 'D', code: '1120001', beg: 90348074.18, debits: 350000.00, credits: 2176965.08, end: 88521109.10, type: 'SUBHEADER' },
-  { name: 'BUSINESS GROUP LOAN', side: 'D', code: '11201004', beg: 588679.59, debits: 180000.00, credits: 42939.94, end: 725739.65, type: 'ACCOUNT' },
-  { name: 'BUSINESS INDIVIDUAL LOAN', side: 'D', code: '11201005', beg: 9516196.98, debits: 0.00, credits: 882122.11, end: 8634074.87, type: 'ACCOUNT' },
-  { name: 'CLIMATE FINANCING INDIVIDUAL LOAN', side: 'D', code: '11201006', beg: 76234635.71, debits: 0.00, credits: 1039012.08, end: 75195623.63, type: 'ACCOUNT' },
-  { name: 'CONTRA ASSET LOAN LOSS RESERVE', side: 'D', code: '1120002', beg: -15599.08, debits: 212859.87, credits: 201378.66, end: -4117.87, type: 'SUBHEADER' },
-  { name: 'LIABILITY', side: 'C', code: '2000000', beg: 7846329.90, debits: 6062204.74, credits: 5994582.56, end: 7778707.72, type: 'HEADER' },
-  { name: 'SAVING', side: 'C', code: '222000', beg: 7486983.48, debits: 5609798.24, credits: 5799202.92, end: 7676388.16, type: 'SUBHEADER' },
-  { name: 'COMPULSORY UP FRONT SAVING', side: 'C', code: '22201001', beg: 1604117.61, debits: 9955.10, credits: 95532.81, end: 1689695.32, type: 'ACCOUNT' },
-  { name: 'VOLUNTARY SAVING REGULAR PASS BOOK', side: 'C', code: '22201003', beg: 5303003.21, debits: 1646153.87, credits: 1727574.33, end: 5384423.67, type: 'ACCOUNT' },
-  { name: 'CAPITAL', side: 'C', code: '3000000', beg: 18527571.61, debits: 0.00, credits: 0.00, end: 1447171.45, type: 'HEADER' },
-  { name: 'RETAINED EARNING-CURRENT YEAR', side: 'C', code: '33301001', beg: 18527571.61, debits: 0.00, credits: 0.00, end: 1447171.45, type: 'ACCOUNT' },
-  { name: 'LIABILITY & CAPITAL', side: '', code: '', beg: 0, debits: 0, credits: 0, end: 9225879.17, type: 'GRAND_TOTAL' }
-];
+// Supabase Initialization
+const SUPABASE_URL = 'YOUR_SUPABASE_URL'; // Replace with your Supabase URL
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // Replace with your Supabase Anon Key
+const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 function fmt(num) {
-  if (num === null || num === undefined) return '0.00';
+  if (num === null || num === undefined || isNaN(num)) return '0.00';
   if (num < 0) return `(${Math.abs(num).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})})`;
   return num.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
-function fetchBalanceSheetData() {
+async function generateBalanceSheet() {
+  const tbody = document.getElementById('balanceSheetBody');
+  tbody.innerHTML = '<tr><td colspan="7" class="loader-cell">Querying database journal entries...</td></tr>';
+
   const periodVal = document.getElementById('reportPeriod').value;
   const branchVal = document.getElementById('branchFilter').value;
   
   const [year, month] = periodVal.split('-');
-  const dateObj = new Date(year, month - 1);
-  const monthName = dateObj.toLocaleString('en-US', { month: 'long' });
+  const startDate = `${year}-${month}-01T00:00:00`;
+  
+  // Calculate end of month date string
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${month}-${lastDay}T23:59:59`;
 
+  const monthName = new Date(year, month - 1).toLocaleString('en-US', { month: 'long' });
   document.getElementById('periodTitle').textContent = `As of the month ${monthName} of the year ${year}`;
   document.getElementById('branchTitle').textContent = branchVal === 'ALL' ? 'All Branches' : `${branchVal} Branch`;
 
-  const tbody = document.getElementById('balanceSheetBody');
-  tbody.innerHTML = MOCK_NBE_BS_DATA.map(row => {
-    if (row.type === 'GRAND_TOTAL') {
-      return `
-        <tr class="row-grand-total">
-          <td class="text-left" colspan="6">${row.name}</td>
-          <td>${fmt(row.end)}</td>
-        </tr>
-      `;
+  try {
+    if (!supabaseClient) throw new Error("Supabase client not initialized.");
+
+    // 1. Fetch relevant accounts (Assets: 1%, Liabilities: 2%, Capital: 3%)
+    const { data: accounts, error: accErr } = await supabaseClient
+      .from('chart_of_accounts')
+      .select('account_id, account_number, account_name, account_type, normal_balance, parent_account_id')
+      .or('account_type.eq.Asset,account_type.eq.Liability,account_type.eq.Equity')
+      .order('account_number', { ascending: true });
+
+    if (accErr) throw accErr;
+
+    // 2. Query Prior Transactions (Beginning Balance)
+    let begQuery = supabaseClient
+      .from('gl_transaction_journal')
+      .select('account_number, debit_amount, credit_amount')
+      .lt('transaction_date', startDate);
+
+    if (branchVal !== 'ALL') begQuery = begQuery.eq('branch_code', branchVal);
+    const { data: begTxns, error: begErr } = await begQuery;
+    if (begErr) throw begErr;
+
+    // 3. Query Period Transactions
+    let periodQuery = supabaseClient
+      .from('gl_transaction_journal')
+      .select('account_number, debit_amount, credit_amount')
+      .gte('transaction_date', startDate)
+      .lte('transaction_date', endDate);
+
+    if (branchVal !== 'ALL') periodQuery = periodQuery.eq('branch_code', branchVal);
+    const { data: periodTxns, error: perErr } = await periodQuery;
+    if (perErr) throw perErr;
+
+    // 4. Aggregate Balances per GL Account
+    const accMap = {};
+    accounts.forEach(acc => {
+      accMap[acc.account_number] = {
+        name: acc.account_name,
+        code: acc.account_number,
+        side: acc.normal_balance === 'Debit' ? 'D' : 'C',
+        type: acc.account_type,
+        beg: 0,
+        debits: 0,
+        credits: 0,
+        end: 0
+      };
+    });
+
+    // Populate Prior Balances
+    begTxns.forEach(t => {
+      if (accMap[t.account_number]) {
+        const side = accMap[t.account_number].side;
+        const net = (t.debit_amount || 0) - (t.credit_amount || 0);
+        accMap[t.account_number].beg += side === 'D' ? net : -net;
+      }
+    });
+
+    // Populate Period Debits and Credits
+    periodTxns.forEach(t => {
+      if (accMap[t.account_number]) {
+        accMap[t.account_number].debits += (t.debit_amount || 0);
+        accMap[t.account_number].credits += (t.credit_amount || 0);
+      }
+    });
+
+    // Compute Ending Balances
+    let totalLiabilityAndCapitalEnd = 0;
+
+    Object.values(accMap).forEach(acc => {
+      if (acc.side === 'D') {
+        acc.end = acc.beg + acc.debits - acc.credits;
+      } else {
+        acc.end = acc.beg + acc.credits - acc.debits;
+      }
+
+      if (acc.type === 'Liability' || acc.type === 'Equity') {
+        totalLiabilityAndCapitalEnd += acc.end;
+      }
+    });
+
+    // 5. Build HTML rows
+    const rows = Object.values(accMap);
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center">No balance sheet records found in database.</td></tr>';
+      return;
     }
-    const rowClass = row.type === 'HEADER' ? 'row-total' : (row.type === 'SUBHEADER' ? 'row-category' : '');
-    return `
-      <tr class="${rowClass}">
-        <td class="text-left">${row.name}</td>
-        <td class="text-center">${row.side}</td>
-        <td class="text-center">${row.code}</td>
-        <td>${fmt(row.beg)}</td>
-        <td>${fmt(row.debits)}</td>
-        <td>${fmt(row.credits)}</td>
-        <td>${fmt(row.end)}</td>
+
+    let html = rows.map(acc => `
+      <tr>
+        <td class="text-left">${acc.name}</td>
+        <td class="text-center">${acc.side}</td>
+        <td class="text-center">${acc.code}</td>
+        <td>${fmt(acc.beg)}</td>
+        <td>${fmt(acc.debits)}</td>
+        <td>${fmt(acc.credits)}</td>
+        <td>${fmt(acc.end)}</td>
+      </tr>
+    `).join('');
+
+    // Append Liability & Capital summary row
+    html += `
+      <tr class="row-grand-total">
+        <td class="text-left" colspan="6">LIABILITY & CAPITAL TOTAL</td>
+        <td>${fmt(totalLiabilityAndCapitalEnd)}</td>
       </tr>
     `;
-  }).join('');
+
+    tbody.innerHTML = html;
+
+  } catch (err) {
+    console.error('Balance Sheet query failed:', err);
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="color:red;">Error fetching data: ${err.message}. Check Supabase connection settings.</td></tr>`;
+  }
 }
 
-// Initial load
-fetchBalanceSheetData();
+// Automatically trigger load on open
+window.addEventListener('DOMContentLoaded', generateBalanceSheet);
 </script>
 </body>
 </html>
