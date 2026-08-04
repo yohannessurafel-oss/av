@@ -153,6 +153,16 @@ function fmt(num) {
   return num.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
+// Safely extract account number from Chart of Accounts row
+function getCoaNumber(acc) {
+  return acc.account_number || acc.account_code || acc.code || acc.gl_code || acc.gl_account_number;
+}
+
+// Safely extract account identifier from Journal Entry row
+function getJournalAccountKey(t) {
+  return t.account_number || t.account_code || t.gl_account_number || t.gl_code || t.account_id;
+}
+
 async function generateBalanceSheet() {
   const tbody = document.getElementById('balanceSheetBody');
   tbody.innerHTML = '<tr><td colspan="7" class="loader-cell">Querying database journal entries...</td></tr>';
@@ -177,16 +187,18 @@ async function generateBalanceSheet() {
       throw new Error("Supabase SDK missing or environment keys not set in SUPABASE_URL / SUPABASE_ANON_KEY.");
     }
 
-    // 1. Fetch GL Chart of Accounts
+    // 1. Fetch GL Chart of Accounts with flexible column selection
     const { data: accounts, error: accErr } = await supabaseClient
       .from('chart_of_accounts')
-      .select('account_number, account_name, account_type, normal_balance')
-      .or('account_type.eq.Asset,account_type.eq.Liability,account_type.eq.Equity')
-      .order('account_number', { ascending: true });
+      .select('*')
+      .or('account_type.eq.Asset,account_type.eq.Liability,account_type.eq.Equity');
 
     if (accErr) throw accErr;
 
-    // 2. Fetch Prior Transactions (Beginning Balance) - selecting all columns to safely resolve key names
+    // Sort accounts by extracted account code
+    accounts.sort((a, b) => String(getCoaNumber(a)).localeCompare(String(getCoaNumber(b))));
+
+    // 2. Fetch Prior Transactions (Beginning Balance)
     let begQuery = supabaseClient
       .from('gl_transaction_journal')
       .select('*')
@@ -207,26 +219,26 @@ async function generateBalanceSheet() {
     const { data: periodTxns, error: perErr } = await periodQuery;
     if (perErr) throw perErr;
 
-    // Helper to safely extract account key regardless of column naming in journal
-    const getAccountKey = (t) => t.account_number || t.account_code || t.gl_account_number || t.account_id;
-
     // 4. Aggregate Balances per Account
     const accMap = {};
     accounts.forEach(acc => {
-      accMap[acc.account_number] = {
-        name: acc.account_name,
-        code: acc.account_number,
-        side: acc.normal_balance === 'Debit' || acc.account_type === 'Asset' ? 'D' : 'C',
-        type: acc.account_type,
-        beg: 0,
-        debits: 0,
-        credits: 0,
-        end: 0
-      };
+      const code = getCoaNumber(acc);
+      if (code) {
+        accMap[code] = {
+          name: acc.account_name || acc.name || acc.description,
+          code: code,
+          side: acc.normal_balance === 'Debit' || acc.account_type === 'Asset' ? 'D' : 'C',
+          type: acc.account_type,
+          beg: 0,
+          debits: 0,
+          credits: 0,
+          end: 0
+        };
+      }
     });
 
     begTxns.forEach(t => {
-      const key = getAccountKey(t);
+      const key = getJournalAccountKey(t);
       if (accMap[key]) {
         const side = accMap[key].side;
         const net = (t.debit_amount || t.debit || 0) - (t.credit_amount || t.credit || 0);
@@ -235,7 +247,7 @@ async function generateBalanceSheet() {
     });
 
     periodTxns.forEach(t => {
-      const key = getAccountKey(t);
+      const key = getJournalAccountKey(t);
       if (accMap[key]) {
         accMap[key].debits += (t.debit_amount || t.debit || 0);
         accMap[key].credits += (t.credit_amount || t.credit || 0);
