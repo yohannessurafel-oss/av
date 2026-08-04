@@ -138,10 +138,14 @@
 </div>
 
 <script>
-// Supabase Initialization
+// 1. Initialize Supabase Client FIRST at the top of the script
 const SUPABASE_URL = 'YOUR_SUPABASE_URL'; // Replace with your Supabase URL
 const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // Replace with your Supabase Anon Key
-const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+let supabaseClient = null;
+if (window.supabase) {
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
 
 function fmt(num) {
   if (num === null || num === undefined || isNaN(num)) return '0.00';
@@ -156,10 +160,11 @@ async function generateBalanceSheet() {
   const periodVal = document.getElementById('reportPeriod').value;
   const branchVal = document.getElementById('branchFilter').value;
   
+  if (!periodVal) return;
+
   const [year, month] = periodVal.split('-');
   const startDate = `${year}-${month}-01T00:00:00`;
   
-  // Calculate end of month date string
   const lastDay = new Date(year, month, 0).getDate();
   const endDate = `${year}-${month}-${lastDay}T23:59:59`;
 
@@ -168,18 +173,20 @@ async function generateBalanceSheet() {
   document.getElementById('branchTitle').textContent = branchVal === 'ALL' ? 'All Branches' : `${branchVal} Branch`;
 
   try {
-    if (!supabaseClient) throw new Error("Supabase client not initialized.");
+    if (!supabaseClient) {
+      throw new Error("Supabase SDK missing or environment keys not set in SUPABASE_URL / SUPABASE_ANON_KEY.");
+    }
 
-    // 1. Fetch relevant accounts (Assets: 1%, Liabilities: 2%, Capital: 3%)
+    // Fetch accounts (Assets: 1%, Liabilities: 2%, Equity: 3%)
     const { data: accounts, error: accErr } = await supabaseClient
       .from('chart_of_accounts')
-      .select('account_id, account_number, account_name, account_type, normal_balance, parent_account_id')
+      .select('account_id, account_number, account_name, account_type, normal_balance')
       .or('account_type.eq.Asset,account_type.eq.Liability,account_type.eq.Equity')
       .order('account_number', { ascending: true });
 
     if (accErr) throw accErr;
 
-    // 2. Query Prior Transactions (Beginning Balance)
+    // Fetch Prior Transactions (Beginning Balance)
     let begQuery = supabaseClient
       .from('gl_transaction_journal')
       .select('account_number, debit_amount, credit_amount')
@@ -189,7 +196,7 @@ async function generateBalanceSheet() {
     const { data: begTxns, error: begErr } = await begQuery;
     if (begErr) throw begErr;
 
-    // 3. Query Period Transactions
+    // Fetch Period Transactions
     let periodQuery = supabaseClient
       .from('gl_transaction_journal')
       .select('account_number, debit_amount, credit_amount')
@@ -200,13 +207,13 @@ async function generateBalanceSheet() {
     const { data: periodTxns, error: perErr } = await periodQuery;
     if (perErr) throw perErr;
 
-    // 4. Aggregate Balances per GL Account
+    // Aggregate Balances per Account
     const accMap = {};
     accounts.forEach(acc => {
       accMap[acc.account_number] = {
         name: acc.account_name,
         code: acc.account_number,
-        side: acc.normal_balance === 'Debit' ? 'D' : 'C',
+        side: acc.normal_balance === 'Debit' || acc.account_type === 'Asset' ? 'D' : 'C',
         type: acc.account_type,
         beg: 0,
         debits: 0,
@@ -215,7 +222,6 @@ async function generateBalanceSheet() {
       };
     });
 
-    // Populate Prior Balances
     begTxns.forEach(t => {
       if (accMap[t.account_number]) {
         const side = accMap[t.account_number].side;
@@ -224,7 +230,6 @@ async function generateBalanceSheet() {
       }
     });
 
-    // Populate Period Debits and Credits
     periodTxns.forEach(t => {
       if (accMap[t.account_number]) {
         accMap[t.account_number].debits += (t.debit_amount || 0);
@@ -232,7 +237,6 @@ async function generateBalanceSheet() {
       }
     });
 
-    // Compute Ending Balances
     let totalLiabilityAndCapitalEnd = 0;
 
     Object.values(accMap).forEach(acc => {
@@ -247,10 +251,9 @@ async function generateBalanceSheet() {
       }
     });
 
-    // 5. Build HTML rows
     const rows = Object.values(accMap);
     if (rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center">No balance sheet records found in database.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center">No GL account balances found in database.</td></tr>';
       return;
     }
 
@@ -266,7 +269,6 @@ async function generateBalanceSheet() {
       </tr>
     `).join('');
 
-    // Append Liability & Capital summary row
     html += `
       <tr class="row-grand-total">
         <td class="text-left" colspan="6">LIABILITY & CAPITAL TOTAL</td>
@@ -277,12 +279,12 @@ async function generateBalanceSheet() {
     tbody.innerHTML = html;
 
   } catch (err) {
-    console.error('Balance Sheet query failed:', err);
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="color:red;">Error fetching data: ${err.message}. Check Supabase connection settings.</td></tr>`;
+    console.error('Balance Sheet Query Error:', err);
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="color:#d9534f; font-weight:bold;">${err.message}</td></tr>`;
   }
 }
 
-// Automatically trigger load on open
+// Trigger query on DOM load
 window.addEventListener('DOMContentLoaded', generateBalanceSheet);
 </script>
 </body>
