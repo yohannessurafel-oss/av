@@ -95,7 +95,7 @@
         </div>
 
         <div class="nbe-grid" id="nbeGrid"></div>
-        <div class="sub-footer-token" id="statusBar" style="margin:0 16px;">14 reports registered — 4 live, 10 not yet built</div>
+        <div class="sub-footer-token" id="statusBar" style="margin:0 16px;"></div>
       </div>
     </div>
 
@@ -122,6 +122,10 @@ const NBE_REPORTS = [
   { title: 'Cash Liquidity',               icon: '💵', desc: 'Liquidity position and cash flow management.', path: null },
 ];
 
+// Dynamically compute built vs unbuilt counts
+const liveCount = NBE_REPORTS.filter(r => r.path).length;
+const totalCount = NBE_REPORTS.length;
+
 document.getElementById('nbeGrid').innerHTML = NBE_REPORTS.map(r => `
   <div class="nbe-card ${r.path ? '' : 'disabled'}" ${r.path ? `onclick="window.location='${r.path}'"` : ''}>
     <div class="nbe-card-icon">${r.icon}</div>
@@ -132,6 +136,8 @@ document.getElementById('nbeGrid').innerHTML = NBE_REPORTS.map(r => `
     <div class="nbe-card-chevron">${r.path ? '›' : '—'}</div>
   </div>
 `).join('');
+
+document.getElementById('statusBar').textContent = `${totalCount} reports registered — ${liveCount} live, ${totalCount - liveCount} not yet built`;
 
 document.getElementById('systemDate').textContent = new Date().toLocaleDateString('en-ET', {
   weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
