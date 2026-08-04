@@ -177,14 +177,7 @@ async function generateBalanceSheet() {
       throw new Error("Supabase SDK missing or environment keys not set in SUPABASE_URL / SUPABASE_ANON_KEY.");
     }
 
-    // Fixed: Selected 'id' instead of non-existent 'account_id'
-    const { data: accounts, error: accErr } = await supabaseClient
-      .from('chart_of_accounts')
-      .select('id, account_number, account_name, account_type, normal_balance')
-      .or('account_type.eq.Asset,account_type.eq.Liability,account_type.eq.Equity')
-      .order('account_number', { ascending: true });
-
-    if (accErr) throw accErr;
+ 
 
     // Query Prior Transactions (Beginning Balance)
     let begQuery = supabaseClient
