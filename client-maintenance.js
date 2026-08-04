@@ -39,6 +39,45 @@ let currentIndex = -1;
   });
 })();
 
+// ── Operator Identity ─────────────────────────────────────
+// NOTE: this app has no login/session system — it talks to Supabase
+// with the static anon key. There is no way to know who is actually
+// typing. This is a self-reported name, prompted once and persisted
+// locally, so created_by/modified_by have SOMETHING meaningful in
+// them instead of a generic DB role or silence. It is not an
+// authentication system and should not be treated as one.
+const OPERATOR_STORAGE_KEY = 'avmf_operator_name';
+
+function getOperatorName() {
+  let name = localStorage.getItem(OPERATOR_STORAGE_KEY);
+  if (!name) name = promptForOperatorName();
+  return name;
+}
+
+function promptForOperatorName() {
+  let name = null;
+  while (!name) {
+    name = (window.prompt('Enter your name (shown as the operator on saved records):') || '').trim();
+  }
+  localStorage.setItem(OPERATOR_STORAGE_KEY, name);
+  updateOperatorDisplay(name);
+  return name;
+}
+
+function changeOperatorName() {
+  promptForOperatorName();
+}
+
+function updateOperatorDisplay(name) {
+  const el = document.getElementById('operatorNameDisplay');
+  if (el) el.textContent = `👤 ${name}`;
+}
+
+(function initOperator() {
+  const existing = localStorage.getItem(OPERATOR_STORAGE_KEY);
+  if (existing) updateOperatorDisplay(existing);
+})();
+
 // ── DOM refs ─────────────────────────────────────────────
 const btnView   = document.getElementById('btnView');
 const btnAdd    = document.getElementById('btnAdd');
@@ -567,6 +606,7 @@ async function saveRecord() {
       payload.client_id = 'CLI-' + Date.now().toString(36).toUpperCase().slice(-5) +
                           Math.random().toString(36).slice(2,5).toUpperCase();
       delete payload.application_id;
+      payload.created_by = getOperatorName();
       showToast('Creating new client…');
       const data = await sbFetch('ClientMasterRecords', {
         method: 'POST',
@@ -587,6 +627,7 @@ async function saveRecord() {
       }
       const updatePayload = { ...payload };
       delete updatePayload.client_id;
+      updatePayload.modified_by = getOperatorName();
       showToast('Updating client…');
       await sbFetch(`ClientMasterRecords?client_id=eq.${encodeURIComponent(currentRecord.client_id)}`, {
         method: 'PATCH',
