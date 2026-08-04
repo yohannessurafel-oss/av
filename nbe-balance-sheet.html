@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AVMF — NBE Balance Sheet Report</title>
+<link rel="stylesheet" href="style2.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+.report-container {
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+  margin: 16px;
+  border: 1px solid var(--border-light, #c5daf0);
+}
+.report-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.filter-group select, .filter-group input {
+  padding: 6px 10px;
+  border: 1px solid var(--border-light, #c5daf0);
+  border-radius: 4px;
+  font-size: 12px;
+}
+.btn-action {
+  padding: 6px 14px;
+  background: var(--navy-600, #2560a0);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+}
+.btn-action:hover { background: var(--navy-700, #1b5199); }
+.nbe-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: monospace, monospace;
+}
+.nbe-table th, .nbe-table td {
+  padding: 6px 8px;
+  border: 1px solid #d0d7de;
+  text-align: right;
+}
+.nbe-table th {
+  background: var(--navy-50, #eef4fb);
+  color: var(--text-dark, #0d2a4a);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.nbe-table td.text-left { text-align: left; }
+.nbe-table td.text-center { text-align: center; }
+.nbe-table tr.row-category { background: #f6f8fa; font-weight: 700; }
+.nbe-table tr.row-total { background: #e6f0fa; font-weight: 700; border-top: 2px solid #0d2a4a; }
+.nbe-table tr.row-grand-total { background: #0d2a4a; color: #fff; font-weight: 700; }
+.nbe-table tr.row-grand-total td { border-color: #0d2a4a; }
+</style>
+</head>
+<body>
+
+<div class="window-container">
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <svg class="header-logo-svg" viewBox="0 0 100 100">
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
+      </svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance S.C.</span>
+        <span class="title-sub">NBE Regulatory Balance Sheet Report</span>
+      </div>
+    </div>
+    <div class="window-controls">
+      <span title="Close" class="wc-close" onclick="window.location='nbe-reports.html'">✕</span>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <div class="main-content">
+      <div class="report-container">
+        <div class="report-toolbar">
+          <div class="filter-group">
+            <label>As of Month:</label>
+            <input type="month" id="reportPeriod" value="2026-08"/>
+            <label>Branch:</label>
+            <select id="branchFilter">
+              <option value="ALL">All Branches</option>
+              <option value="MAIN">Main Branch</option>
+              <option value="EJERE">Ejere Branch</option>
+              <option value="KALITY">Kality Branch</option>
+            </select>
+          </div>
+          <button class="btn-action" onclick="fetchBalanceSheetData()">Generate Report</button>
+        </div>
+
+        <div style="text-align: center; margin-bottom: 12px;">
+          <h3 style="margin:0; text-transform:uppercase;">Africa Village Microfinance S.C.</h3>
+          <h4 style="margin:2px 0;" id="branchTitle">All Branches</h4>
+          <h5 style="margin:2px 0; font-weight: normal;">Balance Sheet Report</h5>
+          <span style="font-size: 11px; font-weight: bold;" id="periodTitle">As of the month August of the year 2026</span>
+        </div>
+
+        <table class="nbe-table">
+          <thead>
+            <tr>
+              <th class="text-left" style="width: 35%;">Name</th>
+              <th class="text-center" style="width: 5%;">Side</th>
+              <th class="text-center" style="width: 10%;">Acc No</th>
+              <th style="width: 12.5%;">Beg. Balance</th>
+              <th style="width: 12.5%;">Period Debits</th>
+              <th style="width: 12.5%;">Period Credits</th>
+              <th style="width: 12.5%;">Ending Balance</th>
+            </tr>
+          </thead>
+          <tbody id="balanceSheetBody">
+            <tr><td colspan="7" class="text-center">Click "Generate Report" to load balance sheet data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Mock data structure matching the exact NBE report format from your official statement
+const MOCK_NBE_BS_DATA = [
+  { name: 'ASSET', side: 'D', code: '1000000', beg: 26294581.69, debits: 14696228.14, credits: 13262634.64, end: 23964566.19, type: 'HEADER' },
+  { name: 'CASH AT BANK', side: 'D', code: '1110000', beg: 3270933.94, debits: 5011645.76, credits: 5239466.19, end: 3043113.51, type: 'SUBHEADER' },
+  { name: 'CBE', side: 'D', code: '1110002', beg: 1695926.69, debits: 3729266.78, credits: 4870391.74, end: 554801.73, type: 'ACCOUNT' },
+  { name: 'CASH IN BANK CBE 1-CURRENT ACCOUNT', side: 'D', code: '11102001', beg: 170838.73, debits: 277579.89, credits: 303012.00, end: 145406.62, type: 'ACCOUNT' },
+  { name: 'CASH IN BANK CBE SAVING', side: 'D', code: '11102002', beg: 1515087.96, debits: 3451686.89, credits: 4567379.74, end: 399395.11, type: 'ACCOUNT' },
+  { name: 'COOP', side: 'D', code: '1110003', beg: 97539.91, debits: 163311.37, credits: 59000.00, end: 201851.28, type: 'ACCOUNT' },
+  { name: 'OROMIYA INT.', side: 'D', code: '1110008', beg: 630922.27, debits: 441940.60, credits: 0.00, end: 1072862.87, type: 'ACCOUNT' },
+  { name: 'AWASH BANK', side: 'D', code: '1110012', beg: 348670.63, debits: 54236.38, credits: 103.64, end: 402803.37, type: 'ACCOUNT' },
+  { name: 'RECEIVABLE LOAN', side: 'D', code: '1120001', beg: 90348074.18, debits: 350000.00, credits: 2176965.08, end: 88521109.10, type: 'SUBHEADER' },
+  { name: 'BUSINESS GROUP LOAN', side: 'D', code: '11201004', beg: 588679.59, debits: 180000.00, credits: 42939.94, end: 725739.65, type: 'ACCOUNT' },
+  { name: 'BUSINESS INDIVIDUAL LOAN', side: 'D', code: '11201005', beg: 9516196.98, debits: 0.00, credits: 882122.11, end: 8634074.87, type: 'ACCOUNT' },
+  { name: 'CLIMATE FINANCING INDIVIDUAL LOAN', side: 'D', code: '11201006', beg: 76234635.71, debits: 0.00, credits: 1039012.08, end: 75195623.63, type: 'ACCOUNT' },
+  { name: 'CONTRA ASSET LOAN LOSS RESERVE', side: 'D', code: '1120002', beg: -15599.08, debits: 212859.87, credits: 201378.66, end: -4117.87, type: 'SUBHEADER' },
+  { name: 'LIABILITY', side: 'C', code: '2000000', beg: 7846329.90, debits: 6062204.74, credits: 5994582.56, end: 7778707.72, type: 'HEADER' },
+  { name: 'SAVING', side: 'C', code: '222000', beg: 7486983.48, debits: 5609798.24, credits: 5799202.92, end: 7676388.16, type: 'SUBHEADER' },
+  { name: 'COMPULSORY UP FRONT SAVING', side: 'C', code: '22201001', beg: 1604117.61, debits: 9955.10, credits: 95532.81, end: 1689695.32, type: 'ACCOUNT' },
+  { name: 'VOLUNTARY SAVING REGULAR PASS BOOK', side: 'C', code: '22201003', beg: 5303003.21, debits: 1646153.87, credits: 1727574.33, end: 5384423.67, type: 'ACCOUNT' },
+  { name: 'CAPITAL', side: 'C', code: '3000000', beg: 18527571.61, debits: 0.00, credits: 0.00, end: 1447171.45, type: 'HEADER' },
+  { name: 'RETAINED EARNING-CURRENT YEAR', side: 'C', code: '33301001', beg: 18527571.61, debits: 0.00, credits: 0.00, end: 1447171.45, type: 'ACCOUNT' },
+  { name: 'LIABILITY & CAPITAL', side: '', code: '', beg: 0, debits: 0, credits: 0, end: 9225879.17, type: 'GRAND_TOTAL' }
+];
+
+function fmt(num) {
+  if (num === null || num === undefined) return '0.00';
+  if (num < 0) return `(${Math.abs(num).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})})`;
+  return num.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+
+function fetchBalanceSheetData() {
+  const periodVal = document.getElementById('reportPeriod').value;
+  const branchVal = document.getElementById('branchFilter').value;
+  
+  const [year, month] = periodVal.split('-');
+  const dateObj = new Date(year, month - 1);
+  const monthName = dateObj.toLocaleString('en-US', { month: 'long' });
+
+  document.getElementById('periodTitle').textContent = `As of the month ${monthName} of the year ${year}`;
+  document.getElementById('branchTitle').textContent = branchVal === 'ALL' ? 'All Branches' : `${branchVal} Branch`;
+
+  const tbody = document.getElementById('balanceSheetBody');
+  tbody.innerHTML = MOCK_NBE_BS_DATA.map(row => {
+    if (row.type === 'GRAND_TOTAL') {
+      return `
+        <tr class="row-grand-total">
+          <td class="text-left" colspan="6">${row.name}</td>
+          <td>${fmt(row.end)}</td>
+        </tr>
+      `;
+    }
+    const rowClass = row.type === 'HEADER' ? 'row-total' : (row.type === 'SUBHEADER' ? 'row-category' : '');
+    return `
+      <tr class="${rowClass}">
+        <td class="text-left">${row.name}</td>
+        <td class="text-center">${row.side}</td>
+        <td class="text-center">${row.code}</td>
+        <td>${fmt(row.beg)}</td>
+        <td>${fmt(row.debits)}</td>
+        <td>${fmt(row.credits)}</td>
+        <td>${fmt(row.end)}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Initial load
+fetchBalanceSheetData();
+</script>
+</body>
+</html>
