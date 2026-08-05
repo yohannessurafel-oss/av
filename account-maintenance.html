@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF — 00 Client Master Registry</title>
+<title>AVMF — 13 Client Financial Account Maintenance</title>
 <link rel="stylesheet" href="style2.css"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -15,7 +15,7 @@
 </div>
 
 <div class="window-container">
-
+  
   <!-- ══ Title Bar ══════════════════════════════════════ -->
   <div class="title-bar">
     <div class="title-branding-block">
@@ -29,12 +29,12 @@
       </svg>
       <div class="title-text-block">
         <span class="title-main">Africa Village Microfinance</span>
-        <span class="title-sub">00 — Client Master Registry</span>
+        <span class="title-sub">13 — Client Financial Account Maintenance</span>
       </div>
     </div>
     <div class="title-meta">
       <span id="systemDate" class="title-date"></span>
-      <span class="title-user" id="operatorNameDisplay" title="Double-click to change" ondblclick="changeOperatorName()">👤 Loan Officer</span>
+      <span class="title-user">👤 Desk Officer</span>
     </div>
     <div class="window-controls">
       <span id="wcMinimize" title="Minimize" onclick="toggleMinimize()">─</span>
@@ -43,9 +43,7 @@
     </div>
   </div>
 
-  <!-- ══ Workspace ══════════════════════════════════════ -->
   <div class="workspace">
-
     <!-- ── Left Navigation Sidebar (Category View) ──────── -->
     <div class="sidebar">
       <div class="sidebar-header" style="cursor: pointer; background: var(--navy-900);" title="Return to Dashboard" onclick="window.location='indexll.html'">
@@ -53,8 +51,8 @@
       </div>
       <ul class="nav-menu">
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🌐</span><a href="indexll.html" class="nav-label">All Modules</a></li>
-        <li class="active"><span class="nav-num" style="background:none;font-size:14px;padding:0;">📋</span><a href="indexll.html" class="nav-label">Credit Operations</a></li>
-        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">💰</span><a href="indexll.html" class="nav-label">Financials & Ledger</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📋</span><a href="indexll.html" class="nav-label">Credit Operations</a></li>
+        <li class="active"><span class="nav-num" style="background:none;font-size:14px;padding:0;">💰</span><a href="indexll.html" class="nav-label">Financials & Ledger</a></li>
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🛡️</span><a href="indexll.html" class="nav-label">Risk & Collateral</a></li>
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🏧</span><a href="indexll.html" class="nav-label">Teller & Cash</a></li>
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📊</span><a href="indexll.html" class="nav-label">Reports</a></li>
@@ -69,591 +67,154 @@
 
     <!-- ── Main Content Canvas ─────────────────────────── -->
     <div class="main-content">
-      <div class="module-view active" id="view-client-maintenance">
+      <div class="module-view active" id="view-module-12">
         <div class="context-badge-bar">
-          <span class="badge-icon">🧾</span>
-          Data Entry — Client Master Registry &amp; KYC Capture
+          <span class="badge-icon">🏦</span>
+          Client Financial Account Opening &amp; Maintenance
         </div>
 
-        <!-- Identity / Search Bar -->
-        <div class="identity-bar">
-          <div class="id-row">
-            <div class="id-field">
-              <label>Client ID</label>
-              <div class="id-input-wrap">
-                <input type="text" id="clientId" class="id-input" placeholder="Auto-generated"/>
-                <button class="lookup-btn" id="lookupClientId" title="Lookup">🔍</button>
+        <form class="module-form grid-two-column" autocomplete="off">
+          <!-- LEFT COLUMN -->
+          <div class="sub-column">
+            <div class="card-header-banner">Account Identity</div>
+
+            <div class="form-row">
+              <label>Branch ID *</label>
+              <select id="accBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select>
+              <input type="text" id="accBranchName" class="width-remaining" placeholder="Branch name" readonly/>
+            </div>
+
+            <div class="form-row">
+              <label>Client ID *</label>
+              <div class="input-group width-full">
+                <input type="text" id="accClientId" placeholder="Enter Client ID"/>
+                <span class="search-btn" id="btnVerifyClient" title="Verify client in registry">🔍</span>
               </div>
             </div>
-            <div class="id-field">
-              <label>Client Type</label>
-              <select id="clientType" class="id-select">
-                <option>Individual Client</option>
-                <option>Group Client</option>
-                <option>Corporate</option>
-              </select>
-            </div>
-          </div>
-          <div class="id-row">
-            <div class="id-field">
-              <label>Application ID</label>
-              <div class="id-input-wrap">
-                <input type="text" id="applicationId" class="id-input" placeholder=""/>
-                <button class="lookup-btn" id="lookupAppId" title="Lookup by Application ID">🔍</button>
-              </div>
-            </div>
-            <div class="id-field">
-              <label>Base Branch</label>
-              <select id="baseId" class="id-select">
-                <option value="">– Select –</option>
-              </select>
-            </div>
-          </div>
-          <div class="id-row">
-            <div class="id-field full">
+
+            <div class="form-row">
               <label>Client Name</label>
-              <input type="text" id="clientName" class="id-input wide" placeholder="" readonly/>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tabs -->
-        <div class="tab-bar">
-          <button class="tab active" data-tab="personal">Personal</button>
-          <button class="tab" data-tab="address">Address</button>
-          <button class="tab" data-tab="employment">Employment</button>
-          <button class="tab" data-tab="special">Special Offers</button>
-        </div>
-
-        <!-- Tab Panels -->
-        <div class="tab-panels">
-
-          <!-- PERSONAL TAB -->
-          <div id="tab-personal" class="tab-panel active">
-            <div class="card-header-banner">Personal Details</div>
-            <div class="form-grid">
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Title</label>
-                  <select name="title">
-                    <option value="">– Select –</option>
-                    <option>Mr.</option><option>Mrs.</option><option>Ms.</option><option>Dr.</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>First Name <span class="req">*</span></label>
-                  <input type="text" name="firstName"/>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Middle Name <span class="req">*</span></label>
-                  <input type="text" name="middleName"/>
-                </div>
-                <div class="form-field">
-                  <label>Last Name <span class="req">*</span></label>
-                  <input type="text" name="lastName"/>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Gender</label>
-                  <select name="gender">
-                    <option value="">– Select –</option>
-                    <option>Male</option><option>Female</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Date of Birth <span class="req">*</span></label>
-                  <div class="date-dropdowns">
-                    <select name="dobDay" class="inline-sel"><option value="">Day</option></select>
-                    <select name="dobMonth" class="inline-sel"><option value="">Mon</option></select>
-                    <select name="dobYear" class="inline-sel"><option value="">Year</option></select>
-                  </div>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Age</label>
-                  <input type="number" name="age" class="short-input" readonly placeholder="Auto"/>
-                </div>
-                <div class="form-field">
-                  <label>Age As On</label>
-                  <select name="ageAsOn">
-                    <option value="">– Select –</option>
-                    <option value="Application Date">Application Date</option>
-                    <option value="System Date">Current System Date</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Nationality</label>
-                  <select name="nationality">
-                    <option value="">– Select –</option>
-                    <option>Ethiopian</option><option>Other</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Resident <span class="req">*</span></label>
-                  <select name="resident">
-                    <option value="">– Select –</option>
-                    <option>Resident</option><option>Non-Resident</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Identification Type <span class="req">*</span></label>
-                  <select name="idType">
-                    <option value="">– Select –</option>
-                    <option>National ID</option><option>Passport</option>
-                    <option>Kebele ID</option><option>Driving License</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Issued By</label>
-                  <input type="text" name="issuedBy"/>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>ID Expiry Date <span class="req">*</span></label>
-                  <div class="date-dropdowns">
-                    <select name="idExpiryDay" class="inline-sel"><option value="">Day</option></select>
-                    <select name="idExpiryMonth" class="inline-sel"><option value="">Mon</option></select>
-                    <select name="idExpiryYear" class="inline-sel"><option value="">Year</option></select>
-                  </div>
-                </div>
-                <div class="form-field">
-                  <label>Identification No</label>
-                  <input type="text" name="idNo"/>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Literacy Level</label>
-                  <select name="literacyLevel">
-                    <option value="">– Select –</option>
-                    <option>Illiterate</option><option>Primary</option>
-                    <option>Secondary</option><option>University</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Marital Status</label>
-                  <select name="maritalStatus">
-                    <option value="">– Select –</option>
-                    <option>Single</option><option>Married</option>
-                    <option>Divorced</option><option>Widowed</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>No. of Dependants</label>
-                  <input type="number" name="dependents" min="0"/>
-                </div>
-                <div class="form-field">
-                  <label>No. of Children</label>
-                  <input type="number" name="children" min="0"/>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>House Members</label>
-                  <input type="number" name="houseMembers" min="0"/>
-                </div>
-                <div class="form-field">
-                  <label>Blood Group</label>
-                  <select name="bloodGroup">
-                    <option value="">– Select –</option>
-                    <option>A+</option><option>A−</option>
-                    <option>B+</option><option>B−</option>
-                    <option>AB+</option><option>AB−</option>
-                    <option>O+</option><option>O−</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Can Donate Blood</label>
-                  <select name="canDonate">
-                    <option value="">– Select –</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Relationship Manager</label>
-                  <div class="id-input-wrap">
-                    <input type="text" name="relManager"/>
-                    <button class="lookup-btn" type="button" title="Lookup">🔍</button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Opened By</label>
-                  <input type="text" name="openedBy"/>
-                </div>
-                <div class="form-field">
-                  <label>Opened On</label>
-                  <input type="date" name="openedOn"/>
-                </div>
-              </div>
-
+              <input type="text" id="accClientName" class="width-full" readonly placeholder="Auto-filled from registry"/>
             </div>
 
-            <div class="bts-section">
-              <div class="bts-header">Behind The Scene</div>
-              <div class="bts-grid">
-                <div class="bts-field"><label>Status</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Open Date</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Closed Date</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Created By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Modified By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Supervised By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Created On</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Modified On</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Supervised On</label><input type="text" readonly/></div>
+            <div class="section-divider"></div>
+            <div class="card-header-banner">Account Parameters</div>
+
+            <div class="form-row">
+              <label>Account Number *</label>
+              <div class="input-group width-full">
+                <input type="text" id="accountNumber" placeholder="Auto-generated or manual"/>
+                <span class="search-btn" id="btnLookupAccount" title="Look up existing account">🔍</span>
+                <span class="search-btn" id="btnGenAccNo" title="Auto-generate account number">⚙</span>
               </div>
+            </div>
+
+            <div class="form-row">
+              <label>Account Type *</label>
+              <select id="accountType" class="width-full">
+                <option value="Savings">Savings Account</option>
+                <option value="Repayment">Repayment Settlement Account</option>
+                <option value="Current">Current Operating Account</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label>Currency</label>
+              <select id="accCurrencyId" class="width-full">
+                <option value="ETB" selected>ETB — Ethiopian Birr</option>
+                <option value="USD">USD — US Dollar</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label>Initial Deposit (ETB)</label>
+              <input type="number" id="initialDeposit" class="text-right width-full" min="0" step="0.01" value="0"/>
+            </div>
+
+            <div class="form-row">
+              <label>Current Balance (ETB)</label>
+              <input type="number" id="currentBalance" class="text-right width-full" min="0" step="0.01" value="0" readonly/>
             </div>
           </div>
 
-          <!-- ADDRESS TAB -->
-          <div id="tab-address" class="tab-panel">
-            <div class="card-header-banner">Address &amp; Contact Details</div>
-            <div class="form-grid">
+          <!-- RIGHT COLUMN -->
+          <div class="sub-column">
+            <div class="card-header-banner">Account Status &amp; Remarks</div>
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Address Type</label>
-                  <select name="addressType">
-                    <option value="">– Select –</option>
-                    <option>Residential</option>
-                    <option>Commercial</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Postal Address</label>
-                  <input type="text" name="postalAddress"/>
-                </div>
-              </div>
+            <div class="form-row">
+              <label class="shifted-label">Account Status</label>
+              <select id="accountStatus" class="width-full">
+                <option value="Active">Active</option>
+                <option value="Dormant">Dormant</option>
+                <option value="Closed">Closed</option>
+              </select>
+            </div>
 
-              <div class="field-pair-row">
-                <div class="form-field full">
-                  <label>Physical Address</label>
-                  <input type="text" name="physicalAddress"/>
-                </div>
-              </div>
+            <div class="form-row">
+              <label class="shifted-label">Remarks / Notes</label>
+              <textarea id="accRemarks" class="width-full" rows="3" placeholder="Account setup details, purpose, notes…"></textarea>
+            </div>
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>City <span class="req">*</span></label>
-                  <input type="text" name="city"/>
-                </div>
-                <div class="form-field">
-                  <label>Zip / Postal Code</label>
-                  <input type="text" name="zipCode"/>
-                </div>
-              </div>
+            <div class="form-row">
+              <label class="shifted-label">Created By</label>
+              <input type="text" id="accCreatedBy" class="width-full" placeholder="Officer name"/>
+            </div>
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Country <span class="req">*</span></label>
-                  <select name="country">
-                    <option value="">– Select –</option>
-                    <option>Ethiopia</option>
-                    <option>Kenya</option>
-                    <option>Uganda</option>
-                    <option>Tanzania</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Region</label>
-                  <select name="region">
-                    <option value="">– Select –</option>
-                    <option>Addis Ababa</option><option>Oromia</option>
-                    <option>Amhara</option><option>SNNPR</option><option>Tigray</option>
-                    <option>Afar</option><option>Somali</option><option>Sidama</option>
-                  </select>
-                </div>
-              </div>
+            <div class="form-row">
+              <label class="shifted-label">Created On</label>
+              <input type="text" id="accCreatedOn" class="width-full" readonly placeholder="Auto-set on save"/>
+            </div>
 
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Zone / Woreda</label>
-                  <input type="text" name="zone"/>
-                </div>
-                <div class="form-field">
-                  <label>Kebele</label>
-                  <input type="text" name="kebele"/>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>House Number</label>
-                  <input type="text" name="houseNo"/>
-                </div>
-                <div class="form-field">
-                  <label>P.O. Box</label>
-                  <input type="text" name="poBox"/>
-                </div>
-              </div>
-
-              <div class="card-header-banner" style="margin:8px -6px 6px;padding-left:10px;">Contact Numbers</div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Mobile Number</label>
-                  <input type="tel" name="mobile"/>
-                </div>
-                <div class="form-field">
-                  <label>Phone (Home)</label>
-                  <input type="tel" name="phoneHome"/>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Phone (Work) <span class="req">*</span></label>
-                  <input type="tel" name="phoneWork"/>
-                </div>
-                <div class="form-field">
-                  <label>Fax Number</label>
-                  <input type="tel" name="faxNo"/>
-                </div>
-              </div>
-
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Email Address</label>
-                  <input type="email" name="email"/>
-                </div>
-                <div class="form-field"><!-- spacer --></div>
-              </div>
-
+            <div class="card-header-banner" style="margin-top:14px;">Client Account List</div>
+            <div class="grid-container" style="height:160px;">
+              <table class="ledger-grid" id="tblAccountList">
+                <thead>
+                  <tr>
+                    <th>Account No.</th>
+                    <th>Type</th>
+                    <th class="text-right">Balance (ETB)</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyAccountList">
+                  <tr>
+                    <td colspan="4" class="text-center gray-text italic">Verify a Client ID to see their accounts.</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
-
-          <!-- EMPLOYMENT TAB -->
-          <div id="tab-employment" class="tab-panel">
-            <div class="card-header-banner">Employment Details</div>
-            <div class="em-note">* Select employment type below before filling fields</div>
-            <div class="emp-type-row">
-              <label class="radio-label"><input type="radio" name="empType" value="salaried" checked/> Salaried</label>
-              <label class="radio-label"><input type="radio" name="empType" value="selfEmployed"/> Self Employed</label>
-            </div>
-            <div class="form-grid">
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Occupation <span class="req">*</span></label>
-                  <select name="occupation">
-                    <option value="">– Select –</option>
-                    <option>Government Employee</option><option>Private Employee</option>
-                    <option>Farmer</option><option>Trader</option><option>Self-Employed</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Designation</label>
-                  <input type="text" name="designation"/>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Company Type</label>
-                  <select name="companyType">
-                    <option value="">– Select –</option>
-                    <option>Government</option><option>Private</option><option>NGO</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Working Since (Year)</label>
-                  <select name="workingSince">
-                    <option value="">– Select –</option>
-                  </select>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Company Name</label>
-                  <input type="text" name="companyName"/>
-                </div>
-                <div class="form-field">
-                  <label>Employer Code</label>
-                  <div class="id-input-wrap">
-                    <input type="text" name="employerCode"/>
-                    <button class="lookup-btn" type="button" title="Lookup">🔍</button>
-                  </div>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Employee No</label>
-                  <input type="text" name="employeeNo"/>
-                </div>
-                <div class="form-field">
-                  <label>Gross Income (ETB)</label>
-                  <input type="number" name="grossIncome" step="0.01" min="0"/>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Rent Expenses (ETB)</label>
-                  <input type="number" name="rentExpenses" step="0.01" min="0"/>
-                </div>
-                <div class="form-field">
-                  <label>Family Income (ETB)</label>
-                  <input type="number" name="familyIncome" step="0.01" min="0"/>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Other Expenses (ETB)</label>
-                  <input type="number" name="otherExpenses" step="0.01" min="0"/>
-                </div>
-                <div class="form-field">
-                  <label>Other Income (ETB)</label>
-                  <input type="number" name="otherIncome" step="0.01" min="0"/>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Total Expenses (ETB)</label>
-                  <input type="number" name="totalExpenses" readonly class="computed"/>
-                </div>
-                <div class="form-field">
-                  <label>Total Income (ETB)</label>
-                  <input type="number" name="totalIncome" readonly class="computed"/>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field"></div>
-                <div class="form-field">
-                  <label>Net Savings (ETB)</label>
-                  <input type="number" name="netSavings" readonly class="computed"/>
-                </div>
-              </div>
-            </div>
-
-            <div class="bts-section">
-              <div class="bts-header">Behind The Scene</div>
-              <div class="bts-grid">
-                <div class="bts-field"><label>Status</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Open Date</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Closed Date</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Created By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Modified By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Supervised By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Created On</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Modified On</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Supervised On</label><input type="text" readonly/></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- SPECIAL OFFERS TAB -->
-          <div id="tab-special" class="tab-panel">
-            <div class="card-header-banner">Special Offers</div>
-            <div class="form-grid">
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Offer Type</label>
-                  <select name="offerType">
-                    <option value="">– Select –</option>
-                    <option>Interest Rate Discount</option>
-                    <option>Fee Waiver</option>
-                    <option>Extended Term</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label>Offer Code</label>
-                  <input type="text" name="offerCode"/>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field">
-                  <label>Valid From</label>
-                  <input type="date" name="validFrom"/>
-                </div>
-                <div class="form-field">
-                  <label>Valid To</label>
-                  <input type="date" name="validTo"/>
-                </div>
-              </div>
-              <div class="field-pair-row">
-                <div class="form-field full">
-                  <label>Remarks</label>
-                  <textarea name="remarks" rows="3"></textarea>
-                </div>
-              </div>
-            </div>
-
-            <div class="bts-section">
-              <div class="bts-header">Behind The Scene</div>
-              <div class="bts-grid">
-                <div class="bts-field"><label>Status</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Open Date</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Closed Date</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Created By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Modified By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Supervised By</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Created On</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Modified On</label><input type="text" readonly/></div>
-                <div class="bts-field"><label>Supervised On</label><input type="text" readonly/></div>
-              </div>
-            </div>
-          </div>
-
-        </div><!-- /tab-panels -->
+        </form>
 
         <div class="sub-footer-token" id="statusBar">Status: Ready</div>
       </div>
-    </div><!-- /main-content -->
+    </div>
 
     <!-- ── Right Action Sidebar ─────────────────────────── -->
     <div class="action-sidebar">
-      <button id="btnView"   class="action-btn">🔍 View</button>
-      <button id="btnAdd"    class="action-btn">➕ Add</button>
-      <button id="btnEdit"   class="action-btn">✏️ Edit</button>
-      <button id="btnClose"  class="action-btn">✕ Close</button>
-      <div class="nav-arrows">
-        <button id="btnPrev" class="arrow-btn" title="Previous Record">▲</button>
-        <button id="btnNext" class="arrow-btn" title="Next Record">▼</button>
-      </div>
+      <button id="btnGlobalView" class="action-btn">🔍 View</button>
+      <button id="btnGlobalAdd" class="action-btn">➕ Add</button>
+      <button id="btnGlobalEdit" class="action-btn">✏️ Edit</button>
+      <button id="btnGlobalClose" class="action-btn">✕ Close</button>
       <div class="sidebar-spacer"></div>
-      <button id="btnSave"   class="action-btn" disabled>💾 Save</button>
-      <button id="btnCancel" class="action-btn" disabled>🚫 Cancel</button>
-      <button id="btnDelete" class="action-btn" style="background:linear-gradient(to bottom,#f8d0d0,#f0a0a0);border-color:#c06060;color:#7a0000;">🗑 Delete</button>
+      <button id="btnGlobalSave" class="action-btn" disabled>💾 Save</button>
+      <button id="btnGlobalCancel" class="action-btn" disabled>🚫 Cancel</button>
+      <button id="btnGlobalDelete" class="action-btn" style="background:linear-gradient(to bottom,#f8d0d0,#f0a0a0);border-color:#c06060;color:#7a0000;" disabled>🗑 Delete</button>
+      <button id="btnGlobalPrint" class="action-btn">🖨 Print</button>
       <div class="sidebar-footer">AVMF CBS v2.0</div>
     </div>
-
-  </div><!-- /workspace -->
-</div><!-- /window-container -->
-
-<!-- Docked sliver shown when window is minimized -->
-<div id="dockSliver" class="dock-sliver" onclick="toggleMinimize()">
-  <span class="dock-icon">🧾</span>
-  <span class="dock-label">AVMF — Client Registry</span>
+  </div>
 </div>
 
-<div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
+<div id="toastNotification" class="toast"></div>
 
-<script src="client-maintenance.js"></script>
+<!-- Docked chip shown when window is minimized -->
+<div id="dockSliver" class="dock-sliver" onclick="toggleMinimize()">
+  <span class="dock-icon">💰</span>
+  <span class="dock-label">AVMF — Account Maintenance</span>
+</div>
+
+<script src="config.js"></script>
+<script src="account-maintenance.js"></script>
 </body>
 </html>
