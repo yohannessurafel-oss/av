@@ -16,6 +16,28 @@ const SUPABASE_URL = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
 /* ── HTTP helper ────────────────────────────────────────── */
+/* ── Cash/Bank Account dropdown — same pattern as disbursement.js /
+   loan-repayment-collection.js ── */
+async function loadBankAccounts() {
+  const sel = document.getElementById('fBankAccount');
+  if (!sel) return;
+  try {
+    const accounts = await sbFetch(
+      `chart_of_accounts?account_type=eq.ASSET&select=gl_account_code,account_name_title&order=gl_account_code.asc`
+    );
+    const leafBankAndCash = accounts.filter(a =>
+      a.gl_account_code === '11101004' ||
+      (a.gl_account_code.length === 8 && a.gl_account_code.startsWith('1110'))
+    );
+    sel.innerHTML = '<option value="">– Select Cash/Bank Account –</option>' +
+      leafBankAndCash.map(a => `<option value="${a.gl_account_code}">${a.account_name_title} (${a.gl_account_code})</option>`).join('');
+    sel.value = '11101004'; // default to Main Cash, still overridable
+  } catch (e) {
+    console.warn('Could not load bank/cash accounts:', e.message);
+  }
+}
+loadBankAccounts();
+
 async function sbFetch(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
@@ -80,40 +102,6 @@ function toast(msg, type = '', duration = 3500) {
 
 /* ── Format helper ──────────────────────────────────────── */
 const fmt = n => parseFloat(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-/* ── Bank account dropdown ──────────────────────────────────
-   Matches disbursement.js's established convention exactly: ONE
-   always-visible dropdown listing Main Cash (11101004) plus every
-   bank leaf (8-digit codes under 1110%), rather than showing/hiding
-   a separate field based on payment mode. Payment Mode only drives
-   the auto-select default, same as disbursement.js. ── */
-async function loadBankAccounts() {
-  const sel = document.getElementById('payoffBankAccount');
-  if (!sel) return;
-  try {
-    const accounts = await sbFetch(
-      `chart_of_accounts?account_type=eq.ASSET&select=gl_account_code,account_name_title&order=gl_account_code.asc`
-    );
-    const leafBankAndCash = accounts.filter(a =>
-      a.gl_account_code === '11101004' ||
-      (a.gl_account_code.length === 8 && a.gl_account_code.startsWith('1110'))
-    );
-    sel.innerHTML = '<option value="">– Select Cash/Bank Account –</option>' +
-      leafBankAndCash.map(a => `<option value="${a.gl_account_code}">${a.account_name_title} (${a.gl_account_code})</option>`).join('');
-  } catch (e) {
-    console.warn('Could not load bank/cash accounts:', e.message);
-  }
-}
-loadBankAccounts();
-
-/* Auto-select Main Cash when Cash Vault Handout is chosen — still
-   overridable, same as disbursement.js. */
-document.getElementById('payoffPaymentMode')?.addEventListener('change', function () {
-  const sel = document.getElementById('payoffBankAccount');
-  if (this.value === 'Cash Vault Handout' && sel && !sel.value) {
-    sel.value = '11101004';
-  }
-});
 
 /* ── State ──────────────────────────────────────────────── */
 let _loadedAppId = null;
@@ -297,18 +285,12 @@ async function processSettlement() {
     const settlementDate = document.getElementById('payoffSettlementDate')?.value;
     const settledBy = document.getElementById('payoffSettledBy')?.value?.trim();
     const paymentMode = document.getElementById('payoffPaymentMode')?.value;
-    const bankAccountSel = document.getElementById('payoffBankAccount');
-    const glCashAccountCode = bankAccountSel?.value || null;
-    const bankName = glCashAccountCode
-      ? bankAccountSel.options[bankAccountSel.selectedIndex].text.replace(/\s*\([^)]*\)$/, '')
-      : null;
+    const glCashAccountCode = document.getElementById('fBankAccount')?.value || null;
 
     if (!settlementDate) { toast('Enter a Settlement Date.', 'warning'); return; }
     if (!settledBy) { toast('Enter Settled By (officer ID).', 'warning'); return; }
+    if (!glCashAccountCode) { toast('Select a Cash / Bank Account before posting.', 'warning'); return; }
     if (components.netSettlement < 0) { toast('Net settlement cannot be negative.', 'warning'); return; }
-    if (!glCashAccountCode) {
-      toast('Select a Cash / Bank Account.', 'warning'); return;
-    }
 
     if (!confirm(`Confirm full settlement of ${_loadedAppId} for ETB ${fmt(components.netSettlement)}?`)) {
       toast('Settlement cancelled.', 'info');
@@ -333,8 +315,7 @@ async function processSettlement() {
       p_narration: `Full settlement / early payoff via ${paymentMode}`,
       p_payment_mode: paymentMode,
       p_settled_by: settledBy,
-      p_gl_cash_account_code: glCashAccountCode,
-      p_bank_name: bankName
+      p_gl_cash_account_code: glCashAccountCode
     });
 
     if (!result || result.success !== true) {
