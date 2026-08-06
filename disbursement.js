@@ -59,6 +59,40 @@ const SUPABASE_URL = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
 /* ── HTTP helper ─────────────────────────────────────────── */
+/* ── Populate Cash/Bank Account dropdown from chart_of_accounts ──
+   Leaf-level bank sub-accounts are the 8-digit codes under Cash At Bank
+   (1110xxx), plus Main Cash (11101004) for teller/vault handouts. Loaded
+   once at page load so the dropdown always reflects whatever's actually
+   in the chart of accounts, rather than a hardcoded list that would drift
+   out of sync as accounts are added. ── */
+async function loadBankAccounts() {
+  const sel = document.getElementById('fBankAccount');
+  if (!sel) return;
+  try {
+    const accounts = await sbFetch(
+      `chart_of_accounts?account_type=eq.ASSET&select=gl_account_code,account_name_title&order=gl_account_code.asc`
+    );
+    const leafBankAndCash = accounts.filter(a =>
+      a.gl_account_code === '11101004' ||                                  // Main Cash
+      (a.gl_account_code.length === 8 && a.gl_account_code.startsWith('1110')) // bank leaf accounts
+    );
+    sel.innerHTML = '<option value="">– Select Cash/Bank Account –</option>' +
+      leafBankAndCash.map(a => `<option value="${a.gl_account_code}">${a.account_name_title} (${a.gl_account_code})</option>`).join('');
+  } catch (e) {
+    console.warn('Could not load bank/cash accounts:', e.message);
+  }
+}
+loadBankAccounts();
+
+/* Auto-select Main Cash when Cash Vault Handout is chosen — still
+   overridable, just a sensible default so the field isn't left blank. */
+document.getElementById('fPaymentMode')?.addEventListener('change', function () {
+  const sel = document.getElementById('fBankAccount');
+  if (this.value === 'Cash Vault Handout' && sel && !sel.value) {
+    sel.value = '11101004';
+  }
+});
+
 async function sbFetch(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
@@ -293,7 +327,7 @@ document.getElementById('btnView').addEventListener('click', async () => {
     document.getElementById('fAccountType').value = currentRecord.account_class || '';
     document.getElementById('fContraAccountId').value = currentRecord.main_repayment_account_id || '';
     document.getElementById('fChequeNo').value = currentRecord.reference_no || '';
-    document.getElementById('fBankName').value = '';
+    document.getElementById('fBankAccount').value = '';
     document.getElementById('fInterestRate').value = currentRecord.interest_rate || '12.00';
     document.getElementById('fTenorMonths').value = currentRecord.term_months || '12';
 
@@ -430,7 +464,15 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
   const disbDate = document.getElementById('fDisbursementDate').value || new Date().toISOString().split('T')[0];
   const paymentMode = document.getElementById('fPaymentMode').value;
   const chequeNo = document.getElementById('fChequeNo').value || null;
-  const bankName = document.getElementById('fBankName').value || null;
+  const bankAccountSel = document.getElementById('fBankAccount');
+  const glCashAccountCode = bankAccountSel.value || null;
+  const bankName = glCashAccountCode ? bankAccountSel.options[bankAccountSel.selectedIndex].text.replace(/\s*\([^)]*\)$/, '') : null;
+  if (!glCashAccountCode) {
+    showToast('Select a Cash / Bank Account before posting.', 'error');
+    window._disbursementInFlight = false;
+    if (commitBtn) commitBtn.disabled = false;
+    return;
+  }
   const interestRate = parseFloat(document.getElementById('fInterestRate').value);
   const tenorMonths = parseInt(document.getElementById('fTenorMonths').value);
   const accountNumber = document.getElementById('fContraAccountId').value.trim() || currentRecord?.main_repayment_account_id || null;
@@ -471,7 +513,8 @@ document.getElementById('btnConfirmCommit').addEventListener('click', async () =
       p_product_name:      _productName || null,
       p_cheque_no:         chequeNo,
       p_bank_name:         bankName,
-      p_posted_by:         (window.currentUserEmail || null)
+      p_posted_by:         (window.currentUserEmail || null),
+      p_gl_cash_account_code: glCashAccountCode
     });
 
     currentRecord = { ...currentRecord, application_status: 'Disbursed' };
