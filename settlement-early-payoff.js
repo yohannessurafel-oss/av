@@ -81,6 +81,40 @@ function toast(msg, type = '', duration = 3500) {
 /* ── Format helper ──────────────────────────────────────── */
 const fmt = n => parseFloat(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/* ── Bank account dropdown ──────────────────────────────────
+   Populated live from chart_of_accounts using the SAME filter
+   post_loan_settlement()/post_loan_disbursement() use to resolve a
+   bank leg (ASSET, 8-digit code, under 1110%). Passing the exact
+   gl_account_code the operator picks (via p_gl_cash_account_code)
+   avoids the fuzzy p_bank_name ILIKE match entirely — several bank
+   names in this chart of accounts (e.g. "CBE") match more than one
+   leaf account, which the RPC itself will reject as ambiguous. ── */
+async function loadBankAccounts() {
+  const sel = document.getElementById('payoffBankAccount');
+  if (!sel) return;
+  try {
+    const rows = await sbFetch(
+      `chart_of_accounts?account_type=eq.ASSET&gl_account_code=like.1110*&select=gl_account_code,account_name_title&order=account_name_title.asc`
+    ) || [];
+    const leaves = rows.filter(r => r.gl_account_code.length === 8);
+    sel.innerHTML = leaves.map(r =>
+      `<option value="${r.gl_account_code}">${r.account_name_title} (${r.gl_account_code})</option>`
+    ).join('') || '<option value="">No bank accounts found</option>';
+  } catch (e) {
+    sel.innerHTML = '<option value="">Failed to load bank accounts</option>';
+  }
+}
+
+function togglePaymentModeFields() {
+  const mode = document.getElementById('payoffPaymentMode')?.value;
+  const row = document.getElementById('payoffBankAccountRow');
+  if (!row) return;
+  row.style.display = (mode === 'Bank Transfer') ? '' : 'none';
+}
+document.getElementById('payoffPaymentMode')?.addEventListener('change', togglePaymentModeFields);
+loadBankAccounts();
+togglePaymentModeFields();
+
 /* ── State ──────────────────────────────────────────────── */
 let _loadedAppId = null;
 let _loanRecord = null;
@@ -263,10 +297,14 @@ async function processSettlement() {
     const settlementDate = document.getElementById('payoffSettlementDate')?.value;
     const settledBy = document.getElementById('payoffSettledBy')?.value?.trim();
     const paymentMode = document.getElementById('payoffPaymentMode')?.value;
+    const bankAccountCode = document.getElementById('payoffBankAccount')?.value || null;
 
     if (!settlementDate) { toast('Enter a Settlement Date.', 'warning'); return; }
     if (!settledBy) { toast('Enter Settled By (officer ID).', 'warning'); return; }
     if (components.netSettlement < 0) { toast('Net settlement cannot be negative.', 'warning'); return; }
+    if (paymentMode === 'Bank Transfer' && !bankAccountCode) {
+      toast('Select a Bank Account.', 'warning'); return;
+    }
 
     if (!confirm(`Confirm full settlement of ${_loadedAppId} for ETB ${fmt(components.netSettlement)}?`)) {
       toast('Settlement cancelled.', 'info');
@@ -290,7 +328,8 @@ async function processSettlement() {
       p_reference_no: refBatch,
       p_narration: `Full settlement / early payoff via ${paymentMode}`,
       p_payment_mode: paymentMode,
-      p_settled_by: settledBy
+      p_settled_by: settledBy,
+      p_gl_cash_account_code: paymentMode === 'Bank Transfer' ? bankAccountCode : null
     });
 
     if (!result || result.success !== true) {
