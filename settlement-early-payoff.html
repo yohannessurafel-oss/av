@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AVMF — 08 Teller Cash Vault Control</title>
+<title>AVMF — 09 Settlement / Early Payoff</title>
 <link rel="stylesheet" href="style2.css"/>
 </head>
 <body>
@@ -27,12 +27,12 @@
       </svg>
       <div class="title-text-block">
         <span class="title-main">Africa Village Microfinance</span>
-        <span class="title-sub">08 — Teller Cash Vault Control</span>
+        <span class="title-sub">09 — Settlement / Early Payoff</span>
       </div>
     </div>
     <div class="title-meta">
       <span id="systemDate" class="title-date"></span>
-      <span class="title-user">👤 Teller</span>
+      <span class="title-user">👤 Loan Officer</span>
     </div>
     <div class="window-controls">
       <span id="wcMinimize" title="Minimize" onclick="toggleMinimize()">─</span>
@@ -43,16 +43,16 @@
 
   <div class="workspace">
 
-        <div class="sidebar">
+    <div class="sidebar">
       <div class="sidebar-header" style="cursor: pointer; background: var(--navy-900);" title="Return to Dashboard" onclick="window.location='indexll.html'">
         🏠 Main Dashboard
       </div>
       <ul class="nav-menu">
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🌐</span><a href="indexll.html" class="nav-label">All Modules</a></li>
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📋</span><a href="indexll.html" class="nav-label">Credit Operations</a></li>
-        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">💰</span><a href="indexll.html" class="nav-label">Financials & Ledger</a></li>
+        <li class="active"><span class="nav-num" style="background:none;font-size:14px;padding:0;">💰</span><a href="indexll.html" class="nav-label">Financials & Ledger</a></li>
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🛡️</span><a href="indexll.html" class="nav-label">Risk & Collateral</a></li>
-        <li class="active"><span class="nav-num" style="background:none;font-size:14px;padding:0;">🏧</span><a href="indexll.html" class="nav-label">Teller & Cash</a></li>
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🏧</span><a href="indexll.html" class="nav-label">Teller & Cash</a></li>
         <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">📊</span><a href="indexll.html" class="nav-label">Reports</a></li>
       </ul>
       <div class="sidebar-footer-brand">
@@ -64,99 +64,118 @@
     </div>
 
     <div class="main-content">
-      <div class="module-view active" id="view-module-08">
+      <div class="module-view active" id="view-module-09">
         <div class="context-badge-bar">
-          <span class="badge-icon">💰</span>
-          Teller Maintenance — Cash Balance Sheets &amp; Till Ledger Control
+          <span class="badge-icon">💸</span>
+          Settlement / Early Payoff — Preclosure Calculation &amp; Payoff Registry
         </div>
 
         <form class="module-form" autocomplete="off">
 
-          <!-- ── Till Identity ─────────────────────────────── -->
+          <!-- ── Lookup ─────────────────────────────────────── -->
           <div class="grid-two-column">
             <div class="sub-column">
               <div class="form-row">
-                <label>Branch ID</label>
-                <select id="tellerBranchId" class="width-full" data-always-enabled="1" style="max-width:220px;"></select>
-                <input type="text" id="tellerBranchName" class="width-remaining" placeholder="Branch name" readonly/>
-              </div>
-              <div class="form-row">
-                <label>Till ID</label>
+                <label>Application ID</label>
                 <div class="input-group width-small">
-                  <input type="text" id="tellerTillId" placeholder="e.g. T001"/>
-                  <span class="search-btn" id="btnSearchTill">🔍</span>
+                  <input type="text" id="payoffAccNoTarget" placeholder="e.g. LN-2026-0042"/>
+                  <span class="search-btn" id="btnSearchPayoff">🔍</span>
                 </div>
-                <input type="text" id="tellerTillDescription" class="width-remaining" placeholder="Description" readonly/>
               </div>
+              <div class="form-row"><label>Client ID</label><input type="text" id="payoffClientId" class="width-full" readonly/></div>
+              <div class="form-row"><label>Loan Series</label><input type="text" id="payoffLoanSeries" class="width-full" readonly/></div>
+              <div class="form-row"><label>Loan Amount</label><input type="text" id="payoffLoanAmount" class="width-full text-right" readonly/></div>
             </div>
             <div class="sub-column">
-              <div class="form-row">
-                <label class="shifted-label">Cashier Name</label>
-                <input type="text" id="tellerCashierName" class="width-full"/>
-              </div>
-              <div class="form-row">
-                <label class="shifted-label">Till Status</label>
-                <input type="text" id="tellerTillStatus" class="width-full" readonly placeholder="CLOSED"/>
-              </div>
+              <div class="form-row"><label class="shifted-label">Product</label><input type="text" id="payoffProductId" class="width-full" readonly/></div>
+              <div class="form-row"><label class="shifted-label">Currency</label><input type="text" id="payoffCurrencyId" class="width-full" readonly/></div>
+              <div class="form-row"><label class="shifted-label">Created On</label><input type="text" id="payoffCreatedOn" class="width-full" readonly/></div>
+              <div class="form-row"><label class="shifted-label">Preclosure Status</label><input type="text" id="payoffPreclosureStatus" class="width-full" readonly/></div>
             </div>
           </div>
 
-          <!-- ── Cash Balance Grid ─────────────────────────── -->
-          <div class="card-header-banner margin-top-sm">Cash Balance Monitoring Grid</div>
-          <div class="grid-container" style="min-height:80px;">
-            <table class="ledger-grid">
+          <!-- ── Loan History ───────────────────────────────── -->
+          <div class="card-header-banner margin-top-sm">Loan History</div>
+          <div class="grid-container">
+            <table class="ledger-grid" id="loanHistoryTable">
               <thead>
                 <tr>
-                  <th>Tx ID</th>
-                  <th>Type</th>
-                  <th>Date</th>
-                  <th>Reference</th>
-                  <th>Narration</th>
-                  <th class="text-right">Amount (ETB)</th>
-                  <th class="text-right">Running Balance</th>
+                  <th>Rate</th><th>Series</th><th>File No.</th><th>Application</th>
+                  <th class="text-right">Sanctioned</th><th class="text-right">Approved</th>
+                  <th>Disbursed</th><th>Term</th><th>Status</th>
                 </tr>
               </thead>
-              <tbody id="transactionsTbody">
-                <tr><td colspan="7" class="text-center gray-text italic">Load a till to view transactions.</td></tr>
-              </tbody>
+              <tbody><tr><td colspan="9" class="text-center gray-text italic">Load an application to view history.</td></tr></tbody>
             </table>
           </div>
 
-          <!-- ── New Transaction Entry ─────────────────────── -->
-          <div class="card-header-banner margin-top-sm">New Transaction Entry</div>
+          <!-- ── Amortization Schedule ──────────────────────── -->
+          <div class="card-header-banner margin-top-sm">Installment Schedule</div>
+          <div class="grid-container">
+            <table class="ledger-grid" id="installmentScheduleTable">
+              <thead>
+                <tr>
+                  <th>#</th><th>Due Date</th>
+                  <th class="text-right">Principal Due</th><th class="text-right">Interest Due</th>
+                  <th class="text-right">Principal Paid</th><th class="text-right">Interest Paid</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody><tr><td colspan="7" class="text-center gray-text italic">No schedule loaded.</td></tr></tbody>
+            </table>
+          </div>
+
+          <!-- ── Loan Statement (Ledger) ────────────────────── -->
+          <div class="card-header-banner margin-top-sm">Loan Statement</div>
+          <div class="grid-container">
+            <table class="ledger-grid" id="loanStatementTable">
+              <thead>
+                <tr>
+                  <th>Post Date</th><th>Value Date</th><th>Description</th><th>Ref Batch</th>
+                  <th class="text-right">Principal</th><th class="text-right">Interest</th>
+                  <th class="text-right">Charges/Penalties</th><th class="text-right">Total Paid</th>
+                  <th class="text-right">Running Balance</th>
+                </tr>
+              </thead>
+              <tbody><tr><td colspan="9" class="text-center gray-text italic">No statement data.</td></tr></tbody>
+            </table>
+          </div>
+
+          <!-- ── Pay-off Calculation ─────────────────────────── -->
+          <div class="card-header-banner margin-top-sm">Pay-off Calculation</div>
           <div class="grid-two-column">
             <div class="sub-column">
-              <div class="form-row">
-                <label>Transaction Type</label>
-                <select id="txType" class="width-full">
-                  <option value="">-- Select --</option>
-                  <option value="OPEN">OPEN</option>
-                  <option value="CLOSE">CLOSE</option>
-                  <option value="RECEIPT">RECEIPT</option>
-                  <option value="PAYMENT">PAYMENT</option>
-                  <option value="TRANSFER">TRANSFER</option>
-                  <option value="ADJUSTMENT">ADJUSTMENT</option>
-                </select>
+              <div class="grid-container">
+                <table class="ledger-grid" id="dynamicPayoffGrid">
+                  <tbody><tr><td colspan="2" class="text-center gray-text italic">Enter an Application ID to calculate pay-off components.</td></tr></tbody>
+                </table>
               </div>
-              <div class="form-row"><label>Transaction Date</label><input type="date" id="txDate" class="width-full"/></div>
-              <div class="form-row"><label>Reference No.</label><input type="text" id="txRefNo" class="width-full"/></div>
-              <div class="form-row"><label>Narration</label><textarea id="txNarration" class="width-full" rows="2"></textarea></div>
-              <div class="form-row"><label>Created By</label><input type="text" id="txCreatedBy" class="width-full"/></div>
             </div>
             <div class="sub-column">
-              <div class="card-header-banner" style="font-size:11px;">Denomination Breakdown (ETB)</div>
-              <div class="form-row"><label class="shifted-label">× 1,000</label><input type="number" id="denom1000" class="text-right width-full" value="0" min="0"/></div>
-              <div class="form-row"><label class="shifted-label">× 500</label><input type="number" id="denom500"  class="text-right width-full" value="0" min="0"/></div>
-              <div class="form-row"><label class="shifted-label">× 200</label><input type="number" id="denom200"  class="text-right width-full" value="0" min="0"/></div>
-              <div class="form-row"><label class="shifted-label">× 100</label><input type="number" id="denom100"  class="text-right width-full" value="0" min="0"/></div>
-              <div class="form-row"><label class="shifted-label">× 50</label><input type="number" id="denom50"   class="text-right width-full" value="0" min="0"/></div>
-              <div class="form-row"><label class="shifted-label">× 10</label><input type="number" id="denom10"   class="text-right width-full" value="0" min="0"/></div>
-              <div class="form-row"><label class="shifted-label">× 5</label><input type="number" id="denom5"    class="text-right width-full" value="0" min="0"/></div>
-              <div class="form-row"><label class="shifted-label">× 1</label><input type="number" id="denom1"    class="text-right width-full" value="0" min="0"/></div>
-              <div class="form-row"><label class="shifted-label">Cents</label><input type="number" id="denomCents" class="text-right width-full" value="0" min="0"/></div>
-              <div class="form-row" style="border-top:1px solid var(--border);padding-top:4px;margin-top:4px;">
-                <label class="shifted-label"><strong>Total Amount</strong></label>
-                <input type="number" id="txTotalAmount" class="text-right width-full" readonly style="font-weight:bold;"/>
+              <div class="form-row"><label class="shifted-label">Current Balance</label><input type="text" id="payoffLoanBalance" class="width-full text-right" readonly/></div>
+              <div class="form-row"><label class="shifted-label">Waiver Amount</label><input type="number" id="payoffWaiver" class="width-full text-right" value="0" min="0"/></div>
+              <div class="form-row"><label class="shifted-label">Net Settlement</label><input type="text" id="payoffNetAmount" class="width-full text-right" readonly style="font-weight:bold;"/></div>
+            </div>
+          </div>
+
+          <!-- ── Process Settlement ─────────────────────────── -->
+          <div class="card-header-banner margin-top-sm">Process Settlement</div>
+          <div class="grid-two-column">
+            <div class="sub-column">
+              <div class="form-row"><label>Settlement Date</label><input type="date" id="payoffSettlementDate" class="width-full"/></div>
+              <div class="form-row"><label>Settled By (Officer ID)</label><input type="text" id="payoffSettledBy" class="width-full"/></div>
+            </div>
+            <div class="sub-column">
+              <div class="form-row">
+                <label class="shifted-label">Payment Mode</label>
+                <select id="payoffPaymentMode" class="width-full">
+                  <option value="Cash Vault Handout">Cash Vault Handout</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                </select>
+              </div>
+              <div class="form-row" id="payoffBankAccountRow" style="display:none;">
+                <label class="shifted-label">Bank Account</label>
+                <select id="payoffBankAccount" class="width-full"></select>
               </div>
             </div>
           </div>
@@ -164,11 +183,9 @@
         </form>
 
         <div class="action-row-container">
-          <button type="button" class="action-btn-inline" id="btnOpenTill">Open Till</button>
-          <button type="button" class="action-btn-inline" id="btnCloseTill" style="margin-left:8px;">Close Till</button>
-          <button type="button" class="action-btn-inline" id="btnPostTx"   style="margin-left:8px;">Post Transaction</button>
+          <button type="button" class="action-btn-inline" id="btnProcessSettlement">Process Settlement</button>
         </div>
-        <div class="sub-footer-token" id="statusBar">Status: Ready — Select Branch, enter Till ID then click 🔍</div>
+        <div class="sub-footer-token" id="statusBar">Status: Ready — Enter an Application ID and click 🔍</div>
       </div>
     </div>
 
@@ -178,9 +195,9 @@
       <button id="btnGlobalEdit"   class="action-btn">✏️ Edit</button>
       <button id="btnGlobalClose"  class="action-btn">✕ Close</button>
       <div class="sidebar-spacer"></div>
-      <button id="btnGlobalSave"   class="action-btn" disabled>💾 Save</button>
-      <button id="btnGlobalCancel" class="action-btn" disabled>🚫 Cancel</button>
-      <button id="btnGlobalDelete" class="action-btn" style="background:linear-gradient(to bottom,#f8d0d0,#f0a0a0);border-color:#c06060;color:#7a0000;" disabled>🗑 Delete</button>
+      <button id="btnGlobalSave"   class="action-btn">💾 Save</button>
+      <button id="btnGlobalCancel" class="action-btn">🚫 Cancel</button>
+      <button id="btnGlobalDelete" class="action-btn" style="background:linear-gradient(to bottom,#f8d0d0,#f0a0a0);border-color:#c06060;color:#7a0000;">🗑 Delete</button>
       <button id="btnGlobalPrint"  class="action-btn">🖨 Print</button>
       <div class="sidebar-footer">AVMF CBS v2.0</div>
     </div>
@@ -196,6 +213,6 @@
   <span class="dock-label">AVMF — Settlement / Early Payoff</span>
 </div>
 
-<script src="teller-cash-vault-control.js"></script>
+<script src="settlement-early-payoff.js"></script>
 </body>
 </html>
