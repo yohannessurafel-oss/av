@@ -152,18 +152,46 @@ async function loadTrialBalance() {
   }
 }
 
-/* ── 1. Chart of Accounts — Always computes totals from full COA ── */
-async function loadCOA(f) {
-  // Fetch complete COA to update tiles correctly, regardless of UI filtering [1]
-  const allAccounts = await sbFetch('chart_of_accounts?select=*&order=gl_account_code.asc');
-  updateSummaryTiles(allAccounts);
+/* account_type → its natural balance side, used as a fallback when a
+   row's own normal_side column is null. Same convention used by
+   nbe-balance-sheet.js and get_coa_summary(). */
+const TYPE_DEFAULT_SIDE = { ASSET: 'D', EXPENSE: 'D', LIABILITY: 'C', EQUITY: 'C', INCOME: 'C' };
 
-  // Apply UI filter only for table generation [1]
-  let filteredAccounts = allAccounts;
-  if (f.accountType) {
-    filteredAccounts = allAccounts.filter(a => a.account_type === f.accountType);
+/* ── 1. Chart of Accounts — computed LIVE from gl_transaction_journal.
+   current_balance is never read: it's confirmed stale (drifts by
+   tens of thousands to hundreds of thousands of ETB on several
+   accounts — e.g. 11100 Branch Cash Vault showed 500,000 in
+   current_balance against a journal-computed −25,000). Each account's
+   OWN balance is summed directly from its journal lines — no rollup
+   needed here since this is a flat listing of every account, not a
+   parent/child tree (that's what the Balance Sheet report is for). ── */
+async function loadCOA(f) {
+  const [allAccounts, journal] = await Promise.all([
+    sbFetch('chart_of_accounts?select=gl_account_code,account_name_title,account_type,normal_side&order=gl_account_code.asc'),
+    sbFetch('gl_transaction_journal?select=gl_account_code,debit_amount,credit_amount')
+  ]);
+
+  const debitByCode = {}, creditByCode = {};
+  for (const j of journal) {
+    debitByCode[j.gl_account_code]  = (debitByCode[j.gl_account_code]  || 0) + (parseFloat(j.debit_amount)  || 0);
+    creditByCode[j.gl_account_code] = (creditByCode[j.gl_account_code] || 0) + (parseFloat(j.credit_amount) || 0);
   }
-  
+
+  const withBalances = allAccounts.map(a => {
+    const d = debitByCode[a.gl_account_code]  || 0;
+    const c = creditByCode[a.gl_account_code] || 0;
+    const side = a.normal_side || TYPE_DEFAULT_SIDE[a.account_type] || 'D';
+    const computed_balance = side === 'D' ? (d - c) : (c - d);
+    return { ...a, computed_balance };
+  });
+
+  updateSummaryTiles(withBalances);
+
+  let filteredAccounts = withBalances;
+  if (f.accountType) {
+    filteredAccounts = withBalances.filter(a => a.account_type === f.accountType);
+  }
+
   renderCOA(filteredAccounts);
 }
 
@@ -179,7 +207,7 @@ function renderCOA(accounts) {
       <td><code>${acc.gl_account_code}</code></td>
       <td><strong>${acc.account_name_title}</strong></td>
       <td><span class="badge-type ${acc.account_type}">${acc.account_type}</span></td>
-      <td class="text-right" style="font-family:monospace;font-weight:bold;">${fmt(acc.current_balance)}</td>
+      <td class="text-right" style="font-family:monospace;font-weight:bold;">${fmt(acc.computed_balance)}</td>
     </tr>
   `).join('');
 }
@@ -187,7 +215,7 @@ function renderCOA(accounts) {
 function updateSummaryTiles(accounts) {
   const sum = (type) => accounts
     .filter(a => a.account_type === type)
-    .reduce((s, a) => s + parseFloat(a.current_balance || 0), 0);
+    .reduce((s, a) => s + a.computed_balance, 0);
 
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = fmt(val); };
   set('tileAssets',      sum('ASSET'));
