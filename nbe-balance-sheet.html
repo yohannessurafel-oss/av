@@ -6,52 +6,34 @@
 <title>AVMF — Balance Sheet</title>
 <link rel="stylesheet" href="style2.css"/>
 <style>
-.bs-toolbar {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border-light, #c5daf0);
-}
-.bs-toolbar label { font-size: 12px; font-weight: 600; color: var(--text-dark, #0d2a4a); }
-.bs-toolbar input[type=date] {
-  font-size: 12px; padding: 5px 8px; border: 1px solid var(--border-light, #c5daf0);
-  border-radius: 5px;
-}
-.bs-toolbar .bs-refresh {
-  font-size: 12px; padding: 5px 12px; border: 1px solid var(--navy-600, #2560a0);
-  background: var(--navy-600, #2560a0); color: #fff; border-radius: 5px; cursor: pointer;
-}
-.bs-wrap { padding: 16px; max-width: 720px; }
-.bs-section { margin-bottom: 18px; }
-.bs-section-title {
-  font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--navy-700, #1b5199); padding: 6px 0; border-bottom: 2px solid var(--navy-700, #1b5199);
-  margin-bottom: 4px;
-}
-.bs-row {
-  display: flex; justify-content: space-between; padding: 3px 0 3px calc(var(--depth, 0) * 16px);
-  font-size: 12.5px; color: var(--text-dark, #0d2a4a);
-}
-.bs-row.parent { font-weight: 700; }
-.bs-row .amt { font-variant-numeric: tabular-nums; min-width: 120px; text-align: right; }
-.bs-subtotal {
-  display: flex; justify-content: space-between; padding: 6px 0; margin-top: 4px;
-  border-top: 1px solid var(--border-light, #c5daf0);
-  font-size: 13px; font-weight: 700; color: var(--navy-700, #1b5199);
-}
-.bs-grandtotal {
-  display: flex; justify-content: space-between; padding: 10px 0; margin-top: 6px;
-  border-top: 2px solid var(--navy-900, #0d2a4a); border-bottom: 2px double var(--navy-900, #0d2a4a);
-  font-size: 14px; font-weight: 700; color: var(--navy-900, #0d2a4a);
-}
-.bs-check {
-  margin-top: 16px; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 600;
-}
-.bs-check.ok { background: #e6f7ec; color: #0a7a3d; border: 1px solid #a6e4bc; }
-.bs-check.bad { background: #fdecea; color: #b3261e; border: 1px solid #f5b7b1; }
-.bs-empty { padding: 24px; text-align: center; color: var(--text-muted, #667788); font-size: 12.5px; }
+  .gl-filter-bar {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    background: var(--bg-alt, #f4f6f9); border: 1px solid var(--border, #d0d4da);
+    border-radius: 4px; margin-bottom: 12px; flex-wrap: wrap;
+  }
+  .gl-filter-bar label { font-size: 11px; font-weight: 600; color: var(--label, #555); white-space: nowrap; }
+  .gl-filter-bar input, .gl-filter-bar select {
+    font-size: 12px; padding: 3px 7px; border: 1px solid var(--border, #c8cdd5);
+    border-radius: 3px; height: 26px;
+  }
+  .gl-filter-bar input[type="date"] { width: 130px; }
+  .gl-filter-bar input[type="number"] { width: 80px; }
+  .gl-filter-bar select { width: 130px; }
+  .table-scroll { max-height: 520px; overflow-y: auto; }
+  #bsTable th, #bsTable td { font-size: 11.5px; }
+  #bsTable td.num { text-align: right; font-family: monospace; }
+  .bs-row-section td:first-child { font-weight: 700; text-transform: uppercase; color: var(--navy-700, #1b5199); }
+  .bs-row-header td:first-child { font-weight: 700; }
+  .bs-row-leaf td:first-child { color: var(--text-dark, #0d2a4a); }
+  .bs-final-total { border-top: 2px solid var(--navy-900, #0d2a4a); font-weight: 700; background: #f4f6f9; }
+  #balanceCheck { margin-top: 12px; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 600; display: none; }
 </style>
 </head>
 <body>
+
+<div class="desktop-backdrop">
+  <iframe src="indexll.html" title="AVMF Dashboard"></iframe>
+</div>
 
 <div class="window-container">
   <div class="title-bar">
@@ -94,21 +76,52 @@
       <div class="module-view active">
         <div class="context-badge-bar">
           <span class="badge-icon">🏢</span>
-          Balance Sheet — snapshot of financial position, computed live from the GL journal
+          Balance Sheet — <span id="bsPeriodLabel">snapshot of financial position, computed live from the GL journal</span>
         </div>
 
-        <div class="bs-toolbar">
-          <label for="asOfDate">As of</label>
-          <input type="date" id="asOfDate"/>
-          <button class="bs-refresh" onclick="loadBalanceSheet()">Refresh</button>
-          <span id="loadStatus" style="font-size:11px; color:var(--text-muted,#667788);"></span>
+        <div class="gl-filter-bar">
+          <label>Period</label>
+          <select id="fType">
+            <option value="month">Month</option>
+            <option value="annual">Annual</option>
+            <option value="custom">Custom Range</option>
+          </select>
+          <span id="monthGroup" style="display:flex; gap:10px; align-items:center;">
+            <label>Month</label><select id="fMonth"></select>
+          </span>
+          <span id="yearGroup" style="display:flex; gap:10px; align-items:center;">
+            <label>Year</label><input type="number" id="fYear"/>
+          </span>
+          <span id="customGroup" style="display:none; gap:10px; align-items:center;">
+            <label>From</label><input type="date" id="fFrom"/>
+            <label>To</label><input type="date" id="fTo"/>
+          </span>
+          <button id="btnRun" class="action-btn" style="width:auto;padding:0 14px;height:26px;font-size:12px;">▶ Run Report</button>
+          <button id="btnExport" class="action-btn" style="width:auto;padding:0 14px;height:26px;font-size:12px;">⬇ Export CSV</button>
         </div>
 
-        <div class="bs-wrap" id="bsWrap">
-          <div class="bs-empty">Loading…</div>
+        <div class="table-scroll">
+          <table class="ledger-grid" id="bsTable">
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Side</th>
+                <th>Acc No</th>
+                <th class="text-right">Beg Balance</th>
+                <th class="text-right">Period Debits</th>
+                <th class="text-right">Period Credits</th>
+                <th class="text-right">Ending Balance</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyBS">
+              <tr><td colspan="7" class="text-center gray-text italic">Select a period and click Run Report.</td></tr>
+            </tbody>
+          </table>
         </div>
 
-        <div class="sub-footer-token" id="statusBar" style="margin:0 16px;"></div>
+        <div id="balanceCheck"></div>
+
+        <div class="sub-footer-token" id="statusBar" style="margin:16px 0 0;"></div>
       </div>
     </div>
 
@@ -118,183 +131,6 @@
   </div>
 </div>
 
-<script>
-const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
-
-async function sb(path) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    headers: {
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-    }
-  });
-  if (!res.ok) throw new Error(`Supabase fetch failed (${res.status}): ${path}`);
-  return res.json();
-}
-
-// ── System Date ──────────────────────────────────────────
-(function initDate() {
-  const el = document.getElementById('systemDate');
-  if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
-    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
-  });
-  document.getElementById('asOfDate').value = new Date().toISOString().slice(0, 10);
-})();
-
-const fmt = n => {
-  const v = Math.abs(n) < 0.005 ? 0 : n;
-  return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
-
-// account_type → its natural balance side, used as a fallback when a
-// row's own normal_side column is null.
-const TYPE_DEFAULT_SIDE = {
-  ASSET: 'D', EXPENSE: 'D',
-  LIABILITY: 'C', EQUITY: 'C', INCOME: 'C'
-};
-
-async function loadBalanceSheet() {
-  const asOf = document.getElementById('asOfDate').value;
-  const status = document.getElementById('loadStatus');
-  const wrap = document.getElementById('bsWrap');
-  status.textContent = 'Loading…';
-  wrap.innerHTML = '<div class="bs-empty">Loading…</div>';
-
-  try {
-    // ── Pull the account tree and every journal line up to the as-of
-    // date. current_balance is intentionally never read — same
-    // reasoning as Trial Balance: it can drift from what the journal
-    // actually says, so everything here is computed live.
-    const [accounts, journal] = await Promise.all([
-      sb('chart_of_accounts?select=gl_account_code,account_name_title,account_type,parent_account_code,normal_side,display_order'),
-      sb(`gl_transaction_journal?select=gl_account_code,debit_amount,credit_amount&value_date=lte.${asOf}`)
-    ]);
-
-    if (!accounts.length) {
-      wrap.innerHTML = '<div class="bs-empty">No accounts found in chart_of_accounts.</div>';
-      status.textContent = '';
-      return;
-    }
-
-    // ── Aggregate journal lines per account (own postings only, not
-    // yet rolled up to parents) ──
-    const ownDebit = {}, ownCredit = {};
-    for (const j of journal) {
-      ownDebit[j.gl_account_code]  = (ownDebit[j.gl_account_code]  || 0) + Number(j.debit_amount  || 0);
-      ownCredit[j.gl_account_code] = (ownCredit[j.gl_account_code] || 0) + Number(j.credit_amount || 0);
-    }
-
-    // ── Own-balance per account, signed per its normal side ──
-    const byCode = {};
-    for (const a of accounts) byCode[a.gl_account_code] = a;
-
-    function ownBalance(a) {
-      const d = ownDebit[a.gl_account_code]  || 0;
-      const c = ownCredit[a.gl_account_code] || 0;
-      const side = a.normal_side || TYPE_DEFAULT_SIDE[a.account_type] || 'D';
-      return side === 'D' ? (d - c) : (c - d);
-    }
-
-    // ── Build parent → children map ──
-    const children = {};
-    for (const a of accounts) {
-      const p = a.parent_account_code || '__root__';
-      (children[p] = children[p] || []).push(a);
-    }
-    for (const p in children) children[p].sort((x, y) => (x.display_order||0) - (y.display_order||0));
-
-    // ── Recursive rollup: an account's total = its own postings plus
-    // every descendant's total. Also builds the render tree so the
-    // UI reflects exactly what was summed. ──
-    const rolled = {};
-    function rollup(a) {
-      let total = ownBalance(a);
-      const kids = children[a.gl_account_code] || [];
-      const renderedKids = [];
-      for (const k of kids) {
-        const kr = rollup(k);
-        total += kr.total;
-        renderedKids.push(kr);
-      }
-      const node = { account: a, total, children: renderedKids };
-      rolled[a.gl_account_code] = node;
-      return node;
-    }
-
-    const roots = children['__root__'] || [];
-    const rootNodes = roots.map(rollup);
-
-    // ── Render one top-level section (Assets / Liabilities / Equity) ──
-    function renderNode(node, depth) {
-      const isParent = node.children.length > 0;
-      let html = `<div class="bs-row ${isParent ? 'parent' : ''}" style="--depth:${depth}">
-        <span>${node.account.account_name_title}</span>
-        <span class="amt">${fmt(node.total)}</span>
-      </div>`;
-      for (const c of node.children) html += renderNode(c, depth + 1);
-      return html;
-    }
-
-    function sectionHtml(type, label, extraRows = '', extraTotal = 0) {
-      const nodes = rootNodes.filter(n => n.account.account_type === type);
-      const total = nodes.reduce((s, n) => s + n.total, 0) + extraTotal;
-      if (!nodes.length && !extraRows) return { html: '', total: 0 };
-      const rows = nodes.map(n => renderNode(n, 0)).join('');
-      return {
-        html: `<div class="bs-section">
-          <div class="bs-section-title">${label}</div>
-          ${rows}
-          ${extraRows}
-          <div class="bs-subtotal"><span>Total ${label}</span><span class="amt">${fmt(total)}</span></div>
-        </div>`,
-        total
-      };
-    }
-
-    const assets = sectionHtml('ASSET', 'Assets');
-    const liabilities = sectionHtml('LIABILITY', 'Liabilities');
-
-    // ── Net income for the period (INCOME − EXPENSE, both rolled up
-    // from their own top-level accounts) is not "owned" by any single
-    // GL account in this schema, so it's computed here and shown as
-    // an explicit Equity line rather than silently folded into
-    // Retained Earnings — same principle as post_loan_repayment's
-    // overpayment handling: surface it honestly instead of hiding it
-    // inside a number that doesn't visibly explain itself. ──
-    const incomeTotal  = rootNodes.filter(n => n.account.account_type === 'INCOME').reduce((s, n) => s + n.total, 0);
-    const expenseTotal = rootNodes.filter(n => n.account.account_type === 'EXPENSE').reduce((s, n) => s + n.total, 0);
-    const netIncome = incomeTotal - expenseTotal;
-    const netIncomeRow = `<div class="bs-row"><span>Net Income (Current Period)</span><span class="amt">${fmt(netIncome)}</span></div>`;
-
-    const equity = sectionHtml('EQUITY', 'Equity', netIncomeRow, netIncome);
-
-    const liabAndEquityTotal = liabilities.total + equity.total;
-    const balanced = Math.abs(assets.total - liabAndEquityTotal) < 0.01;
-
-    wrap.innerHTML = `
-      ${assets.html}
-      <div class="bs-grandtotal"><span>Total Assets</span><span class="amt">${fmt(assets.total)}</span></div>
-      ${liabilities.html || '<div class="bs-section"><div class="bs-section-title">Liabilities</div></div>'}
-      ${equity.html}
-      <div class="bs-grandtotal"><span>Total Liabilities + Equity</span><span class="amt">${fmt(liabAndEquityTotal)}</span></div>
-      <div class="bs-check ${balanced ? 'ok' : 'bad'}">
-        ${balanced
-          ? '✓ Balanced — Assets equal Liabilities + Equity.'
-          : `⚠ Out of balance by ${fmt(Math.abs(assets.total - liabAndEquityTotal))}. Assets ${fmt(assets.total)} vs Liabilities+Equity ${fmt(liabAndEquityTotal)}.`}
-      </div>
-    `;
-
-    document.getElementById('statusBar').textContent =
-      `As of ${asOf} — ${accounts.length} accounts, ${journal.length} journal lines considered`;
-    status.textContent = '';
-  } catch (err) {
-    wrap.innerHTML = `<div class="bs-empty">Failed to load: ${err.message}</div>`;
-    status.textContent = '';
-  }
-}
-
-loadBalanceSheet();
-</script>
+<script src="nbe-balance-sheet.js"></script>
 </body>
 </html>
