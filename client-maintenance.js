@@ -763,6 +763,20 @@ loadAllRecords();
 setMode('view');
 setFormEnabled(false);
 
+// Deep-link from client-directory.html: "Edit Profile" navigates here as
+// client-maintenance.html?clientId=CLI-XXXXX. Previously this page ignored
+// that entirely and just loaded blank — the officer had to re-type the
+// Client ID and look it up manually. Now it auto-loads the requested record
+// once the branch dropdown / record cache init above has run.
+(function loadFromQueryString() {
+  const params = new URLSearchParams(window.location.search);
+  const cid = params.get('clientId');
+  if (cid) {
+    document.getElementById('clientId').value = cid;
+    loadRecord(cid);
+  }
+})();
+
 // Hide recents initially
 ['recent1','recent2'].forEach(id => {
   const el = document.getElementById(id);
