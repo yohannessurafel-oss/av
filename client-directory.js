@@ -8,8 +8,32 @@
 const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-// Initialize Supabase client globally [1]
-const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Standard sbFetch pattern — matches every other module in this codebase.
+// Previously this file was the only one using the supabase-js SDK client
+// directly (_supabase.from(...)) instead of a raw fetch() against the REST
+// endpoint. Functionally equivalent, but architecturally inconsistent with
+// the rest of the app, and it made this the only page actually needing the
+// full supabase-js CDN bundle — that script tag can now come out of the
+// HTML too.
+async function sbFetch(path, opts = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+      ...(opts.headers || {})
+    }
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    let msg = 'HTTP ' + res.status;
+    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
+    throw new Error(msg);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : [];
+}
 
 const TABLE_CLIENTS = 'ClientMasterRecords';
 let clientsData = [];
@@ -46,12 +70,9 @@ async function fetchClients() {
   }
 
   try {
-    const { data, error } = await _supabase
-      .from(TABLE_CLIENTS)
-      .select('id, client_id, client_name, first_name, last_name, client_type, gender, mobile, status, open_date')
-      .order('created_on', { ascending: false });
-
-    if (error) throw error;
+    const data = await sbFetch(
+      `${TABLE_CLIENTS}?select=id,client_id,client_name,first_name,last_name,client_type,gender,mobile,status,open_date&order=created_on.desc`
+    );
 
     clientsData = data || [];
     renderTable(clientsData);
@@ -95,7 +116,7 @@ function renderTable(data) {
     if (r.status === 'Closed') { statusBg = '#e2e3e5'; statusColor = '#383d41'; }
 
     return `
-      <tr class="data-row" data-id="${r.id}" style="cursor: pointer;">
+      <tr class="data-row" style="cursor: pointer;">
         <td class="font-bold" style="color: var(--navy-700);">${r.client_id || '—'}</td>
         <td class="search-target">${fullName}</td>
         <td>${r.client_type || '—'}</td>
