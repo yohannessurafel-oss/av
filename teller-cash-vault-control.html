@@ -86,7 +86,6 @@
                   <input type="text" id="tellerTillId" placeholder="e.g. T001"/>
                   <span class="search-btn" id="btnSearchTill">🔍</span>
                 </div>
-                <input type="text" id="tellerTillDescription" class="width-remaining" placeholder="Description" readonly/>
               </div>
             </div>
             <div class="sub-column">
@@ -136,6 +135,13 @@
                   <option value="PAYMENT">PAYMENT</option>
                   <option value="TRANSFER">TRANSFER</option>
                   <option value="ADJUSTMENT">ADJUSTMENT</option>
+                </select>
+              </div>
+              <div class="form-row" id="adjustmentDirectionRow" style="display:none;">
+                <label>Adjustment Direction</label>
+                <select id="adjustmentDirection" class="width-full">
+                  <option value="increase">Increase till balance</option>
+                  <option value="decrease">Decrease till balance</option>
                 </select>
               </div>
               <div class="form-row"><label>Transaction Date</label><input type="date" id="txDate" class="width-full"/></div>
