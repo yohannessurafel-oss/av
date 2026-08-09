@@ -320,13 +320,21 @@ async function saveRecord() {
       { method: 'PATCH', prefer: 'return=minimal', body: JSON.stringify(payload) }
     );
 
-    // Best-effort audit trail — never blocks the save if it fails.
-    window.LoanStatusGuard?.logStatusTransition(sbFetch, {
-      applicationId: _loadedAppId,
-      fromStatus:    currentStatus,
-      toStatus:      'Appraisal',
-      sourceModule:  'loan-appraisal-management'
-    });
+    // Audit trail — awaited and surfaced (not fire-and-forget) since the
+    // previous call passed a single object where the function expects
+    // positional (sbFetch, applicationId, fromStatus, toStatus, changedBy,
+    // remarks) arguments. That mismatch meant application_id was being
+    // set to the whole options object, from_status/to_status were always
+    // undefined, and changed_by silently fell back to the literal string
+    // 'system' — every appraisal's audit entry was either rejected outright
+    // or written with garbage, and nothing ever surfaced that failure since
+    // the call wasn't awaited and the function's own catch only logs to
+    // console. Fixed to pass real values and to actually await the result.
+    await window.LoanStatusGuard?.logStatusTransition(
+      sbFetch, _loadedAppId, currentStatus, 'Appraisal',
+      window.currentUserEmail || 'system',
+      'Reviewed via Loan Appraisal Management'
+    );
 
     toast(`Appraisal saved — status set to Appraisal for ${_loadedAppId}`, 'success');
     document.getElementById('apprStatus').value = 'Appraisal';
