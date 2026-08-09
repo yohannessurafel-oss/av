@@ -184,7 +184,7 @@ async function saveSanction() {
     });
 
     /* Log transition */
-    await LoanStatusGuard.logStatusTransition(sbFetch, _currentAppId, liveStatus, 'Sanctioned', 'Credit Sanction Console');
+    await LoanStatusGuard.logStatusTransition(sbFetch, _currentAppId, liveStatus, 'Sanctioned', approvedBy, 'Sanctioned via Credit Sanction Console');
 
     toast('Loan sanctioned successfully.', 'success');
     _currentRecord.application_status = 'Sanctioned';
