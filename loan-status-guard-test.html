@@ -288,7 +288,7 @@ if (window.LoanStatusGuard) {
 }
 
 function populateStatusSelects() {
-  const statuses = window.LoanStatusGuard ? window.LoanStatusGuard.VALID_STATUSES : [
+  const statuses = window.LoanStatusGuard ? Object.keys(window.LoanStatusGuard.STATUS_LABELS) : [
     'Draft','Submitted','DataEntry','Appraisal','Sanctioned','Disbursed','Matured','Closed','WrittenOff'
   ];
   ['fromStatus', 'toStatus'].forEach(id => {
@@ -372,11 +372,10 @@ document.getElementById('btnBalance').addEventListener('click', async () => {
 
   try {
     const check = await window.LoanStatusGuard.checkZeroLedgerBalance(sbFetch, appId);
-    resultEl.className = `diag-result show ${check.zero ? 'allowed' : 'blocked'}`;
+    resultEl.className = `diag-result show ${check.ok ? 'allowed' : 'blocked'}`;
     resultEl.innerHTML = `
-      <span class="badge">${check.zero ? 'Zero balance — closeable' : 'Outstanding balance'}</span>
-      <div>Running balance: ETB ${(check.balance ?? 0).toLocaleString()}</div>
-      ${check.reason ? `<div style="margin-top:4px;">${check.reason}</div>` : ''}
+      <span class="badge">${check.ok ? 'Zero balance — closeable' : 'Outstanding balance'}</span>
+      ${check.reason ? `<div style="margin-top:4px;">${check.reason}</div>` : '<div>Ledger balance is zero — this loan is eligible to close.</div>'}
     `;
   } catch (e) {
     resultEl.className = 'diag-result blocked show';
@@ -390,14 +389,22 @@ function renderMatrix() {
     tbody.innerHTML = '<tr><td colspan="3">Guard not loaded.</td></tr>';
     return;
   }
+  const { TRANSITIONS, MODULES } = window.LoanStatusGuard;
   const rows = [];
-  Object.entries(window.LoanStatusGuard.TRANSITIONS).forEach(([from, tos]) => {
-    const entries = Object.entries(tos);
-    if (entries.length === 0) {
+  Object.entries(TRANSITIONS).forEach(([from, toList]) => {
+    if (!toList.length) {
       rows.push(`<tr><td>${from}</td><td colspan="2" style="color:#889;">— terminal, no further transitions —</td></tr>`);
     } else {
-      entries.forEach(([to, mods]) => {
-        rows.push(`<tr><td>${from}</td><td>${to}</td><td class="mods">${mods.join(', ')}</td></tr>`);
+      toList.forEach(to => {
+        // Which modules are authorized to SET this target status, per the
+        // guard's MODULES map (that map isn't keyed by from→to pairs —
+        // it's per-module "statuses this module may set", so cross-
+        // referencing by `to` is the closest accurate picture available).
+        const authorizedMods = Object.entries(MODULES)
+          .filter(([, allowedStatuses]) => allowedStatuses.includes(to))
+          .map(([mod]) => mod);
+        const modsLabel = authorizedMods.length ? authorizedMods.join(', ') : '— no module currently authorized —';
+        rows.push(`<tr><td>${from}</td><td>${to}</td><td class="mods">${modsLabel}</td></tr>`);
       });
     }
   });
