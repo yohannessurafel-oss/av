@@ -111,6 +111,11 @@ document.getElementById('tellerBranchId')?.addEventListener('change', function (
   if (nameEl) nameEl.value = chosen ? (chosen.branch_name || '') : '';
 });
 
+document.getElementById('txType')?.addEventListener('change', function () {
+  const row = document.getElementById('adjustmentDirectionRow');
+  if (row) row.style.display = this.value === 'ADJUSTMENT' ? '' : 'none';
+});
+
 /* ── Denomination auto-total ────────────────────────────── */
 const DENOM_VALUES = { denom1000: 1000, denom500: 500, denom200: 200, denom100: 100, denom50: 50, denom10: 10, denom5: 5, denom1: 1 };
 
@@ -160,7 +165,6 @@ async function searchTill() {
       _currentTill = rows[0];
       document.getElementById('tellerCashierName').value = _currentTill.cashier_name || '';
       document.getElementById('tellerTillStatus').value = _currentTill.till_status || 'CLOSED';
-      document.getElementById('tellerTillDescription').value = '';
       toast(`Till ${tillId} loaded — status: ${_currentTill.till_status || 'CLOSED'}.`, 'success');
     } else {
       _currentTill = null;
@@ -220,6 +224,19 @@ async function postTransaction(forcedType) {
     toast('Enter a denomination breakdown greater than zero.', 'warning'); return;
   }
 
+  // ADJUSTMENT is the only transaction type that can move the till
+  // balance in either direction — the trigger accepts a signed
+  // total_amount for it (positive = increase, negative = decrease).
+  // Every other type's amount is a plain unsigned count of physical
+  // cash, so the sign only ever applies here.
+  let signedAmount = totalAmount;
+  if (txType === 'ADJUSTMENT') {
+    if (totalAmount === 0) { toast('Enter a non-zero denomination breakdown for the adjustment.', 'warning'); return; }
+    const direction = document.getElementById('adjustmentDirection')?.value;
+    if (!direction) { toast('Select whether this adjustment increases or decreases the till balance.', 'warning'); return; }
+    signedAmount = direction === 'decrease' ? -Math.abs(totalAmount) : Math.abs(totalAmount);
+  }
+
   // Status guard — mirrors the till_status lifecycle: OPEN must happen
   // before any RECEIPT/PAYMENT/TRANSFER/ADJUSTMENT/CLOSE.
   const liveStatus = _currentTill?.till_status || 'NOT REGISTERED';
@@ -233,7 +250,7 @@ async function postTransaction(forcedType) {
   if (!confirm(
     `Post ${txType} transaction?\n\n` +
     `Till: ${tillId} (${branchId})\n` +
-    `Amount: ETB ${fmt(totalAmount)}\n` +
+    `Amount: ETB ${fmt(signedAmount)}\n` +
     `Reference: ${refNo || '(none)'}\n` +
     `By: ${createdBy}`
   )) {
@@ -270,7 +287,7 @@ async function postTransaction(forcedType) {
         transaction_date: txDate,
         reference_no: refNo,
         ...denoms,
-        total_amount: totalAmount,
+        total_amount: signedAmount,
         narration,
         created_by: createdBy
       })
@@ -284,6 +301,8 @@ async function postTransaction(forcedType) {
     document.getElementById('txRefNo').value = '';
     document.getElementById('txNarration').value = '';
     if (!forcedType) document.getElementById('txType').value = '';
+    document.getElementById('adjustmentDirectionRow').style.display = 'none';
+    document.getElementById('adjustmentDirection').value = 'increase';
 
     await loadTransactions(tillId);
   } catch (e) {
@@ -327,6 +346,8 @@ document.getElementById('btnGlobalCancel')?.addEventListener('click', () => {
   document.getElementById('txRefNo').value = '';
   document.getElementById('txNarration').value = '';
   document.getElementById('txType').value = '';
+  document.getElementById('adjustmentDirectionRow').style.display = 'none';
+  document.getElementById('adjustmentDirection').value = 'increase';
   toast('Entry cleared.', 'info');
 });
 document.getElementById('btnGlobalDelete')?.addEventListener('click', () => {
