@@ -378,17 +378,29 @@ document.getElementById('btnSave').addEventListener('click', () => {
   const contra = document.getElementById('fContraAccountId').value.trim();
   const cName = document.getElementById('fCustomerName').value.trim();
   const principal = document.getElementById('fAmountDisbursed').value;
+  const bankAccountSel = document.getElementById('fBankAccount');
 
   if (!accId) return showToast('Validation: Application ID cannot be blank.', 'error');
   if (!modeDis) return showToast('Validation: Select a Mode of Disbursement.', 'error');
   if (!accType) return showToast('Validation: Select an Account Type.', 'error');
   if (!contra) return showToast('Validation: Contra Account ID is required.', 'error');
   if (!cName || !principal) return showToast('Validation: Customer name and principal amount are required.', 'error');
+  // FIX: this was previously only checked at commit time, after the
+  // confirmation modal had already been reviewed and accepted — an
+  // operator could confirm everything else, then get blocked on a
+  // field the modal never even showed them.
+  if (!bankAccountSel.value) return showToast('Validation: Select a Cash / Bank Account.', 'error');
 
   document.getElementById('mdAccountId').textContent = accId;
   document.getElementById('mdPaymentMode').textContent = modeDis;
   document.getElementById('mdAccountType').textContent = accType;
   document.getElementById('mdContraAccountId').textContent = contra;
+  // FIX: the confirmation modal never showed which GL account would
+  // actually be debited/credited for this disbursement — an operator
+  // could post real money against the wrong account with no chance to
+  // catch it before committing.
+  document.getElementById('mdBankAccount').textContent =
+    bankAccountSel.options[bankAccountSel.selectedIndex].text;
 
   const schedule = buildAmortizationSchedule(
     principal,
