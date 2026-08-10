@@ -393,8 +393,15 @@ function setMode(mode) {
   if (btnSave)   btnSave.disabled   = !isEdit;
   if (btnCancel) btnCancel.disabled = !isEdit;
   if (btnAdd)    btnAdd.disabled    = isEdit;
-  if (btnEdit)   btnEdit.disabled   = isEdit;
-  if (btnDelete) btnDelete.disabled = !isEdit;
+  // FIX: previously btnEdit.disabled = isEdit (no check that a record
+  // was actually loaded — Edit was clickable on a blank form) and
+  // btnDelete.disabled = !isEdit (backwards — Delete was enabled only
+  // while editing/adding, disabled while simply viewing a loaded
+  // record). Matches guarantor-asset-registry.js's correct pattern:
+  // both require a record to actually be loaded, and Delete doesn't
+  // additionally depend on edit mode at all.
+  if (btnEdit)   btnEdit.disabled   = isEdit || !getField('collateralId');
+  if (btnDelete) btnDelete.disabled = !getField('collateralId');
   if (btnClose)  btnClose.disabled  = isEdit;
 
   const sb = document.getElementById('statusBar');
