@@ -1,34 +1,54 @@
 /* ═══════════════════════════════════════════════════════════
    Africa Village Microfinance — 04 Credit Sanction Console
-   credit-sanction-console.js  v2.4 — PATCHED
+   credit-sanction-console.js  v2.3 — TRANSITION GUARD ADDED
+   Tables: loanapplications · loanmasterrecords · branchregistry
 
-   PATCHES APPLIED:
-   • Sanction ceiling check wired in (was orphaned in guard)
-   • Confirmation modal before save (was missing)
-   • loanapplications status sync on sanction (was missing)
-   • Uses LoanStatusGuard.canTransition() + logStatusTransition()
+   Workflow:
+     1. User enters Application ID → clicks 🔍 (or View button)
+     2. Record loads from loanmasterrecords → fills all read-only
+        Application Details fields AND pre-fills editable sanction
+        fields (amounts, rates, dates).
+     3. User clicks Edit → adjusts sanction fields → Save
+     4. Save PATCHes loanmasterrecords + loanapplications with
+        status = 'Sanctioned'.
+
+   WHAT CHANGED FROM v2.2
+   saveSanction() previously wrote application_status: 'Sanctioned'
+   unconditionally and only called LoanStatusGuard.logStatusTransition()
+   to record the change AFTER it already happened — nothing actually
+   blocked an invalid transition (e.g. sanctioning a Closed or
+   WrittenOff loan). This now re-verifies the record's live status from
+   the DB and calls LoanStatusGuard.canTransition() BEFORE writing,
+   refusing to save if the transition isn't allowed — same pattern
+   already in loan-appraisal-management.js and disbursement.js.
 ═══════════════════════════════════════════════════════════ */
 
 'use strict';
 
-const SUPABASE_URL = 'https://oxzthrubidohuwwhxsrk.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
+const SUPABASE_URL      = 'https://oxzthrubidohuwwhxsrk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
 
-/* ── HTTP helper ────────────────────────────────────────── */
-async function sbFetch(path) {
+/* ── HTTP Helper — Hardened raw text parsing ────────────────── */
+async function sbFetch(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
     headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json'
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type':  'application/json',
+      'Prefer':        opts.prefer || 'return=representation',
+      ...(opts.headers || {})
     }
   });
   if (!res.ok) {
-    const txt = await res.text().catch(() => '');
-    throw new Error(txt || `HTTP ${res.status}`);
+    const errText = await res.text().catch(() => '');
+    let msg = 'HTTP ' + res.status;
+    try { const j = JSON.parse(errText); msg = j.message || j.hint || j.details || msg; } catch {}
+    throw new Error(msg);
   }
   const text = await res.text();
-  return text ? JSON.parse(text) : [];
+  if (!text || !text.trim()) return null;
+  try { return JSON.parse(text); } catch { return null; }
 }
 
 /* ── Toast ─────────────────────────────────────────────── */
@@ -42,7 +62,7 @@ function toast(msg, type = '', duration = 3200) {
   _toastTimer = setTimeout(() => { toastEl.className = 'toast'; }, duration);
 }
 
-/* ── System date ───────────────────────────────────────── */
+/* ── System Date ───────────────────────────────────────── */
 (function initDate() {
   const el = document.getElementById('systemDate');
   if (el) el.textContent = new Date().toLocaleDateString('en-ET', {
@@ -50,188 +70,342 @@ function toast(msg, type = '', duration = 3200) {
   });
 })();
 
-/* ── Format helper ──────────────────────────────────────── */
-const fmt = n => parseFloat(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/* ── Branch Dropdown ───────────────────────────────────── */
+let _branchCache = [];
 
-/* ── State ──────────────────────────────────────────────── */
-let _currentAppId = null;
-let _currentRecord = null;
-
-/* ── Load application for sanction ──────────────────────── */
-async function loadApplicationForSanction() {
-  const appId = document.getElementById('sanctionAppId')?.value?.trim();
-  if (!appId) { toast('Enter an Application ID.', 'warning'); return; }
-
+async function loadBranches() {
+  const sel = document.getElementById('sanctionBranchId');
+  if (sel) { sel.innerHTML = '<option value="">Loading branches…</option>'; sel.disabled = true; }
   try {
-    const rows = await sbFetch(
-      `loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}&limit=1`
-    );
-    if (!rows || !rows[0]) {
-      toast(`Application ${appId} not found.`, 'error');
-      return;
-    }
-    _currentRecord = rows[0];
-    _currentAppId = appId;
-    populateSanctionForm(_currentRecord);
-    toast(`Application ${appId} loaded — status: ${_currentRecord.application_status}.`, 'success');
+    const rows = await sbFetch('branchregistry?select=branch_id,branch_name&order=branch_id');
+    _branchCache = Array.isArray(rows) ? rows : [];
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Select Branch --</option>';
+    _branchCache.forEach(r => {
+      const o = document.createElement('option');
+      o.value = r.branch_id;
+      o.textContent = r.branch_id + (r.branch_name ? ' — ' + r.branch_name : '');
+      sel.appendChild(o);
+    });
+    sel.disabled = false;
   } catch (e) {
-    toast('Load error: ' + e.message, 'error');
+    toast('Could not load branch list.', 'error');
+    if (sel) { sel.innerHTML = '<option value="">-- Select Branch --</option>'; sel.disabled = false; }
   }
 }
 
-function populateSanctionForm(rec) {
-  document.getElementById('sanctionClientName') && (document.getElementById('sanctionClientName').value = rec.client_name || '');
-  document.getElementById('sanctionProductId') && (document.getElementById('sanctionProductId').value = rec.product_id || '');
-  document.getElementById('sanctionBranchId') && (document.getElementById('sanctionBranchId').value = rec.branch_id || '');
-  document.getElementById('sanctionAppliedAmount') && (document.getElementById('sanctionAppliedAmount').value = fmt(rec.applied_amount));
-  document.getElementById('sanctionInterestRate') && (document.getElementById('sanctionInterestRate').value = rec.interest_rate || '');
-  document.getElementById('sanctionTenureMonths') && (document.getElementById('sanctionTenureMonths').value = rec.tenure_months || '');
-  document.getElementById('sanctionCurrentStatus') && (document.getElementById('sanctionCurrentStatus').value = rec.application_status || '');
+document.getElementById('sanctionBranchId')?.addEventListener('change', function () {
+  const nameEl = document.getElementById('sanctionBranchName');
+  const chosen = _branchCache.find(b => b.branch_id === this.value);
+  if (nameEl) nameEl.value = chosen ? (chosen.branch_name || '') : '';
+});
+
+/* ── Auto-Compute Sanction Schedule — reducing balance installment ── */
+function computeSanctionSchedule() {
+  const principal = parseFloat(document.getElementById('sanctionApprovedAmount')?.value) || 0;
+  const rate      = parseFloat(document.getElementById('sanctionInterestRate')?.value)   || 0;
+  const term      = parseInt(document.getElementById('sanctionRepaymentTerm')?.value)     || 0;
+
+  if (!principal || !term) return;
+
+  const monthlyRate = (rate / 100) / 12;
+  let installment;
+  if (monthlyRate === 0) {
+    installment = principal / term;
+  } else {
+    installment = principal * (monthlyRate * Math.pow(1 + monthlyRate, term)) /
+                  (Math.pow(1 + monthlyRate, term) - 1);
+  }
+
+  const instEl = document.getElementById('sanctionInstallmentAmt');
+  if (instEl) instEl.value = installment.toFixed(2);
 }
 
-/* ── Save sanction ──────────────────────────────────────── */
+// Bind live schedule calculation to UI inputs [1]
+['sanctionApprovedAmount', 'sanctionInterestRate', 'sanctionRepaymentTerm'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', computeSanctionSchedule);
+});
+
+/* ── Track loaded record ───────────────────────────────── */
+let _loadedAppId = null;
+let _loadedPrevStatus = null;
+
+/* ── Application Lookup ─────────────────────────────────── */
+async function lookupApplication() {
+  const appId = document.getElementById('sanctionApplicationId')?.value?.trim();
+  if (!appId) { toast('Enter an Application ID to search.', 'warning'); return; }
+
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = `Looking up ${appId}…`;
+
+  try {
+    const lmrRows = await sbFetch(
+      `loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}&select=*&limit=1`
+    );
+
+    if (!lmrRows || lmrRows.length === 0) {
+      toast('Application ID not found in loan master records.', 'warning');
+      if (sb) sb.textContent = 'Status: Not found';
+      return;
+    }
+
+    const lmr = lmrRows[0];
+    _loadedAppId = lmr.application_id;
+    _loadedPrevStatus = lmr.application_status || null;
+
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val ?? '';
+    };
+
+    // ── Read-only Application Details ──────────────────
+    set('sanctionAccountId',        lmr.application_id);
+    set('sanctionClientId',         lmr.client_id);
+    set('sanctionMailingAddress',   lmr.mailing_address);
+    set('sanctionCity',             lmr.city);
+    set('sanctionPhone',            lmr.phone_number);
+    set('sanctionLoanType',         lmr.account_class);
+    set('sanctionProductId',        lmr.product_id);
+    set('sanctionSanctionAmount',   lmr.sanction_amount);
+    set('sanctionTerm',             lmr.term_months);
+    set('sanctionMarkingRate',      lmr.marking_rate);
+    set('sanctionInstallmentAmt',   lmr.installment_amount);
+    set('sanctionCalcMethod',       lmr.calculation_method);
+    set('sanctionNetCollateral',    lmr.net_collateral_value);
+    set('sanctionLoanSeries',       lmr.loan_series_no);
+    set('sanctionCurrencyId',       lmr.currency_id);
+    set('sanctionAppliedAmount',    lmr.applied_amount);
+    set('sanctionRepaymentTerm2',   lmr.repayment_term_months);
+    set('sanctionInterestRateR',    lmr.interest_rate);
+    set('sanctionNoOfGuarantors',   lmr.no_of_guarantors);
+    set('sanctionAppStatus',        lmr.application_status);
+    set('sanctionGracePeriod2',     lmr.grace_period);
+    set('sanctionRefNo',            lmr.reference_no);
+    set('sanctionAppDate',          lmr.application_date);
+    set('sanctionBaseRate',         lmr.base_rate);
+
+    const brSel = document.getElementById('sanctionBranchId');
+    if (brSel && lmr.branch_id) {
+      brSel.value = lmr.branch_id;
+      brSel.dispatchEvent(new Event('change'));
+    }
+
+    // ── Pre-fill editable sanction fields ──────────────
+    set('sanctionApprovedAmount',    lmr.approved_amount  || lmr.applied_amount);
+    set('sanctionRepaymentTerm',     lmr.repayment_term_months);
+    set('sanctionInterestRate',      lmr.interest_rate);
+    set('sanctionGracePeriod',       lmr.grace_period);
+    set('sanctionNoOfDisbursements', lmr.no_of_disbursements || 1);
+    set('sanctionModeOfDisb',        lmr.mode_of_disbursement || 'Transfer');
+    set('sanctionFirstDisbDate',     lmr.first_disbursement_date);
+    set('sanctionInstallmentStartDate', lmr.installment_start_date);
+    set('sanctionInterestRateType',  lmr.interest_rate_type);
+    set('sanctionMarkingRate2',      lmr.marking_rate);
+    set('sanctionApprovedBy',        lmr.approved_by);
+    set('sanctionApprovedDate',      lmr.approved_date);
+
+    toast(`Application ${_loadedAppId} loaded.`);
+    if (sb) sb.textContent = `Application ${_loadedAppId} — click Edit to sanction`;
+
+    const btnEdit = document.getElementById('btnGlobalEdit');
+    if (btnEdit) btnEdit.disabled = false;
+
+    setMode('view');
+  } catch (e) {
+    toast('Lookup error: ' + e.message, 'error');
+    if (sb) sb.textContent = 'Lookup failed.';
+  }
+}
+
+/* ── Save Sanction ──────────────────────────────────────── */
 async function saveSanction() {
-  if (!_currentRecord || !_currentAppId) {
-    toast('Load an application first.', 'warning');
+  if (!_loadedAppId) {
+    toast('Load an Application first — enter Application ID and click 🔍.', 'warning');
     return;
   }
 
-  const approvedAmt = parseFloat(document.getElementById('sanctionApprovedAmount')?.value) || 0;
-  const productId = document.getElementById('sanctionProductId')?.value;
-  const tenure = parseInt(document.getElementById('sanctionTenureMonths')?.value) || 0;
-  const interestRate = parseFloat(document.getElementById('sanctionInterestRate')?.value) || 0;
-  const remarks = document.getElementById('sanctionRemarks')?.value?.trim() || '';
-
-  if (approvedAmt <= 0) { toast('Approved amount must be greater than 0.', 'warning'); return; }
-  if (tenure <= 0) { toast('Tenure must be greater than 0.', 'warning'); return; }
-
-  /* ── PATCH: Sanction ceiling check ── */
+  // Re-verify the record's CURRENT status fresh from the DB before writing —
+  // same pattern as loan-appraisal-management.js. _loadedPrevStatus was
+  // captured at lookup time and could be stale if another module moved
+  // this loan since then.
+  let currentStatus;
   try {
-    const ceiling = await LoanStatusGuard.checkSanctionCeiling(sbFetch, productId, approvedAmt);
-    if (!ceiling.ok) {
-      toast(`Sanction blocked: ${ceiling.reason}`, 'error');
+    const fresh = await sbFetch(
+      `loanmasterrecords?application_id=eq.${encodeURIComponent(_loadedAppId)}&select=application_status&limit=1`
+    );
+    if (!fresh || !fresh[0]) {
+      toast('Could not re-verify this record — it may have been deleted. Reload and try again.', 'error');
       return;
     }
+    currentStatus = fresh[0].application_status;
   } catch (e) {
-    toast('Ceiling check failed: ' + e.message, 'error');
+    toast('Could not verify current status before saving: ' + e.message, 'error');
     return;
   }
 
-  /* ── PATCH: Re-fetch live status & guard transition ── */
-  let liveStatus;
-  try {
-    const live = await sbFetch(
-      `loanmasterrecords?application_id=eq.${encodeURIComponent(_currentAppId)}&select=application_status&limit=1`
-    );
-    liveStatus = live?.[0]?.application_status;
-  } catch (e) {
-    toast('Could not verify current status.', 'error');
+  if (!window.LoanStatusGuard) {
+    toast('Loan Status Guard is not loaded — cannot safely save. Add loan-status-guard.js to this page.', 'error');
+    return;
+  }
+  const check = window.LoanStatusGuard.canTransition(currentStatus, 'Sanctioned', 'credit-sanction-console');
+  if (!check.allowed) {
+    toast(`Cannot save: ${check.reason}`, 'error');
+    const sbEl = document.getElementById('statusBar');
+    if (sbEl) sbEl.textContent = `Blocked — record is currently "${currentStatus}", not sanctionable from here.`;
     return;
   }
 
-  const guard = LoanStatusGuard.canTransition(liveStatus, 'Sanctioned');
-  if (!guard.allowed) {
-    toast(`Sanction denied: ${guard.reason}`, 'error');
-    return;
-  }
+  const getVal  = id => { const el = document.getElementById(id); return el ? el.value.trim() || null : null; };
+  const getNum  = id => { const v = parseFloat(getVal(id)); return isNaN(v) ? null : v; };
+  const getInt  = id => { const v = parseInt(getVal(id));   return isNaN(v) ? null : v; };
 
-  /* ── PATCH: Confirmation modal ── */
-  if (!confirm(
-    `Approve loan sanction?\n\n` +
-    `Application: ${_currentAppId}\n` +
-    `Client: ${_currentRecord.client_name || 'N/A'}\n` +
-    `Amount: ETB ${fmt(approvedAmt)}\n` +
-    `Tenure: ${tenure} months\n` +
-    `Rate: ${interestRate}%\n\n` +
-    `This will set status to SANCTIONED.`
-  )) {
-    toast('Sanction cancelled.', 'info');
-    return;
-  }
+  // Calculate standard installment terms before mapping [1]
+  computeSanctionSchedule();
 
   const payload = {
-    approved_amount: approvedAmt,
-    tenure_months: tenure,
-    interest_rate: interestRate,
-    application_status: 'Sanctioned',
-    sanction_date: new Date().toISOString().slice(0, 10),
-    sanction_remarks: remarks || null
+    approved_amount:         getNum('sanctionApprovedAmount'),
+    no_of_disbursements:     getInt('sanctionNoOfDisbursements') || 1,
+    repayment_term_months:   getInt('sanctionRepaymentTerm'),
+    installment_start_date:  getVal('sanctionInstallmentStartDate'),
+    interest_rate:           getNum('sanctionInterestRate'),
+    grace_period:            getInt('sanctionGracePeriod') || 0,
+    mode_of_disbursement:    getVal('sanctionModeOfDisb') || 'Transfer',
+    first_disbursement_date: getVal('sanctionFirstDisbDate'),
+    interest_rate_type:      getVal('sanctionInterestRateType'),
+    marking_rate:            getNum('sanctionMarkingRate2'),
+    installment_amount:      getNum('sanctionInstallmentAmt'), // Save expected installment [1]
+    approved_by:             getVal('sanctionApprovedBy'),
+    approved_date:           getVal('sanctionApprovedDate') || new Date().toISOString().slice(0,10),
+    application_status:      'Sanctioned',
+    modified_on:             new Date().toISOString(),
   };
 
+  if (!payload.installment_start_date)  delete payload.installment_start_date;
+  if (!payload.first_disbursement_date) delete payload.first_disbursement_date;
+
+  const sb = document.getElementById('statusBar');
+  if (sb) sb.textContent = 'Saving sanction…';
+
   try {
-    /* Update loanmasterrecords */
-    await fetch(`${SUPABASE_URL}/rest/v1/loanmasterrecords?application_id=eq.${encodeURIComponent(_currentAppId)}`, {
+    // 1. Update loanmasterrecords
+    await sbFetch(`loanmasterrecords?application_id=eq.${encodeURIComponent(_loadedAppId)}`, {
       method: 'PATCH',
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=minimal'
-      },
+      prefer: 'return=minimal',
       body: JSON.stringify(payload)
     });
 
-    /* ── PATCH: Sync loanapplications header ── */
-    await fetch(`${SUPABASE_URL}/rest/v1/loanapplications?application_id=eq.${encodeURIComponent(_currentAppId)}`, {
+    // 2. Update loanapplications status
+    await sbFetch(`loanapplications?application_id=eq.${encodeURIComponent(_loadedAppId)}`, {
       method: 'PATCH',
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=minimal'
-      },
+      prefer: 'return=minimal',
       body: JSON.stringify({ application_status: 'Sanctioned' })
     });
 
-    /* Log transition */
-    await LoanStatusGuard.logStatusTransition(sbFetch, _currentAppId, liveStatus, 'Sanctioned', approvedBy, 'Sanctioned via Credit Sanction Console');
+    const statusEl = document.getElementById('sanctionAppStatus');
+    if (statusEl) statusEl.value = 'Sanctioned';
 
-    toast('Loan sanctioned successfully.', 'success');
-    _currentRecord.application_status = 'Sanctioned';
-    document.getElementById('sanctionCurrentStatus') && (document.getElementById('sanctionCurrentStatus').value = 'Sanctioned');
+    // Record the transition in the audit log, same pattern as disbursement.js.
+    // No-ops safely (with a console warning) if loan-status-guard.js isn't
+    // loaded on this page yet.
+    await LoanStatusGuard.logStatusTransition(sbFetch, {
+      applicationId: _loadedAppId,
+      fromStatus:    currentStatus,
+      toStatus:      'Sanctioned',
+      sourceModule:  'credit-sanction-console',
+      changedBy:     payload.approved_by || null
+    });
+
+    toast(`Application ${_loadedAppId} sanctioned successfully.`, 'success');
+    if (sb) sb.textContent = `Sanctioned — ${_loadedAppId}`;
+    setMode('view');
   } catch (e) {
     toast('Sanction save error: ' + e.message, 'error');
+    if (sb) sb.textContent = 'Save failed — see toast.';
   }
 }
 
-/* ── Event bindings ─────────────────────────────────────── */
-document.getElementById('btnLoadForSanction')?.addEventListener('click', loadApplicationForSanction);
-document.getElementById('btnSaveSanction')?.addEventListener('click', saveSanction);
-document.getElementById('sanctionAppId')?.addEventListener('keydown', e => { if (e.key === 'Enter') loadApplicationForSanction(); });
+/* ── Mode Control ──────────────────────────────────────── */
+let currentMode = 'view';
 
-/* ── Init ───────────────────────────────────────────────── */
-window.addEventListener('DOMContentLoaded', () => {
-  toast('Credit Sanction Console v2.4 ready.', 'success');
+function setMode(mode) {
+  currentMode = mode;
+  const isEdit = mode === 'edit' || mode === 'add';
+  const view = document.querySelector('.module-view.active');
+
+  if (view) {
+    view.querySelectorAll('input, select, textarea').forEach(el => {
+      if (el.dataset.alwaysEnabled !== undefined) { el.disabled = false; return; }
+      if (el.hasAttribute('readonly'))            { el.disabled = false; return; }
+      el.disabled = !isEdit;
+    });
+  }
+
+  const appIdEl = document.getElementById('sanctionApplicationId');
+  if (appIdEl) appIdEl.disabled = false;
+
+  const btnSave   = document.getElementById('btnGlobalSave');
+  const btnCancel = document.getElementById('btnGlobalCancel');
+  const btnAdd    = document.getElementById('btnGlobalAdd');
+  const btnEdit   = document.getElementById('btnGlobalEdit');
+  const btnClose  = document.getElementById('btnGlobalClose');
+  const btnDelete = document.getElementById('btnGlobalDelete');
+
+  if (btnSave)   btnSave.disabled   = !isEdit;
+  if (btnCancel) btnCancel.disabled = !isEdit;
+  if (btnAdd)    btnAdd.disabled    = isEdit;
+  if (btnEdit)   btnEdit.disabled   = isEdit || !_loadedAppId;
+  if (btnDelete) btnDelete.disabled = true;
+  if (btnClose)  btnClose.disabled  = isEdit;
+
+  const sb = document.getElementById('statusBar');
+  if (sb && mode !== 'view') {
+    sb.textContent = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)} — Ready`;
+  }
+}
+
+/* ── Toolbar ─────────────────────────────────────────────── */
+document.getElementById('btnGlobalView')?.addEventListener('click', lookupApplication);
+document.getElementById('btnSearchAppId')?.addEventListener('click', lookupApplication);
+
+document.getElementById('btnGlobalEdit')?.addEventListener('click', () => {
+  if (!_loadedAppId) { toast('Load an application first.', 'warning'); return; }
+  setMode('edit');
+  toast('Edit mode — adjust sanction details then Save.');
 });
 
-// ── Window Controls: Minimize / Maximize ────────────────────
-const windowContainer = document.querySelector('.window-container');
-const wcMinimizeBtn    = document.getElementById('wcMinimize');
-const wcMaximizeBtn    = document.getElementById('wcMaximize');
-const dockSliver        = document.getElementById('dockSliver');
+document.getElementById('btnGlobalSave')?.addEventListener('click', saveSanction);
 
-function toggleMinimize() {
-  if (!windowContainer || !dockSliver) return;
-  windowContainer.classList.remove('is-maximized');
-  if (wcMaximizeBtn) wcMaximizeBtn.textContent = '▢';
+document.getElementById('btnGlobalCancel')?.addEventListener('click', () => {
+  if (_loadedAppId) lookupApplication();
+  else setMode('view');
+  toast('Changes discarded.');
+});
 
-  windowContainer.classList.toggle('is-minimized');
-  const minimized = windowContainer.classList.contains('is-minimized');
-  dockSliver.classList.toggle('show', minimized);
-  if (wcMinimizeBtn) wcMinimizeBtn.title = minimized ? 'Restore' : 'Minimize';
+document.getElementById('btnGlobalAdd')?.addEventListener('click', () => {
+  toast('Use Module 01 — Loan Application to create a new application.', 'warning');
+});
+
+document.getElementById('btnGlobalClose')?.addEventListener('click', () => {
+  _loadedAppId = null;
+  document.querySelectorAll('#view-module-04 input, #view-module-04 select, #view-module-04 textarea')
+    .forEach(el => { if (!el.dataset.alwaysEnabled) el.value = ''; });
+  setMode('view');
+  toast('Record closed.');
+});
+
+document.getElementById('btnGlobalDelete')?.addEventListener('click', () => {
+  toast('Delete not permitted on sanctioned records.', 'warning');
+});
+
+document.getElementById('btnGlobalPrint')?.addEventListener('click', () => window.print());
+
+document.getElementById('btnCharges')?.addEventListener('click', () => {
+  toast('Charges module coming soon.', '');
+});
+
+/* ── Init ──────────────────────────────────────────────── */
+async function init() {
+  setMode('view');
+  await loadBranches();
 }
-
-function toggleMaximize() {
-  if (!windowContainer) return;
-  if (windowContainer.classList.contains('is-minimized')) {
-    windowContainer.classList.remove('is-minimized');
-    if (dockSliver) dockSliver.classList.remove('show');
-    if (wcMinimizeBtn) wcMinimizeBtn.title = 'Minimize';
-  }
-  windowContainer.classList.toggle('is-maximized');
-  const maximized = windowContainer.classList.contains('is-maximized');
-  if (wcMaximizeBtn) {
-    wcMaximizeBtn.textContent = maximized ? '❐' : '▢';
-    wcMaximizeBtn.title = maximized ? 'Restore Down' : 'Maximize';
-  }
-}
+init();
