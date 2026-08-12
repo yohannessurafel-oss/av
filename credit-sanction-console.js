@@ -292,7 +292,7 @@ async function saveSanction() {
       console.warn('loanapplications status sync failed (non-fatal):', syncErr.message);
     }
 
-    await LoanStatusGuard.logStatusTransition(sbFetch, _currentAppId, liveStatus, 'Sanctioned', approvedBy, 'Sanctioned via Credit Sanction Console');
+    await LoanStatusGuard.logStatusTransition(sbFetch, _currentAppId, liveStatus, 'Sanctioned', approvedBy, 'Sanctioned via Credit Sanction Console', 'credit-sanction-console');
 
     toast('Loan sanctioned successfully.', 'success');
     _currentRecord.application_status = 'Sanctioned';
