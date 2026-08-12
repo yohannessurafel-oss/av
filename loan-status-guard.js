@@ -71,20 +71,52 @@ const LoanStatusGuard = (function () {
     return { allowed: true, reason: 'Valid transition.' };
   }
 
-  async function logStatusTransition(sbFetch, applicationId, fromStatus, toStatus, changedBy, remarks) {
+  // FIX (3 issues, found together):
+  //  1. Wrote 'changed_at' — not a real column; the table has
+  //     'changed_on'.
+  //  2. Never sent 'source_module' at all, which is NOT NULL on
+  //     loan_status_audit_log.
+  //  3. Relied on the caller's sbFetch(path, options) supporting a
+  //     POST body — but credit-sanction-console.js's own sbFetch only
+  //     accepts a path and silently ignores any options object,
+  //     meaning this call was actually firing a GET request instead.
+  //     No error was thrown (a GET to a real table succeeds fine), so
+  //     even the console.error fallback never fired — this looked
+  //     completely successful while writing nothing. Since this is a
+  //     SHARED helper and other callers' sbFetch implementations
+  //     can't be assumed to support options either, this now makes
+  //     its own direct request instead of trusting the passed-in
+  //     sbFetch's capabilities at all.
+  //
+  //  sourceModule is a new final parameter (appended, not inserted
+  //  into the middle) so any existing 6-argument caller still works —
+  //  it just won't get an attributed source_module until updated.
+  const _SUPABASE_URL = 'https://oxzthrubidohuwwhxsrk.supabase.co';
+  const _SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94enRocnViaWRvaHV3d2h4c3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzExMTIsImV4cCI6MjA5MTIwNzExMn0.6NrwYlDDVzYZNouknbdPGtvNb_0GLkT12T370fyPRyA';
+
+  async function logStatusTransition(sbFetch, applicationId, fromStatus, toStatus, changedBy, remarks, sourceModule) {
     try {
-      await sbFetch('loan_status_audit_log', {
+      const res = await fetch(`${_SUPABASE_URL}/rest/v1/loan_status_audit_log`, {
         method: 'POST',
-        prefer: 'return=minimal',
+        headers: {
+          apikey: _SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal'
+        },
         body: JSON.stringify({
           application_id: applicationId,
           from_status: fromStatus,
           to_status: toStatus,
+          source_module: sourceModule || 'unknown',
           changed_by: changedBy || 'system',
-          changed_at: new Date().toISOString(),
+          changed_on: new Date().toISOString(),
           remarks: remarks || null
         })
       });
+      if (!res.ok) {
+        console.error('Failed to log status transition:', await res.text().catch(() => `HTTP ${res.status}`));
+      }
     } catch (e) {
       console.error('Failed to log status transition:', e);
     }
