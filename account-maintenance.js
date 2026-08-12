@@ -115,6 +115,24 @@ const READ_ONLY = new Set(['accCreatedOn', 'accClientName', 'accBranchName']);
 let currentMode = 'view';
 let _currentAccountNumber = null; // PK of loaded record
 
+/* ── Account Type → GL Deposit-Liability Code ───────────────
+   post_account_opening() defaults p_gl_deposit_liability_code to the
+   flat '41100' (Client Compulsory Savings) account regardless of what
+   account_type is actually selected — meaning Repayment and Current
+   accounts were being posted to the SAVINGS liability account, even
+   though a purpose-built code (22201020 LOAN REPAYMENT ACCOUNT)
+   already exists in chart_of_accounts and was sitting unused.
+
+   'Current' has no dedicated liability account anywhere in the chart
+   of accounts yet — falls back to 41100 same as before, which is not
+   really correct long-term but avoids inventing a GL code number for
+   real financial books without confirmation. ── */
+const ACCOUNT_TYPE_GL_MAP = {
+  Savings:   '41100',
+  Repayment: '22201020',
+  Current:   '41100', // TODO: no dedicated Current-account liability code exists yet
+};
+
 /* ── Helpers ────────────────────────────────────────────── */
 function getField(id) {
   const el = document.getElementById(id);
@@ -373,7 +391,8 @@ async function saveRecord() {
         p_initial_deposit: rec.initial_deposit_amount || 0,
         p_account_status: rec.account_status || 'Active',
         p_remarks:        rec.remarks || null,
-        p_created_by:     rec.created_by || null
+        p_created_by:     rec.created_by || null,
+        p_gl_deposit_liability_code: ACCOUNT_TYPE_GL_MAP[rec.account_type] || '41100'
       });
       toast(
         result?.gl_posted
