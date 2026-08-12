@@ -95,7 +95,7 @@
         </div>
 
         <div class="nbe-grid" id="nbeGrid"></div>
-        <div class="sub-footer-token" id="statusBar" style="margin:0 16px;"></div>
+        <div class="sub-footer-token" id="statusBar" style="margin:0 16px;">14 reports registered — 2 live, 12 not yet built</div>
       </div>
     </div>
 
@@ -107,12 +107,12 @@
 
 <script>
 const NBE_REPORTS = [
-  { title: 'Loan Disbursement By Sector',  icon: '💰', desc: 'Total amount disbursed to customers grouped by borrower category (Group / Individual / Corporate / Staff).', path: 'nbe-disbursement-by-sector.html' },
-  { title: 'Loan Disbursement By Product', icon: '💰', desc: 'Total amount disbursed to customers grouped by lending product.', path: 'nbe-disbursement-by-product.html' },
+  { title: 'Loan Disbursement By Sector',  icon: '💰', desc: 'Total amount disbursed to customers grouped by sector.', path: null },
+  { title: 'Loan Disbursement By Product', icon: '💰', desc: 'Total amount disbursed to customers grouped by product.', path: null },
   { title: 'Loan Distribution By Gender',  icon: '📊', desc: 'Loan distribution by gender — borrowing patterns and access to credit.', path: null },
   { title: 'Loan Distribution For Person With Disability', icon: '♿', desc: 'Loan distribution for individuals with disabilities.', path: null },
   { title: 'Loan Aging and Provision Report', icon: '📅', desc: 'Categorization of loans based on time outstanding.', path: null },
-  { title: 'Loan Loss Provision Report',   icon: '📅', desc: 'Loans in arrears classified by days overdue with required provision amount.', path: 'nbe-loan-loss-provision.html' },
+  { title: 'Loan Loss Provision Report',   icon: '📅', desc: 'Loan loss provisioning based on aging categories.', path: null },
   { title: 'Loan Loss Provision By Product', icon: '📅', desc: 'Loan loss provisioning broken down by product.', path: null },
   { title: 'Top Borrowing Groups',         icon: '👥', desc: 'Groups/entities with the highest total borrowing.', path: null },
   { title: 'Top Borrowing Individuals',    icon: '👤', desc: 'Individuals with the highest total borrowing.', path: null },
@@ -121,10 +121,6 @@ const NBE_REPORTS = [
   { title: 'Income Statement',             icon: '📈', desc: 'Revenues, expenses, and profit over a specific period.', path: null },
   { title: 'Cash Liquidity',               icon: '💵', desc: 'Liquidity position and cash flow management.', path: null },
 ];
-
-// Dynamically compute built vs unbuilt counts
-const liveCount = NBE_REPORTS.filter(r => r.path).length;
-const totalCount = NBE_REPORTS.length;
 
 document.getElementById('nbeGrid').innerHTML = NBE_REPORTS.map(r => `
   <div class="nbe-card ${r.path ? '' : 'disabled'}" ${r.path ? `onclick="window.location='${r.path}'"` : ''}>
@@ -136,8 +132,6 @@ document.getElementById('nbeGrid').innerHTML = NBE_REPORTS.map(r => `
     <div class="nbe-card-chevron">${r.path ? '›' : '—'}</div>
   </div>
 `).join('');
-
-document.getElementById('statusBar').textContent = `${totalCount} reports registered — ${liveCount} live, ${totalCount - liveCount} not yet built`;
 
 document.getElementById('systemDate').textContent = new Date().toLocaleDateString('en-ET', {
   weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
