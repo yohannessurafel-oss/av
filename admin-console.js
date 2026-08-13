@@ -162,7 +162,7 @@ async function loadGlAccountOptionsForDropdowns() {
 async function loadProducts() {
   const tbody = document.querySelector('#productTable tbody');
   try {
-    const rows = await sbFetch('lendingproductparametermatrix?select=product_code_id,product_name_title,maximum_permissible_limit,gl_loan_receivable_code,gl_interest_receivable_code&order=product_code_id.asc');
+    const rows = await sbFetch('lendingproductparametermatrix?select=product_code_id,product_name_title,maximum_permissible_limit,base_interest_rate,default_term_months,tax_rate_percentage,penalty_rate_daily,grace_period_days,interest_calculation_method,early_settlement_penalty_rate,security_requirement,gl_loan_receivable_code,gl_interest_receivable_code&order=product_code_id.asc');
     if (!rows.length) {
       tbody.innerHTML = '<tr><td colspan="6" class="text-center gray-text italic">No products found.</td></tr>';
       return;
@@ -191,7 +191,15 @@ function selectProduct(p) {
   document.getElementById('fProductCode').value = p.product_code_id;
   document.getElementById('fProductCode').readOnly = true;
   document.getElementById('fProductName').value = p.product_name_title || '';
-  document.getElementById('fMaxLimit').value = p.maximum_permissible_limit || '';
+  document.getElementById('fMaxLimit').value = p.maximum_permissible_limit ?? '';
+  document.getElementById('fBaseRate').value = p.base_interest_rate ?? '0.00';
+  document.getElementById('fTermMonths').value = p.default_term_months ?? '12';
+  document.getElementById('fTaxRate').value = p.tax_rate_percentage ?? '0.00';
+  document.getElementById('fPenaltyDaily').value = p.penalty_rate_daily ?? '0.00025';
+  document.getElementById('fGracePeriod').value = p.grace_period_days ?? '5';
+  document.getElementById('fCalcMethod').value = p.interest_calculation_method || 'declining_balance_actual_365';
+  document.getElementById('fEarlyPenalty').value = p.early_settlement_penalty_rate ?? '0.02';
+  document.getElementById('fSecurityReq').value = p.security_requirement || 'ANY';
   document.getElementById('fLoanRecCode').value = p.gl_loan_receivable_code || '';
   document.getElementById('fInterestRecCode').value = p.gl_interest_receivable_code || '';
   document.querySelectorAll('#productTable tbody tr').forEach(tr =>
@@ -204,6 +212,14 @@ document.getElementById('btnProductNew').addEventListener('click', () => {
   document.getElementById('fProductCode').readOnly = false;
   document.getElementById('fProductName').value = '';
   document.getElementById('fMaxLimit').value = '';
+  document.getElementById('fBaseRate').value = '0.00';
+  document.getElementById('fTermMonths').value = '12';
+  document.getElementById('fTaxRate').value = '0.00';
+  document.getElementById('fPenaltyDaily').value = '0.00025';
+  document.getElementById('fGracePeriod').value = '5';
+  document.getElementById('fCalcMethod').value = 'declining_balance_actual_365';
+  document.getElementById('fEarlyPenalty').value = '0.02';
+  document.getElementById('fSecurityReq').value = 'ANY';
   document.getElementById('fLoanRecCode').value = '';
   document.getElementById('fInterestRecCode').value = '';
   document.querySelectorAll('#productTable tbody tr').forEach(tr => tr.classList.remove('selected'));
@@ -212,26 +228,48 @@ document.getElementById('btnProductNew').addEventListener('click', () => {
 document.getElementById('btnProductSave').addEventListener('click', async () => {
   const product_code_id = document.getElementById('fProductCode').value.trim();
   const product_name_title = document.getElementById('fProductName').value.trim();
-  const maximum_permissible_limit = document.getElementById('fMaxLimit').value || null;
+  const maxLimitRaw = document.getElementById('fMaxLimit').value;
   const gl_loan_receivable_code = document.getElementById('fLoanRecCode').value || null;
   const gl_interest_receivable_code = document.getElementById('fInterestRecCode').value || null;
 
   if (!product_code_id || !product_name_title) return toast('Product Code and Name are both required.', 'warning');
+  // FIX: maximum_permissible_limit is NOT NULL with no database default —
+  // this previously converted a blank field to an explicit null and sent
+  // it anyway, which is exactly what caused the 23502 not-null-violation
+  // crash. Now blocked client-side with a clear message instead.
+  if (maxLimitRaw === '') return toast('Max Limit is required — this column has no database default and cannot be blank.', 'warning');
+  const maximum_permissible_limit = parseFloat(maxLimitRaw);
+
   if (!gl_loan_receivable_code || !gl_interest_receivable_code) {
     if (!confirm('No GL accounts assigned — this product cannot be disbursed, repaid, or settled until both are set. Save anyway?')) return;
   }
+
+  const body = {
+    product_name_title,
+    maximum_permissible_limit,
+    base_interest_rate: parseFloat(document.getElementById('fBaseRate').value) || 0,
+    default_term_months: parseInt(document.getElementById('fTermMonths').value, 10) || 12,
+    tax_rate_percentage: parseFloat(document.getElementById('fTaxRate').value) || 0,
+    penalty_rate_daily: parseFloat(document.getElementById('fPenaltyDaily').value) || 0,
+    grace_period_days: parseInt(document.getElementById('fGracePeriod').value, 10) || 0,
+    interest_calculation_method: document.getElementById('fCalcMethod').value.trim() || 'declining_balance_actual_365',
+    early_settlement_penalty_rate: parseFloat(document.getElementById('fEarlyPenalty').value) || 0,
+    security_requirement: document.getElementById('fSecurityReq').value.trim() || null,
+    gl_loan_receivable_code,
+    gl_interest_receivable_code
+  };
 
   try {
     if (_productSelected) {
       await sbFetch(`lendingproductparametermatrix?product_code_id=eq.${encodeURIComponent(_productSelected)}`, {
         method: 'PATCH', prefer: 'return=minimal',
-        body: JSON.stringify({ product_name_title, maximum_permissible_limit, gl_loan_receivable_code, gl_interest_receivable_code })
+        body: JSON.stringify(body)
       });
       toast(`Product ${product_code_id} updated.`, 'success');
     } else {
       await sbFetch('lendingproductparametermatrix', {
         method: 'POST', prefer: 'return=minimal',
-        body: JSON.stringify({ product_code_id, product_name_title, maximum_permissible_limit, gl_loan_receivable_code, gl_interest_receivable_code })
+        body: JSON.stringify({ product_code_id, ...body })
       });
       toast(`Product ${product_code_id} created.`, 'success');
     }
