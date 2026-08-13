@@ -403,6 +403,211 @@ document.getElementById('btnGlDelete').addEventListener('click', async () => {
   }
 });
 
+/* ═══════════════════════════════════════════════════════════
+   SYSTEM HEALTH
+   Turns the diagnostic checks run manually throughout this
+   session into a live, refreshable panel.
+═══════════════════════════════════════════════════════════ */
+async function loadTrialBalanceHealth() {
+  const el = document.getElementById('healthTrialBalance');
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_trial_balance`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const data = await res.json();
+    const debit = parseFloat(data?.total_debit) || 0;
+    const credit = parseFloat(data?.total_credit) || 0;
+    const diff = Math.round((debit - credit) * 100) / 100;
+    el.innerHTML = Math.abs(diff) < 0.01
+      ? `<span style="color:#1a7a3c;font-weight:700;">✓ Balanced</span> — Total Dr ${fmt(debit)} = Total Cr ${fmt(credit)}`
+      : `<span style="color:#b3261e;font-weight:700;">⚠ Off by ${fmt(Math.abs(diff))}</span> — Total Dr ${fmt(debit)} vs Total Cr ${fmt(credit)}`;
+  } catch (e) {
+    el.innerHTML = `<span style="color:#b3261e;">Error: ${e.message}</span>`;
+  }
+}
+
+async function loadUnbalancedEntries() {
+  const tbody = document.querySelector('#healthUnbalancedTable tbody');
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_unbalanced_journal_entries`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const rows = await res.json();
+    if (!res.ok) throw new Error(rows?.message || `HTTP ${res.status}`);
+    tbody.innerHTML = !rows.length
+      ? '<tr><td colspan="4" class="text-center" style="color:#1a7a3c;">✓ None found — every transaction_reference balances.</td></tr>'
+      : rows.map(r => `
+        <tr><td><code>${r.transaction_reference}</code></td>
+          <td class="text-right">${fmt(r.total_debit)}</td>
+          <td class="text-right">${fmt(r.total_credit)}</td>
+          <td class="text-right" style="color:#b3261e;font-weight:700;">${fmt(r.imbalance)}</td></tr>
+      `).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="color:#b3261e;">Error: ${e.message} — has 2026-08-13_admin_system_health_functions.sql been run yet?</td></tr>`;
+  }
+}
+
+async function loadProductsMissingGl() {
+  const tbody = document.querySelector('#healthProductsTable tbody');
+  try {
+    const rows = await sbFetch('lendingproductparametermatrix?select=product_code_id,product_name_title,gl_loan_receivable_code,gl_interest_receivable_code&or=(gl_loan_receivable_code.is.null,gl_interest_receivable_code.is.null)');
+    tbody.innerHTML = !rows.length
+      ? '<tr><td colspan="4" class="text-center" style="color:#1a7a3c;">✓ Every product has both GL accounts mapped.</td></tr>'
+      : rows.map(p => `
+        <tr><td><code>${p.product_code_id}</code></td><td>${p.product_name_title || ''}</td>
+          <td>${p.gl_loan_receivable_code ? `<code>${p.gl_loan_receivable_code}</code>` : '<span style="color:#b3261e;">missing</span>'}</td>
+          <td>${p.gl_interest_receivable_code ? `<code>${p.gl_interest_receivable_code}</code>` : '<span style="color:#b3261e;">missing</span>'}</td></tr>
+      `).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="color:#b3261e;">Error: ${e.message}</td></tr>`;
+  }
+}
+
+async function loadRlsStatus() {
+  const tbody = document.querySelector('#healthRlsTable tbody');
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_rls_status`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const rows = await res.json();
+    if (!res.ok) throw new Error(rows?.message || `HTTP ${res.status}`);
+    tbody.innerHTML = rows.map(r => {
+      const risky = r.rls_enabled && !r.has_write_policy;
+      return `<tr>
+        <td><code>${r.table_name}</code></td>
+        <td>${r.rls_enabled ? 'Yes' : 'No'}</td>
+        <td>${r.has_write_policy ? 'Yes' : 'No'}</td>
+        <td>${r.policy_count}</td>
+        <td>${risky
+          ? '<span style="color:#b3261e;font-weight:700;">⚠ RLS on, no write policy — writes will fail</span>'
+          : '<span style="color:#1a7a3c;">✓ OK</span>'}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:#b3261e;">Error: ${e.message} — has 2026-08-13_admin_system_health_functions.sql been run yet?</td></tr>`;
+  }
+}
+
+async function loadSystemHealth() {
+  await Promise.all([loadTrialBalanceHealth(), loadUnbalancedEntries(), loadProductsMissingGl(), loadRlsStatus()]);
+}
+document.getElementById('btnRefreshHealth').addEventListener('click', loadSystemHealth);
+
+/* ═══════════════════════════════════════════════════════════
+   AUDIT LOG VIEWER (read-only)
+═══════════════════════════════════════════════════════════ */
+async function loadAuditLog() {
+  const tbody = document.querySelector('#auditLogTable tbody');
+  const appId = document.getElementById('fAuditAppId').value.trim();
+  const module = document.getElementById('fAuditModule').value.trim();
+  let q = 'loan_status_audit_log?select=*&order=changed_on.desc&limit=200';
+  if (appId) q += `&application_id=eq.${encodeURIComponent(appId)}`;
+  if (module) q += `&source_module=eq.${encodeURIComponent(module)}`;
+
+  try {
+    const rows = await sbFetch(q);
+    tbody.innerHTML = !rows.length
+      ? '<tr><td colspan="7" class="text-center gray-text italic">No matching entries.</td></tr>'
+      : rows.map(r => `
+        <tr>
+          <td><code>${r.application_id}</code></td>
+          <td>${r.from_status || '—'}</td>
+          <td>${r.to_status}</td>
+          <td>${r.source_module}</td>
+          <td>${r.changed_by || '—'}</td>
+          <td><small>${r.changed_on ? new Date(r.changed_on).toLocaleString() : ''}</small></td>
+          <td>${r.remarks || ''}</td>
+        </tr>
+      `).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="color:#b3261e;">Error: ${e.message}</td></tr>`;
+  }
+}
+document.getElementById('btnAuditRefresh').addEventListener('click', loadAuditLog);
+document.getElementById('btnAuditClear').addEventListener('click', () => {
+  document.getElementById('fAuditAppId').value = '';
+  document.getElementById('fAuditModule').value = '';
+  loadAuditLog();
+});
+
+/* ═══════════════════════════════════════════════════════════
+   GL CROSSWALK MANAGER
+═══════════════════════════════════════════════════════════ */
+async function loadCrosswalkOpCodeOptions() {
+  const sel = document.getElementById('fCrosswalkOpCode');
+  sel.innerHTML = _glAccountOptions.map(a => `<option value="${a.gl_account_code}">${a.account_name_title} (${a.gl_account_code})</option>`).join('');
+}
+async function loadCrosswalkDetCodeOptions() {
+  const sel = document.getElementById('fCrosswalkDetCode');
+  sel.innerHTML = '<option value="">(unresolved)</option>' +
+    _glAccountOptions.map(a => `<option value="${a.gl_account_code}">${a.account_name_title} (${a.gl_account_code})</option>`).join('');
+}
+
+async function loadCrosswalk() {
+  const tbody = document.querySelector('#crosswalkTable tbody');
+  try {
+    const rows = await sbFetch('gl_account_crosswalk?select=*&order=mapping_confidence.asc,operational_code.asc');
+    const badge = c => {
+      const colors = { confirmed: '#1a7a3c', high: '#2560a0', ambiguous: '#b45309', no_counterpart: '#b3261e' };
+      return `<span style="color:${colors[c] || '#555'};font-weight:700;">${c}</span>`;
+    };
+    tbody.innerHTML = !rows.length
+      ? '<tr><td colspan="5" class="text-center gray-text italic">No crosswalk entries found.</td></tr>'
+      : rows.map(r => `
+        <tr data-op="${r.operational_code}">
+          <td><code>${r.operational_code}</code></td>
+          <td>${r.detailed_code ? `<code>${r.detailed_code}</code>` : '—'}</td>
+          <td>${badge(r.mapping_confidence)}</td>
+          <td style="max-width:280px;white-space:normal;">${r.note || ''}</td>
+          <td><span class="search-btn" onclick='selectCrosswalk(${JSON.stringify(r).replace(/'/g, "&apos;")})'>✏️</span></td>
+        </tr>
+      `).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:#b3261e;">Error: ${e.message}</td></tr>`;
+  }
+}
+
+function selectCrosswalk(r) {
+  document.getElementById('fCrosswalkOpCode').value = r.operational_code;
+  document.getElementById('fCrosswalkDetCode').value = r.detailed_code || '';
+  document.getElementById('fCrosswalkConfidence').value = r.mapping_confidence || 'ambiguous';
+  document.getElementById('fCrosswalkNote').value = r.note || '';
+}
+
+document.getElementById('btnCrosswalkSave').addEventListener('click', async () => {
+  const operational_code = document.getElementById('fCrosswalkOpCode').value;
+  const detailed_code = document.getElementById('fCrosswalkDetCode').value || null;
+  const mapping_confidence = document.getElementById('fCrosswalkConfidence').value;
+  const note = document.getElementById('fCrosswalkNote').value.trim() || null;
+  if (!operational_code) return toast('Select an operational code.', 'warning');
+
+  try {
+    // Upsert: try PATCH first (existing row), fall back to POST if none matched.
+    const existing = await sbFetch(`gl_account_crosswalk?operational_code=eq.${encodeURIComponent(operational_code)}&select=operational_code`);
+    if (existing.length) {
+      await sbFetch(`gl_account_crosswalk?operational_code=eq.${encodeURIComponent(operational_code)}`, {
+        method: 'PATCH', prefer: 'return=minimal',
+        body: JSON.stringify({ detailed_code, mapping_confidence, note })
+      });
+    } else {
+      await sbFetch('gl_account_crosswalk', {
+        method: 'POST', prefer: 'return=minimal',
+        body: JSON.stringify({ operational_code, detailed_code, mapping_confidence, note })
+      });
+    }
+    toast(`Crosswalk mapping for ${operational_code} saved.`, 'success');
+    loadCrosswalk();
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'error');
+  }
+});
+
 /* ── Init ───────────────────────────────────────────────── */
 async function init() {
   await loadBranches();
@@ -410,6 +615,11 @@ async function init() {
   await loadGlParentOptions();
   await loadProducts();
   await loadChartOfAccounts();
+  await loadCrosswalkOpCodeOptions();
+  await loadCrosswalkDetCodeOptions();
+  await loadAuditLog();
+  await loadCrosswalk();
+  await loadSystemHealth();
 }
 init();
 
