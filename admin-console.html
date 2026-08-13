@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AVMF — Admin Console</title>
+<link rel="stylesheet" href="style2.css"/>
+<style>
+  .adm-tab-bar {
+    display: flex; gap: 0; border-bottom: 2px solid var(--accent, #0d3460); margin-bottom: 10px;
+  }
+  .adm-tab {
+    padding: 6px 18px; font-size: 12px; font-weight: 600; cursor: pointer;
+    border: 1px solid transparent; border-bottom: none; border-radius: 4px 4px 0 0;
+    background: var(--bg-alt, #eef1f6); color: var(--label, #555); user-select: none;
+  }
+  .adm-tab.active { background: var(--accent, #0d3460); color: #fff; border-color: var(--accent, #0d3460); }
+  .adm-panel { display: none; }
+  .adm-panel.active { display: block; }
+  .table-scroll { max-height: 340px; overflow-y: auto; margin-bottom: 14px; }
+  .adm-grid th, .adm-grid td { font-size: 11.5px; }
+  .adm-grid tr.selected { background: #eef4fb; }
+  .adm-form-bar {
+    display: flex; align-items: flex-end; gap: 10px; padding: 10px 12px;
+    background: var(--bg-alt, #f4f6f9); border: 1px solid var(--border, #d0d4da);
+    border-radius: 4px; flex-wrap: wrap;
+  }
+  .adm-field { display: flex; flex-direction: column; gap: 3px; }
+  .adm-field label { font-size: 10.5px; font-weight: 600; color: var(--label, #555); }
+  .adm-field input, .adm-field select {
+    font-size: 12px; padding: 4px 7px; border: 1px solid var(--border, #c8cdd5);
+    border-radius: 3px; height: 28px; min-width: 140px;
+  }
+  .adm-actions { margin-left: auto; display: flex; gap: 8px; }
+  .adm-actions button {
+    font-size: 12px; padding: 0 14px; height: 28px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--navy-600, #2560a0); background: var(--navy-600, #2560a0); color: #fff;
+  }
+  .adm-actions button.secondary { background: #fff; color: var(--navy-600, #2560a0); }
+  .adm-actions button.danger { background: #fdecea; color: #b3261e; border-color: #f5b7b1; }
+  .adm-note { font-size: 10.5px; color: var(--text-muted, #667788); margin: 4px 0 10px; }
+</style>
+</head>
+<body>
+
+<div class="desktop-backdrop">
+  <iframe src="indexll.html" title="AVMF Dashboard"></iframe>
+</div>
+
+<div class="window-container">
+  <div class="title-bar">
+    <div class="title-branding-block">
+      <svg class="header-logo-svg" viewBox="0 0 100 100">
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C85,68 92,72 90,78 C88,84 80,82 76,88 C72,94 65,88 60,82 C55,80 50,92 42,90 C30,88 35,75 28,70 C20,65 12,62 10,52 C8,42 15,38 25,35 Z" fill="#e69c24"/>
+        <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#1b5199"/>
+        <polygon points="45,45 45,35 50,35 50,45" fill="#ffffff"/>
+        <polygon points="53,45 53,32 58,32 58,45" fill="#ffffff"/>
+        <polygon points="61,45 61,30 66,30 66,45" fill="#ffffff"/>
+        <polyline points="35,42 45,48 68,36" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+      </svg>
+      <div class="title-text-block">
+        <span class="title-main">Africa Village Microfinance</span>
+        <span class="title-sub">Admin Console — System Configuration</span>
+      </div>
+    </div>
+    <div class="title-meta">
+      <span id="systemDate" class="title-date"></span>
+      <span class="title-user">👤 Administrator</span>
+    </div>
+    <div class="window-controls">
+      <span id="wcMinimize" title="Minimize" onclick="toggleMinimize()">─</span>
+      <span id="wcMaximize" title="Maximize" onclick="toggleMaximize()">▢</span>
+      <span title="Close" class="wc-close" onclick="window.location='indexll.html'">✕</span>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <div class="sidebar">
+      <div class="sidebar-header" style="cursor: pointer; background: var(--navy-900);" title="Return to Dashboard" onclick="window.location='indexll.html'">
+        🏠 Main Dashboard
+      </div>
+      <ul class="nav-menu">
+        <li><span class="nav-num" style="background:none;font-size:14px;padding:0;">🌐</span><a href="indexll.html" class="nav-label">All Modules</a></li>
+        <li class="active"><span class="nav-num" style="background:none;font-size:14px;padding:0;">⚙️</span><a href="indexll.html" class="nav-label">Administration</a></li>
+      </ul>
+      <div class="sidebar-footer-brand">
+        <svg viewBox="0 0 100 100" width="28" height="28">
+          <path d="M25,35 C30,20 45,15 65,18 C75,20 85,28 88,38 C90,45 80,55 83,62 C74,60 62,54 55,42 C50,48 44,52 38,58 Z" fill="#e69c24" opacity="0.7"/>
+        </svg>
+        <span>AVMF CBS v2.0</span>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="module-view active">
+        <div class="context-badge-bar">
+          <span class="badge-icon">⚙️</span>
+          Admin Console — Branches, Lending Products &amp; Chart of Accounts
+        </div>
+
+        <div class="adm-tab-bar">
+          <div class="adm-tab active" data-tab="branches">🏢 Branches</div>
+          <div class="adm-tab" data-tab="products">📦 Lending Products</div>
+          <div class="adm-tab" data-tab="coa">📊 Chart of Accounts</div>
+        </div>
+
+        <!-- ── Branches ─────────────────────────────────── -->
+        <div class="adm-panel active" id="panel-branches">
+          <div class="table-scroll">
+            <table class="ledger-grid adm-grid" id="branchTable">
+              <thead><tr><th>Branch ID</th><th>Branch Name</th><th></th></tr></thead>
+              <tbody><tr><td colspan="3" class="text-center gray-text italic">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note">
+            Only branch_id and branch_name are editable here — those are the only
+            columns confirmed against the live schema this session. If
+            branchregistry has more fields (currency, active flag, address),
+            tell me the exact column names and I'll add them.
+          </div>
+          <div class="adm-form-bar">
+            <div class="adm-field"><label>Branch ID</label><input type="text" id="fBranchId"/></div>
+            <div class="adm-field"><label>Branch Name</label><input type="text" id="fBranchName"/></div>
+            <div class="adm-actions">
+              <button class="secondary" id="btnBranchNew">➕ New</button>
+              <button id="btnBranchSave">💾 Save</button>
+              <button class="danger" id="btnBranchDelete">🗑 Delete</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Lending Products ─────────────────────────── -->
+        <div class="adm-panel" id="panel-products">
+          <div class="table-scroll">
+            <table class="ledger-grid adm-grid" id="productTable">
+              <thead>
+                <tr>
+                  <th>Product Code</th><th>Product Name</th>
+                  <th class="text-right">Max Limit (ETB)</th>
+                  <th>Loan Rec. Code</th><th>Interest Rec. Code</th><th></th>
+                </tr>
+              </thead>
+              <tbody><tr><td colspan="6" class="text-center gray-text italic">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note">
+            Loan Receivable and Interest Receivable codes are required for a
+            product to be disbursable, repayable, or settleable at all —
+            post_loan_disbursement/repayment/settlement all fail loudly if
+            either is missing for the product being used. Both dropdowns are
+            populated live from chart_of_accounts, so you can't accidentally
+            assign a code that doesn't exist.
+          </div>
+          <div class="adm-form-bar">
+            <div class="adm-field"><label>Product Code</label><input type="text" id="fProductCode"/></div>
+            <div class="adm-field"><label>Product Name</label><input type="text" id="fProductName" style="min-width:200px;"/></div>
+            <div class="adm-field"><label>Max Limit (ETB)</label><input type="number" id="fMaxLimit" min="0" step="0.01"/></div>
+            <div class="adm-field"><label>Loan Receivable Acct</label><select id="fLoanRecCode" style="min-width:220px;"></select></div>
+            <div class="adm-field"><label>Interest Receivable Acct</label><select id="fInterestRecCode" style="min-width:220px;"></select></div>
+            <div class="adm-actions">
+              <button class="secondary" id="btnProductNew">➕ New</button>
+              <button id="btnProductSave">💾 Save</button>
+              <button class="danger" id="btnProductDelete">🗑 Delete</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Chart of Accounts ────────────────────────── -->
+        <div class="adm-panel" id="panel-coa">
+          <div class="table-scroll">
+            <table class="ledger-grid adm-grid" id="coaAdminTable">
+              <thead>
+                <tr><th>Code</th><th>Name</th><th>Type</th><th>Parent</th><th>Normal Side</th><th></th></tr>
+              </thead>
+              <tbody><tr><td colspan="6" class="text-center gray-text italic">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note">
+            current_balance is never editable here — it's confirmed stale
+            across this system and every report now computes live from
+            gl_transaction_journal instead. New accounts start at 0.00 and
+            accumulate balance only through real postings.
+          </div>
+          <div class="adm-form-bar">
+            <div class="adm-field"><label>GL Code</label><input type="text" id="fGlCode"/></div>
+            <div class="adm-field"><label>Account Name</label><input type="text" id="fGlName" style="min-width:220px;"/></div>
+            <div class="adm-field">
+              <label>Account Type</label>
+              <select id="fGlType">
+                <option value="ASSET">ASSET</option>
+                <option value="LIABILITY">LIABILITY</option>
+                <option value="EQUITY">EQUITY</option>
+                <option value="INCOME">INCOME</option>
+                <option value="EXPENSE">EXPENSE</option>
+              </select>
+            </div>
+            <div class="adm-field"><label>Parent Account</label><select id="fGlParent" style="min-width:220px;"><option value="">(none — root)</option></select></div>
+            <div class="adm-field">
+              <label>Normal Side</label>
+              <select id="fGlSide">
+                <option value="">(use type default)</option>
+                <option value="D">D — Debit</option>
+                <option value="C">C — Credit</option>
+              </select>
+            </div>
+            <div class="adm-actions">
+              <button class="secondary" id="btnGlNew">➕ New</button>
+              <button id="btnGlSave">💾 Save</button>
+              <button class="danger" id="btnGlDelete">🗑 Delete</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sub-footer-token" id="statusBar">Status: Ready</div>
+      </div>
+    </div>
+
+    <div class="action-sidebar">
+      <div class="sidebar-footer">AVMF CBS v2.0</div>
+    </div>
+  </div>
+</div>
+
+<div id="toastNotification" class="toast" role="alert" aria-live="polite"></div>
+
+<div id="dockSliver" class="dock-sliver" onclick="toggleMinimize()">
+  <span class="dock-icon">⚙️</span>
+  <span class="dock-label">AVMF — Admin Console</span>
+</div>
+
+<script src="admin-console.js"></script>
+</body>
+</html>
