@@ -102,6 +102,9 @@
           <div class="adm-tab active" data-tab="branches">🏢 Branches</div>
           <div class="adm-tab" data-tab="products">📦 Lending Products</div>
           <div class="adm-tab" data-tab="coa">📊 Chart of Accounts</div>
+          <div class="adm-tab" data-tab="health">🩺 System Health</div>
+          <div class="adm-tab" data-tab="auditlog">📜 Audit Log</div>
+          <div class="adm-tab" data-tab="crosswalk">🔀 GL Crosswalk</div>
         </div>
 
         <!-- ── Branches ─────────────────────────────────── -->
@@ -219,6 +222,92 @@
               <button class="secondary" id="btnGlNew">➕ New</button>
               <button id="btnGlSave">💾 Save</button>
               <button class="danger" id="btnGlDelete">🗑 Delete</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── System Health ────────────────────────────── -->
+        <div class="adm-panel" id="panel-health">
+          <div class="adm-note">
+            Checks run live against the database each time this tab loads.
+            <button class="secondary" id="btnRefreshHealth" style="margin-left:10px;padding:2px 10px;height:22px;font-size:11px;">↻ Refresh</button>
+          </div>
+
+          <div class="card-header-banner">Trial Balance</div>
+          <div id="healthTrialBalance" class="adm-note">Loading…</div>
+
+          <div class="card-header-banner" style="margin-top:10px;">Unbalanced Journal Entries</div>
+          <div class="table-scroll">
+            <table class="ledger-grid adm-grid" id="healthUnbalancedTable">
+              <thead><tr><th>Transaction Reference</th><th class="text-right">Total Debit</th><th class="text-right">Total Credit</th><th class="text-right">Imbalance</th></tr></thead>
+              <tbody><tr><td colspan="4" class="text-center gray-text italic">Loading…</td></tr></tbody>
+            </table>
+          </div>
+
+          <div class="card-header-banner" style="margin-top:10px;">Products Missing GL Mapping</div>
+          <div class="table-scroll">
+            <table class="ledger-grid adm-grid" id="healthProductsTable">
+              <thead><tr><th>Product Code</th><th>Product Name</th><th>Loan Rec. Code</th><th>Interest Rec. Code</th></tr></thead>
+              <tbody><tr><td colspan="4" class="text-center gray-text italic">Loading…</td></tr></tbody>
+            </table>
+          </div>
+
+          <div class="card-header-banner" style="margin-top:10px;">Row-Level Security Status</div>
+          <div class="table-scroll">
+            <table class="ledger-grid adm-grid" id="healthRlsTable">
+              <thead><tr><th>Table</th><th>RLS Enabled</th><th>Has Write Policy</th><th>Policy Count</th><th>Status</th></tr></thead>
+              <tbody><tr><td colspan="5" class="text-center gray-text italic">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── Audit Log ─────────────────────────────────── -->
+        <div class="adm-panel" id="panel-auditlog">
+          <div class="adm-form-bar" style="margin-bottom:10px;">
+            <div class="adm-field"><label>Application ID</label><input type="text" id="fAuditAppId" placeholder="Filter (optional)"/></div>
+            <div class="adm-field"><label>Source Module</label><input type="text" id="fAuditModule" placeholder="Filter (optional)"/></div>
+            <div class="adm-actions">
+              <button id="btnAuditRefresh">🔍 Filter</button>
+              <button class="secondary" id="btnAuditClear">✕ Clear</button>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="ledger-grid adm-grid" id="auditLogTable">
+              <thead><tr><th>Application ID</th><th>From</th><th>To</th><th>Source Module</th><th>Changed By</th><th>Changed On</th><th>Remarks</th></tr></thead>
+              <tbody><tr><td colspan="7" class="text-center gray-text italic">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note">Showing the most recent 200 entries matching the current filter.</div>
+        </div>
+
+        <!-- ── GL Crosswalk ──────────────────────────────── -->
+        <div class="adm-panel" id="panel-crosswalk">
+          <div class="table-scroll">
+            <table class="ledger-grid adm-grid" id="crosswalkTable">
+              <thead><tr><th>Operational Code</th><th>Detailed Code</th><th>Confidence</th><th>Note</th><th></th></tr></thead>
+              <tbody><tr><td colspan="5" class="text-center gray-text italic">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note">
+            Resolve an "ambiguous" or "no_counterpart" mapping by selecting a
+            real detailed-hierarchy account below, or add a mapping for an
+            operational code not yet covered.
+          </div>
+          <div class="adm-form-bar">
+            <div class="adm-field"><label>Operational Code</label><select id="fCrosswalkOpCode" style="min-width:220px;"></select></div>
+            <div class="adm-field"><label>Detailed Code</label><select id="fCrosswalkDetCode" style="min-width:220px;"><option value="">(unresolved)</option></select></div>
+            <div class="adm-field">
+              <label>Confidence</label>
+              <select id="fCrosswalkConfidence">
+                <option value="confirmed">confirmed</option>
+                <option value="high">high</option>
+                <option value="ambiguous">ambiguous</option>
+                <option value="no_counterpart">no_counterpart</option>
+              </select>
+            </div>
+            <div class="adm-field"><label>Note</label><input type="text" id="fCrosswalkNote" style="min-width:260px;"/></div>
+            <div class="adm-actions">
+              <button id="btnCrosswalkSave">💾 Save</button>
             </div>
           </div>
         </div>
