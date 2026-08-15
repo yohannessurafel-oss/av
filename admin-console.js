@@ -608,6 +608,210 @@ document.getElementById('btnCrosswalkSave').addEventListener('click', async () =
   }
 });
 
+/* ═══════════════════════════════════════════════════════════
+   TEST RUNNER
+   Works against an existing Sanctioned test loan. Calls the same
+   RPCs the real modules use, and re-runs the unbalanced-journal
+   check before and after every step so drift is caught immediately.
+═══════════════════════════════════════════════════════════ */
+let _trLoan = null;
+
+function trLog(action, result, ok) {
+  const tbody = document.querySelector('#trLogTable tbody');
+  if (tbody.querySelector('.gray-text')) tbody.innerHTML = '';
+  const row = document.createElement('tr');
+  row.innerHTML = `<td><small>${new Date().toLocaleTimeString()}</small></td><td>${action}</td>
+    <td style="color:${ok ? '#1a7a3c' : '#b3261e'};">${result}</td>`;
+  tbody.prepend(row);
+}
+
+async function trCheckBalance(label) {
+  const el = document.getElementById('trBalanceCheck');
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_unbalanced_journal_entries`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const rows = await res.json();
+    if (!res.ok) throw new Error(rows?.message || `HTTP ${res.status}`);
+    const ok = !rows.length;
+    el.innerHTML = `<strong>${label}:</strong> ${ok
+      ? '<span style="color:#1a7a3c;">✓ Journal still balanced — no unbalanced transaction_reference found.</span>'
+      : `<span style="color:#b3261e;">⚠ ${rows.length} unbalanced entr${rows.length === 1 ? 'y' : 'ies'} found — check System Health tab.</span>`}`;
+    return ok;
+  } catch (e) {
+    el.innerHTML = `<strong>${label}:</strong> <span style="color:#b3261e;">Check failed: ${e.message} — has the System Health migration been run?</span>`;
+    return null;
+  }
+}
+
+async function trLoadBankAccounts() {
+  const sel = document.getElementById('trBankAccount');
+  sel.innerHTML = _glAccountOptions
+    .filter(a => a.gl_account_code === '11101004' || (a.gl_account_code.length === 8 && a.gl_account_code.startsWith('1110')))
+    .map(a => `<option value="${a.gl_account_code}">${a.account_name_title} (${a.gl_account_code})</option>`).join('');
+}
+
+document.getElementById('btnTrLoad').addEventListener('click', async () => {
+  const appId = document.getElementById('trAppId').value.trim();
+  const statusBlock = document.getElementById('trStatusBlock');
+  if (!appId) return toast('Enter an Application ID.', 'warning');
+
+  try {
+    const rows = await sbFetch(`loanmasterrecords?application_id=eq.${encodeURIComponent(appId)}&select=application_id,application_status,product_id,client_name`);
+    if (!rows.length) { statusBlock.innerHTML = `<span style="color:#b3261e;">Application ${appId} not found.</span>`; return; }
+    _trLoan = rows[0];
+
+    const ledgerRows = await sbFetch(`loan_ledger?application_id=eq.${encodeURIComponent(appId)}&order=id.desc&limit=1&select=running_balance`);
+    const balance = ledgerRows[0]?.running_balance ?? null;
+
+    statusBlock.innerHTML = `<strong>${_trLoan.client_name || appId}</strong> — Product: <code>${_trLoan.product_id}</code>
+      — Status: <strong>${_trLoan.application_status}</strong>
+      — Ledger balance: ${balance !== null ? fmt(balance) : '(none yet)'}`;
+
+    document.getElementById('btnTrDisburse').disabled = _trLoan.application_status !== 'Sanctioned';
+    document.getElementById('btnTrRepay').disabled = _trLoan.application_status !== 'Disbursed';
+    document.getElementById('btnTrSettle').disabled = !['Disbursed', 'Matured'].includes(_trLoan.application_status);
+
+    await trLoadBankAccounts();
+    trLog('Load', `Loaded ${appId} (${_trLoan.application_status})`, true);
+  } catch (e) {
+    statusBlock.innerHTML = `<span style="color:#b3261e;">Error: ${e.message}</span>`;
+  }
+});
+
+document.getElementById('btnTrDisburse').addEventListener('click', async () => {
+  if (!_trLoan) return;
+  const principal = parseFloat(document.getElementById('trPrincipal').value);
+  const rate = parseFloat(document.getElementById('trRate').value);
+  const paymentMode = document.getElementById('trPaymentMode').value;
+  const bankAccount = document.getElementById('trBankAccount').value;
+  if (!principal || principal <= 0) return toast('Enter a principal amount.', 'warning');
+  if (!bankAccount) return toast('Select a cash/bank account.', 'warning');
+  if (!confirm(`Disburse ETB ${fmt(principal)} against ${_trLoan.application_id}? This posts real GL entries.`)) return;
+
+  await trCheckBalance('Before disbursement');
+
+  // Minimal single-installment schedule — enough to exercise the GL
+  // posting mechanics without replicating full amortization logic.
+  const dueDate = new Date(); dueDate.setMonth(dueDate.getMonth() + 1);
+  const interest = Math.round(principal * (rate / 100) * 100) / 100;
+  const schedule = [{ installment_no: 1, due_date: dueDate.toISOString().slice(0, 10), principal_due: principal, interest_due: interest }];
+
+  const refBatch = 'TEST-DISB-' + Date.now();
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/post_loan_disbursement`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        p_application_id: _trLoan.application_id,
+        p_customer_name: _trLoan.client_name,
+        p_principal: principal,
+        p_disbursement_date: new Date().toISOString().slice(0, 10),
+        p_payment_mode: paymentMode,
+        p_interest_rate: rate,
+        p_tenor_months: 1,
+        p_account_number: bankAccount,
+        p_schedule: schedule,
+        p_ref_batch: refBatch,
+        p_gl_cash_account_code: bankAccount
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+    trLog('Disbursement', `Success — ref ${refBatch}`, true);
+    toast('Test disbursement posted.', 'success');
+  } catch (e) {
+    trLog('Disbursement', `Failed: ${e.message}`, false);
+    toast('Disbursement failed: ' + e.message, 'error');
+  }
+  await trCheckBalance('After disbursement');
+  document.getElementById('btnTrLoad').click();
+});
+
+document.getElementById('btnTrRepay').addEventListener('click', async () => {
+  if (!_trLoan) return;
+  const amount = parseFloat(document.getElementById('trRepayAmount').value);
+  if (!amount || amount <= 0) return toast('Enter a repayment amount.', 'warning');
+  if (!confirm(`Post a repayment of ETB ${fmt(amount)} against ${_trLoan.application_id}?`)) return;
+
+  await trCheckBalance('Before repayment');
+  const refBatch = 'TEST-REPAY-' + Date.now();
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/post_loan_repayment`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        p_application_id: _trLoan.application_id,
+        p_amount_received: amount,
+        p_payment_date: new Date().toISOString().slice(0, 10),
+        p_ref_batch: refBatch,
+        p_payment_mode: 'Cash Vault Handout',
+        p_penalty_collected: 0,
+        p_posted_by: 'admin-test-runner'
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+    trLog('Repayment', `Success — ref ${refBatch}`, true);
+    toast('Test repayment posted.', 'success');
+  } catch (e) {
+    trLog('Repayment', `Failed: ${e.message}`, false);
+    toast('Repayment failed: ' + e.message, 'error');
+  }
+  await trCheckBalance('After repayment');
+  document.getElementById('btnTrLoad').click();
+});
+
+document.getElementById('btnTrSettle').addEventListener('click', async () => {
+  if (!_trLoan) return;
+  const waiver = parseFloat(document.getElementById('trWaiver').value) || 0;
+  const bankAccount = document.getElementById('trBankAccount').value;
+  if (!bankAccount) return toast('Select a cash/bank account.', 'warning');
+
+  const ledgerRows = await sbFetch(`loan_ledger?application_id=eq.${encodeURIComponent(_trLoan.application_id)}&order=id.desc&limit=1&select=running_balance`);
+  const balance = parseFloat(ledgerRows[0]?.running_balance || 0);
+  if (balance <= 0) return toast('Ledger balance is already zero or negative — nothing to settle.', 'warning');
+
+  const principal = Math.max(balance - waiver, 0);
+  const netAmount = principal;
+
+  if (!confirm(`Settle ${_trLoan.application_id} — principal ${fmt(principal)}, waiver ${fmt(waiver)}, net ${fmt(netAmount)}?`)) return;
+
+  await trCheckBalance('Before settlement');
+  const refBatch = 'TEST-SETTLE-' + Date.now();
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/post_loan_settlement`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        p_application_id: _trLoan.application_id,
+        p_settlement_date: new Date().toISOString().slice(0, 10),
+        p_amount_received: netAmount,
+        p_penalty_amount: 0,
+        p_interest_amount: 0,
+        p_waiver_amount: waiver,
+        p_principal_amount: principal,
+        p_reference_no: refBatch,
+        p_narration: 'Test Runner settlement',
+        p_payment_mode: 'Cash Vault Handout',
+        p_settled_by: 'admin-test-runner',
+        p_gl_cash_account_code: bankAccount
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+    trLog('Settlement', `Success — ref ${refBatch}`, true);
+    toast('Test settlement posted.', 'success');
+  } catch (e) {
+    trLog('Settlement', `Failed: ${e.message}`, false);
+    toast('Settlement failed: ' + e.message, 'error');
+  }
+  await trCheckBalance('After settlement');
+  document.getElementById('btnTrLoad').click();
+});
+
 /* ── Init ───────────────────────────────────────────────── */
 async function init() {
   await loadBranches();
