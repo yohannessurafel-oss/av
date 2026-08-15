@@ -105,6 +105,7 @@
           <div class="adm-tab" data-tab="health">🩺 System Health</div>
           <div class="adm-tab" data-tab="auditlog">📜 Audit Log</div>
           <div class="adm-tab" data-tab="crosswalk">🔀 GL Crosswalk</div>
+          <div class="adm-tab" data-tab="testrunner">🧪 Test Runner</div>
         </div>
 
         <!-- ── Branches ─────────────────────────────────── -->
@@ -309,6 +310,65 @@
             <div class="adm-actions">
               <button id="btnCrosswalkSave">💾 Save</button>
             </div>
+          </div>
+        </div>
+
+        <!-- ── Test Runner ───────────────────────────────── -->
+        <div class="adm-panel" id="panel-testrunner">
+          <div class="adm-note">
+            Works against an existing loan application you've already
+            created through the normal modules (Client Registry → Loan
+            Application → Appraisal → Sanction), not a synthetic one — this
+            tool doesn't guess at ClientMasterRecords/loanapplications'
+            required fields. Load a Sanctioned test loan, then exercise the
+            disbursement/repayment/settlement RPCs directly, with an
+            automatic before/after journal-balance check after every step.
+          </div>
+
+          <div class="adm-form-bar">
+            <div class="adm-field"><label>Application ID</label><input type="text" id="trAppId" placeholder="e.g. APP-00123"/></div>
+            <div class="adm-actions">
+              <button id="btnTrLoad">🔍 Load</button>
+            </div>
+          </div>
+
+          <div id="trStatusBlock" style="margin:12px 0; font-size:12.5px;"></div>
+
+          <div class="card-header-banner" style="margin-top:10px;">Step 1 — Disbursement</div>
+          <div class="adm-form-bar">
+            <div class="adm-field"><label>Principal (ETB)</label><input type="number" id="trPrincipal" min="0" step="0.01" value="100"/></div>
+            <div class="adm-field"><label>Interest Rate (%)</label><input type="number" id="trRate" min="0" step="0.01" value="12"/></div>
+            <div class="adm-field"><label>Payment Mode</label>
+              <select id="trPaymentMode">
+                <option value="Cash Vault Handout">Cash Vault Handout</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+              </select>
+            </div>
+            <div class="adm-field"><label>Cash/Bank Account</label><select id="trBankAccount"></select></div>
+            <div class="adm-actions"><button id="btnTrDisburse" disabled>▶ Run Test Disbursement</button></div>
+          </div>
+
+          <div class="card-header-banner" style="margin-top:10px;">Step 2 — Repayment</div>
+          <div class="adm-form-bar">
+            <div class="adm-field"><label>Amount Received (ETB)</label><input type="number" id="trRepayAmount" min="0" step="0.01" value="20"/></div>
+            <div class="adm-actions"><button id="btnTrRepay" disabled>▶ Run Test Repayment</button></div>
+          </div>
+
+          <div class="card-header-banner" style="margin-top:10px;">Step 3 — Settlement</div>
+          <div class="adm-form-bar">
+            <div class="adm-field"><label>Waiver (ETB)</label><input type="number" id="trWaiver" min="0" step="0.01" value="0"/></div>
+            <div class="adm-actions"><button id="btnTrSettle" disabled>▶ Run Test Settlement</button></div>
+          </div>
+
+          <div class="card-header-banner" style="margin-top:14px;">Balance Check</div>
+          <div id="trBalanceCheck" class="adm-note">Load a loan and run a step to see the before/after check.</div>
+
+          <div class="card-header-banner" style="margin-top:10px;">Action Log</div>
+          <div class="table-scroll">
+            <table class="ledger-grid adm-grid" id="trLogTable">
+              <thead><tr><th>Time</th><th>Action</th><th>Result</th></tr></thead>
+              <tbody><tr><td colspan="3" class="text-center gray-text italic">No actions run yet.</td></tr></tbody>
+            </table>
           </div>
         </div>
 
